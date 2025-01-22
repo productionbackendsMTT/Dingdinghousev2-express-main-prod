@@ -4,8 +4,16 @@ conf();
 const _config = {
     port: process.env.PORT || 5000,
     env: process.env.NODE_ENV || "development",
-    jwtSecret: process.env.JWT_SECRET,
     db: process.env.MONGODB_URI,
+    access: {
+        secret: process.env.JWT_SECRET,
+        expiresIn: '15m'
+    },
+    refresh: {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: '7d'
+    },
+    
 }
 
 export const config = Object.freeze(_config);
