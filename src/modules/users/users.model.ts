@@ -1,14 +1,6 @@
 import mongoose, { model, Schema, Types } from "mongoose";
+import { UserRole } from "../../config/hierarchy";
 
-export enum UserRole {
-    ADMIN = 'admin',
-    SUPER_MASTER = 'super_master',
-    MASTER = 'master',
-    DISTRIBUTOR = 'distributor',
-    SUB_DISTRIBUTOR = 'sub_distributor',
-    STORE = 'store',
-    PLAYER = 'player'
-}
 
 export enum UserStatus {
     ACTIVE = 'active',
@@ -26,6 +18,7 @@ export interface IToken {
 }
 
 export interface IUser extends Document {
+    _id: Types.ObjectId;
     name: string;
     username: string;
     password: string;
@@ -33,14 +26,15 @@ export interface IUser extends Document {
     role: UserRole;
     status: UserStatus;
     createdBy?: Types.ObjectId;
-    totalRecharged: number;
-    totalRedeemed: number;
+    totalSpent: number;
+    totalReceived: number;
     lastLogin?: Date;
     favouriteGames?: string[];
     token?: IToken;
     path: String;
     createdAt: Date;
     updatedAt: Date;
+    getDescendants(): Promise<IUser[]>;
 }
 
 const TokenSchema = new Schema<IToken>({
@@ -71,8 +65,8 @@ const UserSchema = new Schema<IUser>({
         ref: "User",
         default: null
     },
-    totalRecharged: { type: Number, default: 0 },
-    totalRedeemed: { type: Number, default: 0 },
+    totalSpent: { type: Number, default: 0 },
+    totalReceived: { type: Number, default: 0 },
     lastLogin: { type: Date, default: null },
     favouriteGames: {
         type: [String],
@@ -115,6 +109,12 @@ UserSchema.pre('deleteOne', { document: true, query: false }, async function (ne
     }
     next();
 })
+
+// Method to get all descendant users using materialized path
+UserSchema.methods.getDescendants = async function (): Promise<IUser[]> {
+    const descendants = await UserModel.find({ path: { $regex: `^${this.path}/` }, status: { $ne: UserStatus.DELETED } });
+    return descendants;
+}
 
 const UserModel = model<IUser>("User", UserSchema);
 export default UserModel;

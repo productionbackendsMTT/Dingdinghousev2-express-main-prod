@@ -2,11 +2,11 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import jwt from "jsonwebtoken";
 import { config } from "../config/config";
-import { promisify } from "util";
-
+import UserModel, { IUser } from "../modules/users/users.model";
+import { Document } from "mongoose";
 
 export interface AuthRequest extends Request {
-    requestingUserId: string
+    requestingUser: IUser & Document; // Add this line to include the requesting user data
 }
 
 const verifyToken = (token: string, secret: string) => {
@@ -36,8 +36,15 @@ export const authHandler = async (req: Request, res: Response, next: NextFunctio
 
         try {
             const decoded = await verifyToken(token, config.access.secret!);
-            const _req = req as AuthRequest;
-            _req.requestingUserId = (decoded as any).userId;
+            const requestingUserId = (decoded as any).userId;
+            const requestingUser = await UserModel.findById(requestingUserId);
+
+            if (!requestingUser) {
+                return next(createHttpError(401, 'Requesting user not found'));
+            }
+            const _req = req as AuthRequest
+            _req.requestingUser = requestingUser;
+
             next();
         } catch (err) {
             if ((err as jwt.JsonWebTokenError).name === "TokenExpiredError") {

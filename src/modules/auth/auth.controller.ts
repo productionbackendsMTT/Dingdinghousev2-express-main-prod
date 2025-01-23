@@ -5,12 +5,14 @@ import { successResponse } from "../../utils";
 import { AuthRequest } from "../../middlewares";
 import { LoginResponse } from "../../types";
 import { config } from "../../config/config";
-import { UserRole } from "../users/users.model";
+import { validateUserRole } from "../../utils/roleValidation.utils";
+import { UserRole } from "../../config/hierarchy";
 
 
 class AuthController {
     constructor(private authService: AuthService) {
         this.login = this.login.bind(this);
+        this.logout = this.logout.bind(this);
         this.register = this.register.bind(this);
         this.refreshAccessToken = this.refreshAccessToken.bind(this);
     }
@@ -42,12 +44,13 @@ class AuthController {
 
     async register(req: Request, res: Response, next: NextFunction) {
         try {
-            const { requestingUserId } = req as AuthRequest;
+            const { requestingUser } = req as AuthRequest;
             const { name, username, password, balance, role, status } = req.body;
 
-            if (!requestingUserId) {
+            if (!requestingUser) {
                 throw createHttpError(400, 'Requesting user ID not found');
             }
+
 
             if (!name || !username || !password || balance === undefined || !role || !status) {
                 throw createHttpError(400, 'All required fields must be provided')
@@ -57,7 +60,10 @@ class AuthController {
                 throw createHttpError(403, 'Registration of admin users is not allowed');
             }
 
-            const newUser = await this.authService.register(name, username, password, balance, role, status, requestingUserId);
+            // Validare the role hierarchy
+            validateUserRole(requestingUser.role, role)
+
+            const newUser = await this.authService.register(name, username, password, balance, role, status, requestingUser._id);
             res.status(200).json(successResponse(newUser, 'User registered successfully'));
         } catch (error) {
             next(error)
@@ -80,6 +86,23 @@ class AuthController {
             next(error)
         }
     }
+
+    async logout(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { requestingUser } = req as AuthRequest;
+            if (!requestingUser) {
+                throw createHttpError(400, 'Requesting user ID not found');
+            }
+
+            await this.authService.logout(requestingUser._id);
+            res.clearCookie('refreshToken'); // Clear the refresh token cookie
+            res.status(200).json(successResponse({}, 'Logged out successfully'));
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
 
 }
 

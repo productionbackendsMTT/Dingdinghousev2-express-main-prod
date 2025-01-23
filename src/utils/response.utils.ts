@@ -1,4 +1,3 @@
-import { error } from "console"
 
 export const successResponse = (data: any, message = 'Successful') => {
     return {
