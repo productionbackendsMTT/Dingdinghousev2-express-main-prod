@@ -3,12 +3,17 @@ import createHttpError from "http-errors";
 import UserService from "./users.service";
 import { successResponse } from "../../utils";
 import { AuthRequest } from "../../middlewares";
+import mongoose from "mongoose";
 
 class UserController {
     constructor(private userService: UserService) {
-        this.delete = this.delete.bind(this);
+        this.deleteUser = this.deleteUser.bind(this);
         this.getCurrentUser = this.getCurrentUser.bind(this);
         this.getDescendants = this.getDescendants.bind(this);
+        this.getDescendantsOfUser = this.getDescendantsOfUser.bind(this);
+        this.updateUser = this.updateUser.bind(this);
+        this.getUserById = this.getUserById.bind(this);
+        this.getUserReport = this.getUserReport.bind(this);
     }
 
     async getCurrentUser(req: Request, res: Response, next: NextFunction) {
@@ -36,6 +41,105 @@ class UserController {
         }
     }
 
+    async getUserById(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { requestingUser } = req as AuthRequest;
+            if (!requestingUser) {
+                throw createHttpError(400, 'Requesting user not found');
+            }
+
+            const { userId } = req.params;
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                throw createHttpError(400, 'Invalid user ID');
+            }
+
+            const user = await this.userService.getUserById(requestingUser._id, new mongoose.Types.ObjectId(userId));
+            if (!user) {
+                throw createHttpError(404, 'User not found');
+            }
+
+            res.status(200).json(successResponse(user, 'User retrieved successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getDescendantsOfUser(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { requestingUser } = req as AuthRequest;
+            if (!requestingUser) {
+                throw createHttpError(400, 'Requesting user not found');
+            }
+
+            const { userId } = req.params;
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                throw createHttpError(400, 'Invalid user ID');
+            }
+
+            // Fetch the target user
+            const targetUser = await this.userService.getUserById(requestingUser._id, new mongoose.Types.ObjectId(userId));
+            if (!targetUser) {
+                throw createHttpError(404, 'Target user not found');
+            }
+
+
+            const { page = 1, limit = 10, ...filters } = req.query;
+
+            const { users, total } = await this.userService.getDescendants(
+                new mongoose.Types.ObjectId(userId),
+                filters,
+                parseInt(page as string, 10),
+                parseInt(limit as string, 10)
+            );
+
+            res.status(200).json(successResponse({ users, total, page, limit }, 'Descendants retrieved successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async updateUser(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { requestingUser } = req as AuthRequest;
+            if (!requestingUser) {
+                throw createHttpError(400, 'Requesting user not found');
+            }
+
+            const { userId } = req.params;
+            const { balance, ...updateData } = req.body;
+
+            const updatedUser = await this.userService.updateUser(
+                requestingUser._id.toString(),
+                new mongoose.Types.ObjectId(userId),
+                { ...updateData, balance: balance?.amount },
+                balance?.type
+            );
+            res.status(200).json(successResponse(updatedUser, 'User updated successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async deleteUser(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { requestingUser } = req as AuthRequest;
+            if (!requestingUser) {
+                throw createHttpError(400, 'Requesting user not found');
+            }
+
+            const { userId } = req.params;
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                throw createHttpError(400, 'Invalid user ID');
+            }
+
+            await this.userService.deleteUser(requestingUser._id.toString(), userId);
+
+            res.status(200).json(successResponse({}, 'User deleted successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async getDescendants(req: Request, res: Response, next: NextFunction) {
         try {
             const { requestingUser } = req as AuthRequest;
@@ -58,17 +162,28 @@ class UserController {
         }
     }
 
-    async delete(req: Request, res: Response, next: NextFunction) {
+    async getUserReport(req: Request, res: Response, next: NextFunction) {
         try {
-            const { userId } = req.params;
-
-            if (!userId) {
-                throw createHttpError(400, 'User ID is required');
+            const { requestingUser } = req as AuthRequest;
+            if (!requestingUser) {
+                throw createHttpError(400, 'Requesting user not found');
             }
 
-            await this.userService.delete(userId);
+            const { userId } = req.params;
+            const { startDate, endDate } = req.query;
 
-            res.status(200).json(successResponse({}, 'User deleted successfully'));
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                throw createHttpError(400, 'Invalid user ID');
+            }
+
+            const report = await this.userService.generateUserReport(
+                requestingUser._id.toString(),
+                new mongoose.Types.ObjectId(userId),
+                new Date(startDate as string),
+                new Date(endDate as string)
+            );
+
+            res.status(200).json(successResponse(report, 'User report generated successfully'));
         } catch (error) {
             next(error);
         }

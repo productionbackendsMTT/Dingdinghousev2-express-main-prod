@@ -7,6 +7,7 @@ import { LoginResponse } from "../../types";
 import TransactionService from "../transactions/transactions.service";
 import mongoose from "mongoose";
 import { TransactionType } from "../transactions/transactions.model";
+import { verifyToken } from "../../middlewares";
 
 
 
@@ -79,7 +80,7 @@ class AuthService {
             const hashedPassword = await bcrypt.hash(password, 10);
 
             // create a new user
-            const newUser = new UserModel({ name, username, password: hashedPassword, balance, role, status, createdBy: parentId })
+            const newUser = new UserModel({ name, username, password: hashedPassword, balance: 0, role, status, createdBy: parentId })
             await newUser.save({ session });
 
 
@@ -88,15 +89,21 @@ class AuthService {
                 await this.transactionService.create(parentId, newUser._id, TransactionType.RECHARGE, balance, session)
             }
 
+            // Fetch the updated user data
+            const updatedUser = await UserModel.findById(newUser._id).session(session);
+            if (!updatedUser) {
+                throw createHttpError(500, 'Failed to fetch updated user');
+            }
+
             await session.commitTransaction();
             session.endSession();
 
             return {
-                _id: newUser._id,
-                username: newUser.username,
-                role: newUser.role,
-                balance: newUser.balance,
-                status: newUser.status,
+                _id: updatedUser._id,
+                username: updatedUser.username,
+                role: updatedUser.role,
+                balance: updatedUser.balance,
+                status: updatedUser.status,
             };
         } catch (error) {
             await session.abortTransaction();
@@ -106,14 +113,21 @@ class AuthService {
     }
 
     async refreshAccessToken(refreshToken: string): Promise<string> {
-        const payload = jwt.verify(refreshToken, config.refresh.secret!) as any;
-        const user = await UserModel.findById(payload.userId);
+        // Validate Refresh Token
+        const decoded = await verifyToken(refreshToken, config.refresh.secret!);
+        const userId = (decoded as any).userId;
 
-        if (!user || user.token?.refreshToken !== refreshToken) {
-            throw createHttpError(403, 'Invalid refresh token')
+        const user = await UserModel.findOne({ _id: userId, "token.refreshToken": refreshToken });
+        if (!user) {
+            throw createHttpError(401, 'Invalid refresh token')
         }
 
-        return this.generateAccessToken(payload.userId);
+        const isTokenExpired = user.token!.expiresAt < new Date();
+        if (user.token!.isBlacklisted || isTokenExpired) {
+            throw createHttpError(401, 'Refresh token expired or blacklisted');
+        }
+
+        return this.generateAccessToken(user._id.toString());
     }
 
     async logout(userId: mongoose.Types.ObjectId): Promise<void> {

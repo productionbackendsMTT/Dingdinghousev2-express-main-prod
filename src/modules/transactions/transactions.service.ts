@@ -10,6 +10,9 @@ class TransactionService {
         if (amount <= 0) {
             throw createHttpError(400, "Transaction amount must be positive");
         }
+        if (senderId.equals(receiverId)) {
+            throw createHttpError(400, "Sender and receiver must be different");
+        }
 
         // Validate sender and receiver
         const sender = await UserModel.findOne({ _id: senderId, status: { $ne: UserStatus.DELETED } }).session(session);
@@ -99,6 +102,54 @@ class TransactionService {
             });
 
         return transactions;
+    }
+
+    // Get all transactions performed by a user's users
+    async getByUsers(users: mongoose.Types.ObjectId[], startDate: Date, endDate: Date): Promise<ITransaction[]> {
+        const transactions = await TransactionModel.find({
+            $or: [
+                { sender: { $in: users } },
+                { receiver: { $in: users } }
+            ],
+            createdAt: { $gte: startDate, $lte: endDate }
+        });
+
+        return transactions;
+    }
+
+    // Get total received and spent amounts for a user within a date range
+    async getTotalAmounts(userId: mongoose.Types.ObjectId, startDate: Date, endDate: Date): Promise<{ totalReceived: number, totalSpent: number }> {
+        const result = await TransactionModel.aggregate([
+            {
+                $match: {
+                    $or: [
+                        { sender: userId },
+                        { receiver: userId }
+                    ],
+                    createdAt: { $gte: startDate, $lte: endDate }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalReceived: {
+                        $sum: {
+                            $cond: [{ $eq: ["$receiver", userId] }, "$amount", 0]
+                        }
+                    },
+                    totalSpent: {
+                        $sum: {
+                            $cond: [{ $eq: ["$sender", userId] }, "$amount", 0]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        return {
+            totalReceived: result[0]?.totalReceived || 0,
+            totalSpent: result[0]?.totalSpent || 0
+        };
     }
 
     // Get all transactions

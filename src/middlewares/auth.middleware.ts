@@ -9,7 +9,7 @@ export interface AuthRequest extends Request {
     requestingUser: IUser & Document; // Add this line to include the requesting user data
 }
 
-const verifyToken = (token: string, secret: string) => {
+export const verifyToken = (token: string, secret: string) => {
     return new Promise((resolve, reject) => {
         jwt.verify(token, secret, (err, decoded) => {
             if (err) {
@@ -34,26 +34,44 @@ export const authHandler = async (req: Request, res: Response, next: NextFunctio
             return next(createHttpError(401, 'Authentication token not found'));
         }
 
-        try {
-            const decoded = await verifyToken(token, config.access.secret!);
-            const requestingUserId = (decoded as any).userId;
-            const requestingUser = await UserModel.findById(requestingUserId);
+        // Decode access token
+        const decoded = await verifyToken(token, config.access.secret!);
+        const requestingUserId = (decoded as any).userId;
 
-            if (!requestingUser) {
-                return next(createHttpError(401, 'Requesting user not found'));
-            }
-            const _req = req as AuthRequest
-            _req.requestingUser = requestingUser;
+        const requestingUser = await UserModel.findById(requestingUserId);
+        if (!requestingUser) {
+            return next(createHttpError(401, 'Requesting user not found'));
+        }
 
-            next();
-        } catch (err) {
-            if ((err as jwt.JsonWebTokenError).name === "TokenExpiredError") {
-                return next(createHttpError(401, 'Authentication token has expired'));
-            } else {
-                return next(createHttpError(401, 'Invalid authentication token'));
+        // Check refresh token for consistency
+        const refreshToken = req.cookies.refreshToken;
+        if (refreshToken) {
+            try {
+                const refreshDecoded = await verifyToken(refreshToken, config.refresh.secret!);
+                const refreshUserId = (refreshDecoded as any).userId;
+
+                if (requestingUserId !== refreshUserId || !requestingUser.token || requestingUser.token.refreshToken !== refreshToken || requestingUser.token.isBlacklisted) {
+                    return next(createHttpError(401, 'Invalid token'));
+                }
+
+                // Check if the refresh token is expired
+                if (requestingUser.token && new Date() > requestingUser.token.expiresAt) {
+                    return next(createHttpError(401, 'Invalid token'));
+                }
+            } catch (refreshErr) {
+                return next(createHttpError(401, 'Invalid token'));
             }
         }
-    } catch (error) {
-        next(error);
+
+        const _req = req as AuthRequest;
+        _req.requestingUser = requestingUser;
+
+        next();
+    } catch (err) {
+        if ((err as jwt.JsonWebTokenError).name === "TokenExpiredError") {
+            return next(createHttpError(401, 'Authentication token has expired'));
+        } else {
+            return next(createHttpError(401, 'Invalid authentication token'));
+        }
     }
 };
