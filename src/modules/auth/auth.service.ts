@@ -3,11 +3,14 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { config } from "../../config/config";
 import createHttpError from "http-errors";
-import { LoginResponse } from "../../types";
 import TransactionService from "../transactions/transactions.service";
 import mongoose from "mongoose";
 import { TransactionType } from "../transactions/transactions.model";
 import { verifyToken } from "../../middlewares";
+import { ILoginResponse, IRegisterParams } from "./auth.types";
+import { IRole } from "../roles/roles.model";
+import { UserStatus } from "../users/users.types";
+
 
 
 
@@ -26,10 +29,17 @@ class AuthService {
         return jwt.sign({ userId }, config.refresh.secret!, { expiresIn: config.refresh.expiresIn });
     }
 
-    async login(username: string, password: string, userAgent: string, ipAddress: string): Promise<LoginResponse> {
-        const user = await UserModel.findOne({ username });
-        if (!user || !user.password) {
-            throw createHttpError(400, 'User not found')
+    async login(username: string, password: string, userAgent: string, ipAddress: string): Promise<ILoginResponse> {
+        const user = await UserModel.findOne({ username })
+            .populate<{ role: IRole }>('role')
+            .select('+password');
+
+        if (!user) {
+            throw createHttpError(404, 'User not found');
+        }
+
+        if (user.status !== UserStatus.ACTIVE) {
+            throw createHttpError(403, 'Account is not active');
         }
 
         const isValidPassword = await bcrypt.compare(password, user.password);
@@ -66,49 +76,51 @@ class AuthService {
         };
     }
 
-    async register(name: string, username: string, password: string, balance: number, role: string, status: string, parentId: mongoose.Types.ObjectId | null) {
+    async register(params: IRegisterParams) {
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
-            const existingUser = await UserModel.findOne({ username }).session(session);
+            const existingUser = await UserModel.findOne({ username: params.username }).session(session);
             if (existingUser) {
                 throw createHttpError(409, 'Please choose a different username');
             }
 
             // hash the password
-            const hashedPassword = await bcrypt.hash(password, 10);
+            const hashedPassword = await bcrypt.hash(params.password, 10);
 
             // create a new user
-            const newUser = new UserModel({ name, username, password: hashedPassword, balance: 0, role, status, createdBy: parentId })
+            const newUser = new UserModel({
+                name: params.name,
+                username: params.username,
+                password: hashedPassword,
+                balance: 0,
+                role: params.roleId,
+                status: params.status,
+                createdBy: params.createdBy
+            });
             await newUser.save({ session });
 
 
             // Create a transaction if balance is greater than 0
-            if (balance > 0 && parentId) {
-                await this.transactionService.create(parentId, newUser._id, TransactionType.RECHARGE, balance, session)
+            if (params.balance > 0 && params.createdBy) {
+                await this.transactionService.create(params.createdBy, newUser._id, TransactionType.RECHARGE, params.balance, session)
             }
 
             // Fetch the updated user data
-            const updatedUser = await UserModel.findById(newUser._id).session(session);
-            if (!updatedUser) {
-                throw createHttpError(500, 'Failed to fetch updated user');
-            }
+            const updatedUser = await UserModel.findById(newUser._id)
+                .populate('role')
+                .session(session);
 
             await session.commitTransaction();
-            session.endSession();
+            return updatedUser;
 
-            return {
-                _id: updatedUser._id,
-                username: updatedUser.username,
-                role: updatedUser.role,
-                balance: updatedUser.balance,
-                status: updatedUser.status,
-            };
         } catch (error) {
             await session.abortTransaction();
-            session.endSession();
             throw error;
+        }
+        finally {
+            session.endSession();
         }
     }
 
@@ -136,7 +148,9 @@ class AuthService {
             throw createHttpError(404, 'User not found');
         }
 
-        user.token = undefined; // Remove the token or set isBlacklisted to true
+        if (user.token) {
+            user.token.isBlacklisted = true; // Set isBlacklisted to true
+        }
         await user.save();
     }
 }

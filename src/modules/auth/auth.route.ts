@@ -8,7 +8,7 @@ const authService = new AuthService();
 const authController = new AuthController(authService);
 
 authRoutes.post('/login', authController.login);
-authRoutes.post('/logout', authController.logout)
+authRoutes.post('/logout', authHandler, authController.logout)
 authRoutes.post('/register', authHandler, authController.register);
 authRoutes.post('/refresh-token', authController.refreshAccessToken);
 

@@ -2,11 +2,16 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import jwt from "jsonwebtoken";
 import { config } from "../config/config";
-import UserModel, { IUser } from "../modules/users/users.model";
+import UserModel from "../modules/users/users.model";
+
 import { Document } from "mongoose";
+import { IUser } from "../modules/users/users.types";
+import { IRole } from "../modules/roles/roles.model";
 
 export interface AuthRequest extends Request {
-    requestingUser: IUser & Document; // Add this line to include the requesting user data
+    requestingUser: (IUser & Document) & {
+        role: IRole & Document;
+    }
 }
 
 export const verifyToken = (token: string, secret: string) => {
@@ -38,9 +43,14 @@ export const authHandler = async (req: Request, res: Response, next: NextFunctio
         const decoded = await verifyToken(token, config.access.secret!);
         const requestingUserId = (decoded as any).userId;
 
-        const requestingUser = await UserModel.findById(requestingUserId);
+        const requestingUser = await UserModel.findById(requestingUserId).populate<{ role: IRole & Document }>('role');
         if (!requestingUser) {
             return next(createHttpError(401, 'Requesting user not found'));
+        }
+
+        // Check if the access token is blacklisted
+        if (requestingUser.token && requestingUser.token.isBlacklisted) {
+            return next(createHttpError(401, 'Access token is blacklisted'));
         }
 
         // Check refresh token for consistency

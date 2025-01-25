@@ -1,41 +1,9 @@
 import mongoose, { model, Schema, Types } from "mongoose";
-import { UserRole } from "../../config/hierarchy";
+import { ADMIN_PASSWORD, ADMIN_USER_ID, ADMIN_USERNAME, IToken, IUser, IUserModel, UserStatus } from "./users.types";
+import { generateDefaultPermissions, PERMISSION_PATTERN, Resource } from "../../utils/resources";
+import RoleModel, { ADMIN_ROLE_ID, ADMIN_ROLE_NAME } from "../roles/roles.model";
+import bcrypt from 'bcrypt';
 
-
-export enum UserStatus {
-    ACTIVE = 'active',
-    INACTIVE = 'inactive',
-    DELETED = 'deleted',
-    SUSPENDED = 'suspended'
-}
-
-export interface IToken {
-    refreshToken: string;
-    userAgent: string;
-    ipAddress: string;
-    expiresAt: Date;
-    isBlacklisted: boolean;
-}
-
-export interface IUser extends Document {
-    _id: Types.ObjectId;
-    name: string;
-    username: string;
-    password: string;
-    balance: number;
-    role: UserRole;
-    status: UserStatus;
-    createdBy?: Types.ObjectId;
-    totalSpent: number;
-    totalReceived: number;
-    lastLogin?: Date;
-    favouriteGames?: string[];
-    token?: IToken;
-    path: String;
-    createdAt: Date;
-    updatedAt: Date;
-    getDescendants(): Promise<IUser[]>;
-}
 
 const TokenSchema = new Schema<IToken>({
     refreshToken: { type: String, default: null },
@@ -45,14 +13,30 @@ const TokenSchema = new Schema<IToken>({
     isBlacklisted: { type: Boolean, default: false }
 }, { _id: false })
 
+const ResourcePermissionSchema = new Schema({
+    resource: {
+        type: String,
+        enum: Object.values(Resource),
+        required: true
+    },
+    permission: {
+        type: String,
+        validate: {
+            validator: (v: string) => PERMISSION_PATTERN.test(v),
+            message: 'Permission must be in format "rwx" where each can be the letter or "-"'
+        },
+        default: '---'
+    }
+}, { _id: false });
+
 const UserSchema = new Schema<IUser>({
     name: { type: String, required: true },
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     balance: { type: Number, default: 0 },
     role: {
-        type: String,
-        enum: Object.values(UserRole),
+        type: mongoose.Types.ObjectId,
+        ref: "Role",
         require: true,
     },
     status: {
@@ -63,7 +47,8 @@ const UserSchema = new Schema<IUser>({
     createdBy: {
         type: mongoose.Types.ObjectId,
         ref: "User",
-        default: null
+        default: null,
+        nullable: true
     },
     totalSpent: { type: Number, default: 0 },
     totalReceived: { type: Number, default: 0 },
@@ -79,6 +64,10 @@ const UserSchema = new Schema<IUser>({
     path: {
         type: String,
         required: true
+    },
+    permissions: {
+        type: [ResourcePermissionSchema],
+        default: []
     }
 }, { timestamps: true });
 
@@ -86,15 +75,36 @@ const UserSchema = new Schema<IUser>({
 // Middleware to set the materialized path before saving
 UserSchema.pre('validate', async function (next) {
     if (this.isNew) {
-        if (this.createdBy) {
+        const role = await RoleModel.findById(this.role);
+        if (!role) {
+            throw new Error('Role is required');
+        }
+
+        if (role?.name === ADMIN_ROLE_NAME) {
+            const existingAdmin = await UserModel.findOne({
+                'role': role._id,
+                '_id': { $ne: this._id } // Exclude current document
+            });
+
+            if (existingAdmin) {
+                throw new Error('Admin already exists');
+            }
+
+            this.createdBy = undefined;
+            this.path = this._id.toString();
+            this.balance = Infinity;
+            this.permissions = generateDefaultPermissions(role.name);
+        } else if (this.createdBy) {
             const parentUser = await UserModel.findById(this.createdBy);
             if (parentUser) {
                 this.path = `${parentUser.path}/${this._id}`;
             } else {
                 this.path = this._id.toString();
             }
+            this.permissions = generateDefaultPermissions(role?.name);
         } else {
             this.path = this._id.toString();
+            this.permissions = generateDefaultPermissions(role?.name);
         }
     }
     next();
@@ -116,5 +126,38 @@ UserSchema.methods.getDescendants = async function (): Promise<IUser[]> {
     return descendants;
 }
 
-const UserModel = model<IUser>("User", UserSchema);
+UserSchema.methods.can = function (resource: Resource, action: 'r' | 'w' | 'x'): boolean {
+    const permission: { resource: string, permission: string } | undefined = this.permissions.find((p: { resource: string, permission: string }) => p.resource === resource);
+    if (!permission) return false;
+
+    const pos = { r: 0, w: 1, x: 2 }[action];
+    return permission.permission[pos] === action;
+};
+
+
+UserSchema.methods.getPermissionString = function (resource: Resource): string {
+    const permission: { resource: string, permission: string } | undefined = this.permissions.find((p: { resource: string, permission: string }) => p.resource === resource);
+    return permission ? permission.permission : '---';
+};
+
+UserSchema.statics.ensureAdminUser = async function () {
+    const adminExists = await this.findOne({ username: ADMIN_USERNAME });
+    if (!adminExists) {
+        const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
+        await this.create({
+            _id: ADMIN_USER_ID,
+            name: 'Administrator',
+            username: ADMIN_USERNAME,
+            password: hashedPassword,
+            role: ADMIN_ROLE_ID,
+            status: UserStatus.ACTIVE,
+            balance: Infinity
+        });
+    }
+};
+
+
+const UserModel = model<IUser, IUserModel>("User", UserSchema);
+UserModel.ensureAdminUser().catch(console.error);
+
 export default UserModel;

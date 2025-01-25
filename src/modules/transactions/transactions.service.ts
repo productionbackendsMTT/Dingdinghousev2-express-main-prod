@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 import TransactionModel, { ITransaction, TransactionType } from "./transactions.model";
 import { UserModel } from "../users";
 import createHttpError from "http-errors";
-import { UserStatus } from "../users/users.model";
-import { UserRole } from "../../config/hierarchy";
+import { UserStatus } from "../users/users.types";
+
 
 class TransactionService {
     async create(senderId: mongoose.Types.ObjectId, receiverId: mongoose.Types.ObjectId, type: TransactionType, amount: number, session: mongoose.ClientSession): Promise<ITransaction> {
@@ -27,7 +27,7 @@ class TransactionService {
         }
 
         // Check for sufficient balance in case of RECHARGE, unless sender is admin
-        if (type === TransactionType.RECHARGE && sender.role !== UserRole.ADMIN && sender.balance < amount) {
+        if (type === TransactionType.RECHARGE && sender.balance < amount) {
             throw createHttpError(400, "Insufficient balance for recharge");
         }
 

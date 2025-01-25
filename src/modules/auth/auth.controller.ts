@@ -3,14 +3,16 @@ import AuthService from "./auth.service";
 import createHttpError from "http-errors";
 import { successResponse } from "../../utils";
 import { AuthRequest } from "../../middlewares";
-import { LoginResponse } from "../../types";
 import { config } from "../../config/config";
-import { validateUserRole } from "../../utils/roleValidation.utils";
-import { UserRole } from "../../config/hierarchy";
+import RoleService from "../roles/roles.service";
+import { ILoginResponse, IRegisterRequest } from "./auth.types";
 
 
 class AuthController {
+    private roleService: RoleService;
+
     constructor(private authService: AuthService) {
+        this.roleService = new RoleService();
         this.login = this.login.bind(this);
         this.logout = this.logout.bind(this);
         this.register = this.register.bind(this);
@@ -27,7 +29,7 @@ class AuthController {
                 throw createHttpError(400, 'Username and password are required');
             }
 
-            const { refreshToken, accessToken, user }: LoginResponse = await this.authService.login(username, password, userAgent, ipAddress);
+            const { refreshToken, accessToken, user }: ILoginResponse = await this.authService.login(username, password, userAgent, ipAddress);
             res.cookie('refreshToken', refreshToken, {
                 httpOnly: true, // Prevents JavaScript access
                 secure: config.env === "production", // Only set cookies over HTTPS in production
@@ -45,25 +47,27 @@ class AuthController {
     async register(req: Request, res: Response, next: NextFunction) {
         try {
             const { requestingUser } = req as AuthRequest;
-            const { name, username, password, balance, role, status } = req.body;
+            const { name, username, password, balance, roleId, status } = req.body as IRegisterRequest;
 
             if (!requestingUser) {
                 throw createHttpError(400, 'Requesting user ID not found');
             }
 
 
-            if (!name || !username || !password || balance === undefined || !role || !status) {
+            if (!name || !username || !password || balance === undefined || !roleId || !status) {
                 throw createHttpError(400, 'All required fields must be provided')
             }
 
-            if (role === UserRole.ADMIN) {
-                throw createHttpError(403, 'Registration of admin users is not allowed');
+            // Validate role exits
+            const targetRole = await this.roleService.getRole(roleId);
+            if (!targetRole) {
+                throw createHttpError(404, 'Role not found');
             }
 
             // Validare the role hierarchy
-            validateUserRole(requestingUser.role, role)
+            await this.roleService.validateRole(requestingUser.role._id, roleId);
 
-            const newUser = await this.authService.register(name, username, password, balance, role, status, requestingUser._id);
+            const newUser = await this.authService.register({ name, username, password, balance, roleId, status, createdBy: requestingUser._id });
             res.status(200).json(successResponse(newUser, 'User registered successfully'));
         } catch (error) {
             next(error)

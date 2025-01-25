@@ -1,9 +1,13 @@
 import createHttpError from "http-errors";
-import UserModel, { IUser, UserStatus } from "./users.model";
+import UserModel from "./users.model";
 import mongoose, { SortOrder } from "mongoose";
 import TransactionModel, { TransactionType } from "../transactions/transactions.model";
 import TransactionService from "../transactions/transactions.service";
 import bcrypt from "bcrypt";
+import { IUser, UserStatus } from "./users.types";
+import RoleModel from "../roles/roles.model";
+import { Resource } from "../../utils/resources";
+
 
 
 class UserService {
@@ -39,10 +43,17 @@ class UserService {
 
         const { search, sort, ...otherFilters } = filters;
 
+        // Get all role descendants that user has access to
+        const role = await RoleModel.findById(user.role);
+        if (!role) {
+            throw createHttpError(404, 'Role not found');
+        }
+
         const query: any = {
             path: { $regex: `^${user.path}` },
             _id: { $ne: userId },
             status: { $ne: UserStatus.DELETED },
+            role: { $in: [...role.descendants, user.role] },  // Only get users with roles user has access to
             ...otherFilters
         };
 
