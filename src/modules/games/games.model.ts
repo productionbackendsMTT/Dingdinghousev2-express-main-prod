@@ -38,5 +38,10 @@ const GameSchema: Schema = new Schema({
     payout: { type: mongoose.Types.ObjectId, ref: "Payout", required: true }
 }, { timestamps: true });
 
+GameSchema.index({ name: 1 }, { unique: true });
+GameSchema.index({ tag: 1 }, { unique: true });
+GameSchema.index({ status: 1 });
+GameSchema.index({ order: 1 });
+
 const GameModel = mongoose.model<IGame>("Game", GameSchema);
 export default GameModel;
