@@ -19,7 +19,7 @@ export interface IGame extends Document {
     slug: string;
     order: number;
 
-    payout: mongoose.Types.ObjectId;
+    payout: mongoose.Types.ObjectId; // Reference to the active payout
     createdAt: Date;
     updatedAt: Date;
 }
