@@ -14,9 +14,12 @@ const resource = Resource.USERS;
 userRoutes.get('/me', authHandler, userController.getCurrentUser);
 userRoutes.get('/me/descendants', authHandler, userController.getDescendants);
 userRoutes.get('/:userId', authHandler, checkPermission(resource, 'r'), userController.getUserById);
-userRoutes.get('/:userId/descendants', authHandler, checkPermission(resource, 'r'), userController.getDescendantsOfUser);
-userRoutes.get('/:userId/report', authHandler, checkPermission(resource, 'r'), userController.getUserReport);
 userRoutes.put('/:userId', authHandler, checkPermission(resource, 'w'), userController.updateUser);
 userRoutes.delete('/:userId', authHandler, checkPermission(resource, 'x'), userController.deleteUser);
+userRoutes.get('/:userId/descendants', authHandler, checkPermission(resource, 'r'), userController.getDescendantsOfUser);
+userRoutes.get('/:userId/report', authHandler, checkPermission(resource, 'r'), userController.getUserReport);
+userRoutes.get('/:userId/permissions', authHandler, checkPermission(resource, 'r'), userController.getUserPermissions);
+userRoutes.patch('/:userId/permissions', authHandler, checkPermission(resource, 'w'), userController.updateUserPermissions);
+
 
 export default userRoutes;

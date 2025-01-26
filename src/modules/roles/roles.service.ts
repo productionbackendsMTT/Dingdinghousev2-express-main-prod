@@ -44,15 +44,20 @@ class RoleService {
         return role;
     }
 
-    async getAllRoles(
-        page: number = 1,
-        limit: number = 10,
-        search?: string
-    ): Promise<{ roles: IRole[], total: number }> {
-        const query: { status: RoleStatus; name?: RegExp } = { status: RoleStatus.ACTIVE };
+    async getAllRoles(page: number = 1, limit: number = 10, search?: string, requestingRoleId?: Types.ObjectId): Promise<{ roles: IRole[], total: number }> {
+        const query: { status: RoleStatus; name?: RegExp, _id?: { $in: Types.ObjectId[] } } = {
+            status: RoleStatus.ACTIVE
+        };
 
         if (search) {
             query['name'] = new RegExp(search, 'i');
+        }
+
+        if (requestingRoleId) {
+            const requestingRole = await RoleModel.findById(requestingRoleId);
+            if (requestingRole) {
+                query['_id'] = { $in: requestingRole.descendants };
+            }
         }
 
         const total = await RoleModel.countDocuments(query);

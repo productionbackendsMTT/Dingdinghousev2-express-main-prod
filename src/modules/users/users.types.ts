@@ -14,6 +14,12 @@ export enum UserStatus {
     SUSPENDED = 'suspended'
 }
 
+export enum PermissionOperation {
+    ADD = 'add',
+    REMOVE = 'remove',
+    REPLACE = 'replace'
+}
+
 export interface IToken {
     refreshToken: string;
     userAgent: string;

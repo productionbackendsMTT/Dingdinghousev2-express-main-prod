@@ -4,11 +4,9 @@ import mongoose, { SortOrder } from "mongoose";
 import TransactionModel, { TransactionType } from "../transactions/transactions.model";
 import TransactionService from "../transactions/transactions.service";
 import bcrypt from "bcrypt";
-import { IUser, UserStatus } from "./users.types";
+import { IUser, PermissionOperation, UserStatus } from "./users.types";
 import RoleModel from "../roles/roles.model";
-import { Resource } from "../../utils/resources";
-
-
+import { PERMISSION_PATTERN, Resource } from "../../utils/resources";
 
 class UserService {
     private transactionService: TransactionService;
@@ -214,6 +212,50 @@ class UserService {
             totalReceived,
             totalSpent
         };
+    }
+
+    async updateUserPermissions(userId: mongoose.Types.ObjectId, permissions: { resource: Resource, permission: string }[], operation: PermissionOperation): Promise<IUser> {
+        const user = await UserModel.findById(userId);
+        if (!user) {
+            throw createHttpError(404, 'User not found');
+        }
+
+        // Normalize and validate permissions
+        const normalizedPermissions = permissions.map(perm => ({
+            resource: perm.resource,
+            permission: perm.permission.padEnd(3, '-')  // Pad with dashes: 'rw' -> 'rw-'
+        }));
+
+        // Validate permissions format
+        for (const perm of normalizedPermissions) {
+            if (perm.permission.length > 3 || !PERMISSION_PATTERN.test(perm.permission)) {
+                throw createHttpError(400, 'Invalid permission format. Must contain only r,w,x or - characters, max length 3');
+            }
+        }
+
+        switch (operation) {
+            case PermissionOperation.ADD:
+                for (const newPerm of normalizedPermissions) {
+                    const existingIndex = user.permissions.findIndex(p => p.resource === newPerm.resource);
+                    if (existingIndex === -1) {
+                        user.permissions.push(newPerm);
+                    }
+                }
+                break;
+
+            case PermissionOperation.REMOVE:
+                user.permissions = user.permissions.filter(existing =>
+                    !permissions.some(p => p.resource === existing.resource)
+                );
+                break;
+
+            case PermissionOperation.REPLACE:
+                user.permissions = normalizedPermissions;
+                break;
+        }
+
+        await user.save();
+        return user;
     }
 }
 

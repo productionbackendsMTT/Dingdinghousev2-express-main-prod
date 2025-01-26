@@ -3,6 +3,7 @@ import RoleService from "./roles.service";
 import mongoose from "mongoose";
 import createHttpError from "http-errors";
 import { successResponse } from "../../utils";
+import { AuthRequest } from "../../middlewares";
 
 class RoleController {
     constructor(private roleService: RoleService) {
@@ -87,11 +88,13 @@ class RoleController {
 
     async getAllRoles(req: Request, res: Response, next: NextFunction) {
         try {
+            const { requestingUser } = req as AuthRequest;
             const { page = 1, limit = 10, search } = req.query;
             const roles = await this.roleService.getAllRoles(
                 Number(page),
                 Number(limit),
-                search as string
+                search as string,
+                requestingUser.role._id
             );
             res.status(200).json(successResponse(roles, 'Roles retrieved successfully'));
         } catch (err) {

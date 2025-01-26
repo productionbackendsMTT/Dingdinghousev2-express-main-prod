@@ -14,6 +14,8 @@ class UserController {
         this.updateUser = this.updateUser.bind(this);
         this.getUserById = this.getUserById.bind(this);
         this.getUserReport = this.getUserReport.bind(this);
+        this.getUserPermissions = this.getUserPermissions.bind(this);
+        this.updateUserPermissions = this.updateUserPermissions.bind(this);
     }
 
     async getCurrentUser(req: Request, res: Response, next: NextFunction) {
@@ -184,6 +186,51 @@ class UserController {
             );
 
             res.status(200).json(successResponse(report, 'User report generated successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async updateUserPermissions(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { userId } = req.params;
+            const { permissions, operation } = req.body;
+
+            if (!mongoose.isValidObjectId(userId)) {
+                throw createHttpError(400, 'Invalid user ID format');
+            }
+
+            if (!permissions || !Array.isArray(permissions) || !operation) {
+                throw createHttpError(400, 'Invalid request format');
+            }
+
+            const updatedUser = await this.userService.updateUserPermissions(
+                new mongoose.Types.ObjectId(userId),
+                permissions,
+                operation
+            );
+
+            res.status(200).json(successResponse(updatedUser, 'User permissions updated successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getUserPermissions(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { userId } = req.params;
+            const { requestingUser } = req as AuthRequest;
+
+            if (!mongoose.isValidObjectId(userId)) {
+                throw createHttpError(400, 'Invalid user ID format');
+            }
+
+            const user = await this.userService.getUserById(
+                requestingUser!._id,
+                new mongoose.Types.ObjectId(userId)
+            );
+
+            res.status(200).json(successResponse(user?.permissions || [], 'User permissions retrieved successfully'));
         } catch (error) {
             next(error);
         }
