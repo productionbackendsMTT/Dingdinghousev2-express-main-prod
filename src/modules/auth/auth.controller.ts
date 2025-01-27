@@ -4,8 +4,8 @@ import createHttpError from "http-errors";
 import { successResponse } from "../../utils";
 import { AuthRequest } from "../../middlewares";
 import { config } from "../../config/config";
-import RoleService from "../roles/roles.service";
 import { ILoginResponse, IRegisterRequest } from "./auth.types";
+import RoleService from "../roles/roles.service";
 
 
 class AuthController {

@@ -2,10 +2,9 @@ import express, { Request, Response } from 'express';
 import { createServer } from "http";
 import os from 'os';
 import moduleRoutes from './modules';
-import { errorHandler } from './middlewares';
 import cookieParser from 'cookie-parser';
 import cors from 'cors'
-
+import { errorHandler } from './middlewares';
 
 const app = express();
 

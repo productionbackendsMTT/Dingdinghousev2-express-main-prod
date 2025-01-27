@@ -1,8 +1,9 @@
 import mongoose, { model, Schema, Types } from "mongoose";
-import { ADMIN_PASSWORD, ADMIN_USER_ID, ADMIN_USERNAME, IToken, IUser, IUserModel, UserStatus } from "./users.types";
+import { ADMIN_NAME, ADMIN_PASSWORD, ADMIN_USERNAME, IToken, IUser, IUserModel, UserStatus } from "./users.types";
 import { generateDefaultPermissions, PERMISSION_PATTERN, Resource } from "../../utils/resources";
-import RoleModel, { ADMIN_ROLE_ID, ADMIN_ROLE_NAME } from "../roles/roles.model";
 import bcrypt from 'bcrypt';
+import RoleModel from "../roles/roles.model";
+import { ADMIN_ROLE_NAME } from "../roles/roles.types";
 
 
 const TokenSchema = new Schema<IToken>({
@@ -141,23 +142,29 @@ UserSchema.methods.getPermissionString = function (resource: Resource): string {
 };
 
 UserSchema.statics.ensureAdminUser = async function () {
+
+    const adminRole = await RoleModel.findOne({ name: ADMIN_ROLE_NAME });
+    if (!adminRole) {
+        throw new Error('Admin role must exist before creating admin user');
+    }
+
     const adminExists = await this.findOne({ username: ADMIN_USERNAME });
     if (!adminExists) {
         const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
-        await this.create({
-            _id: ADMIN_USER_ID,
-            name: 'Administrator',
+        return await this.create({
+            name: ADMIN_NAME,
             username: ADMIN_USERNAME,
             password: hashedPassword,
-            role: ADMIN_ROLE_ID,
+            role: adminRole._id,
             status: UserStatus.ACTIVE,
-            balance: Infinity
+            balance: Infinity,
+            path: '',
+            permissions: generateDefaultPermissions(adminRole.name)
         });
     }
+    return adminExists;
 };
 
-
 const UserModel = model<IUser, IUserModel>("User", UserSchema);
-UserModel.ensureAdminUser().catch(console.error);
 
 export default UserModel;

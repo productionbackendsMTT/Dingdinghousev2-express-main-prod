@@ -4,14 +4,16 @@ import mongoose from "mongoose";
 import createHttpError from "http-errors";
 import { successResponse } from "../../utils";
 import { AuthRequest } from "../../middlewares";
+import { DescendantOperation } from "./roles.types";
+
 
 class RoleController {
     constructor(private roleService: RoleService) {
         this.addRole = this.addRole.bind(this);
-        this.updateRoleName = this.updateRoleName.bind(this);
         this.deleteRole = this.deleteRole.bind(this);
         this.getRoleById = this.getRoleById.bind(this);
         this.getAllRoles = this.getAllRoles.bind(this);
+        this.updateRole = this.updateRole.bind(this);
     }
 
     async addRole(req: Request, res: Response, next: NextFunction) {
@@ -24,47 +26,52 @@ class RoleController {
         }
     }
 
-    async updateRoleName(req: Request, res: Response, next: NextFunction) {
+    async updateRole(req: Request, res: Response, next: NextFunction) {
         try {
-            const { id } = req.params;
-            const { name } = req.body;
+            const { roleId } = req.params;
+            const { name, descendants, operation } = req.body;
 
-            if (!mongoose.isValidObjectId(id)) {
+
+            if (!mongoose.isValidObjectId(roleId)) {
                 throw createHttpError(400, 'Invalid role ID');
             }
 
-            const role = await this.roleService.updateRoleName(id, name);
-            res.status(200).json(successResponse(role, 'Role name updated successfully'));
-        } catch (err) {
-            next(err);
-        }
-    }
+            // Validate descendants if provided
+            if (descendants !== undefined) {
+                if (!operation) {
+                    throw createHttpError.BadRequest('Operation is required when updating descendants');
+                }
 
-    async updateDescendants(req: Request, res: Response, next: NextFunction) {
-        try {
-            const { id } = req.params;
-            const { descendantIds, operation } = req.body;
+                if (!Object.values(DescendantOperation).includes(operation)) {
+                    throw createHttpError(400, 'Invalid operation type');
+                }
 
-            if (!mongoose.isValidObjectId(id)) {
-                throw createHttpError(400, 'Invalid role ID');
+                if (!Array.isArray(descendants)) {
+                    throw createHttpError(400, 'Descendants must be an array');
+                }
             }
 
-            const role = await this.roleService.updateDescendants(id, descendantIds, operation);
-            res.status(200).json(successResponse(role, 'Role descendants updated successfully'));
-        } catch (err) {
-            next(err);
+            const role = await this.roleService.updateRole(roleId, {
+                name,
+                descendants,
+                operation: operation as DescendantOperation
+            });
+
+            res.status(200).json(successResponse(role, 'Role updated successfully'));
+
+        } catch (error) {
+            next(error);
         }
     }
-
 
     async deleteRole(req: Request, res: Response, next: NextFunction) {
         try {
-            const { id } = req.params;
-            if (!mongoose.isValidObjectId(id)) {
+            const { roleId } = req.params;
+            if (!mongoose.isValidObjectId(roleId)) {
                 throw createHttpError(400, 'Invalid role ID');
             }
 
-            await this.roleService.deleteRole(id);
+            await this.roleService.deleteRole(roleId);
             res.status(200).json(successResponse(null, 'Role deleted successfully'));
         } catch (err) {
             next(err);
@@ -73,13 +80,13 @@ class RoleController {
 
     async getRoleById(req: Request, res: Response, next: NextFunction) {
         try {
-            const { id } = req.params;
+            const { roleId } = req.params;
 
-            if (!mongoose.isValidObjectId(id)) {
+            if (!mongoose.isValidObjectId(roleId)) {
                 throw createHttpError(400, 'Invalid role ID');
             }
 
-            const role = await this.roleService.getRole(new mongoose.Types.ObjectId(id));
+            const role = await this.roleService.getRole(new mongoose.Types.ObjectId(roleId));
             res.status(200).json(successResponse(role, 'Role retrieved successfully'));
         } catch (err) {
             next(err);

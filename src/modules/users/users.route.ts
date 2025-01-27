@@ -1,8 +1,7 @@
 import { Router } from "express";
 import UserService from "./users.service";
 import UserController from "./users.controller";
-import { authHandler } from "../../middlewares";
-import { checkPermission } from "../../middlewares/permission.middleware";
+import { authHandler, checkPermission } from "../../middlewares";
 import { Resource } from "../../utils/resources";
 
 
@@ -17,9 +16,9 @@ userRoutes.get('/:userId', authHandler, checkPermission(resource, 'r'), userCont
 userRoutes.put('/:userId', authHandler, checkPermission(resource, 'w'), userController.updateUser);
 userRoutes.delete('/:userId', authHandler, checkPermission(resource, 'x'), userController.deleteUser);
 userRoutes.get('/:userId/descendants', authHandler, checkPermission(resource, 'r'), userController.getDescendantsOfUser);
-userRoutes.get('/:userId/report', authHandler, checkPermission(resource, 'r'), userController.getUserReport);
 userRoutes.get('/:userId/permissions', authHandler, checkPermission(resource, 'r'), userController.getUserPermissions);
 userRoutes.patch('/:userId/permissions', authHandler, checkPermission(resource, 'w'), userController.updateUserPermissions);
+userRoutes.get('/:userId/report', authHandler, checkPermission(resource, 'r'), userController.getUserReport);
 
 
 export default userRoutes;

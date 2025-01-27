@@ -6,7 +6,7 @@ import UserModel from "../modules/users/users.model";
 
 import { Document } from "mongoose";
 import { IUser } from "../modules/users/users.types";
-import { IRole } from "../modules/roles/roles.model";
+import { IRole } from "../modules/roles/roles.types";
 
 export interface AuthRequest extends Request {
     requestingUser: (IUser & Document) & {

@@ -1,23 +1,5 @@
 import mongoose, { Model, Schema, Types } from "mongoose";
-
-export const ADMIN_ROLE_ID = new Types.ObjectId("000000000000000000000001");
-export const ADMIN_ROLE_NAME = "admin";
-
-export enum RoleStatus {
-    ACTIVE = 'active',
-    DELETED = 'deleted'
-}
-
-export interface IRole extends Document {
-    _id: Types.ObjectId;
-    name: string;
-    descendants: Types.ObjectId[];
-    status: RoleStatus;
-}
-
-interface IRoleModel extends Model<IRole> {
-    ensureAdminRole(): Promise<void>;
-}
+import { ADMIN_ROLE_NAME, IRole, IRoleModel, RoleStatus } from "./roles.types";
 
 const RoleSchema = new Schema<IRole, IRoleModel>({
     name: {
@@ -38,20 +20,29 @@ const RoleSchema = new Schema<IRole, IRoleModel>({
     }
 }, { timestamps: true });
 
+RoleSchema.pre('validate', async function (next) {
+    if (this.isNew && this.name !== ADMIN_ROLE_NAME) {
+        const adminRole = await RoleModel.findOne({ name: ADMIN_ROLE_NAME });
+        if (adminRole) {
+            adminRole.descendants.push(this._id);
+            await adminRole.save();
+        }
+    }
+    next()
+})
+
 RoleSchema.statics.ensureAdminRole = async function () {
     const adminRole = await this.findOne({ name: ADMIN_ROLE_NAME });
     if (!adminRole) {
-        await this.create({
-            _id: ADMIN_ROLE_ID,
+        return await this.create({
             name: ADMIN_ROLE_NAME,
-            descendants: []
+            descendants: [],
+            status: RoleStatus.ACTIVE
         });
     }
+    return adminRole;
 };
 
 
 const RoleModel = mongoose.model<IRole, IRoleModel>("Role", RoleSchema);
-
-RoleModel.ensureAdminRole().catch(console.error);
-
 export default RoleModel;

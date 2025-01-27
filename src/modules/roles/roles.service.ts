@@ -1,12 +1,11 @@
 import createHttpError from "http-errors";
-import RoleModel, { ADMIN_ROLE_ID, IRole, RoleStatus } from "./roles.model";
+import RoleModel from "./roles.model";
 import mongoose, { Types } from "mongoose";
+import { ADMIN_ROLE_NAME, DescendantOperation, IRole, RoleStatus, IUpdateRoleParams } from "./roles.types";
+import { UserModel } from "../users";
+import { UserStatus } from "../users/users.types";
 
-enum DescendantOperation {
-    ADD = 'add',
-    REMOVE = 'remove',
-    REPLACE = 'replace'
-}
+
 
 class RoleService {
 
@@ -21,12 +20,6 @@ class RoleService {
 
         const role = new RoleModel({ name, descendants });
         await role.save();
-
-        // Update admin's descendants
-        await RoleModel.findByIdAndUpdate(
-            ADMIN_ROLE_ID,
-            { $addToSet: { descendants: role._id } }
-        );
 
         return role;
     }
@@ -84,90 +77,92 @@ class RoleService {
         }
     }
 
-    async updateRoleName(id: string, name: string): Promise<IRole | null> {
-        if (id === ADMIN_ROLE_ID.toString()) {
-            throw createHttpError(403, 'Admin role cannot be modified');
-        }
-
-        const role = await RoleModel.findByIdAndUpdate(id, { name }, { new: true });
+    async updateRole(id: string, params: IUpdateRoleParams): Promise<IRole> {
+        const role = await RoleModel.findById(id);
         if (!role) {
-            throw createHttpError(404, 'Role not found');
-        }
-        return role;
-    }
-
-    async updateDescendants(roleId: string, descendantIds: string[], operation: DescendantOperation): Promise<IRole> {
-        if (roleId === ADMIN_ROLE_ID.toString()) {
-            throw createHttpError(403, 'Admin role cannot be modified');
+            throw createHttpError.NotFound('Role not found');
         }
 
-        const descendantObjectIds = descendantIds.map(id => new Types.ObjectId(id));
-
-        const count = await RoleModel.countDocuments({
-            _id: { $in: descendantObjectIds },
-            status: RoleStatus.ACTIVE
-        });
-
-        if (count !== descendantIds.length) {
-            throw createHttpError(400, 'One or more descendant roles not found or inactive');
+        // Update name if provided
+        if (params.name) {
+            role.name = params.name;
         }
 
-        let updateQuery;
-        switch (operation) {
-            case DescendantOperation.ADD:
-                updateQuery = {
-                    $addToSet: { descendants: { $each: descendantObjectIds } }
-                };
-                break;
-            case DescendantOperation.REMOVE:
-                updateQuery = {
-                    $pull: { descendants: { $in: descendantObjectIds } }
-                };
-                break;
-            case DescendantOperation.REPLACE:
-                updateQuery = {
-                    $set: { descendants: descendantObjectIds }
-                };
-                break;
+        // Update descendants if provided
+        if (params.descendants && params.operation) {
+            const descendantObjectIds = params.descendants.map(id => new Types.ObjectId(id));
+
+            const count = await RoleModel.countDocuments({
+                _id: { $in: descendantObjectIds },
+                status: RoleStatus.ACTIVE
+            });
+
+            if (count !== params.descendants.length) {
+                throw createHttpError.BadRequest('One or more descendant roles not found or inactive');
+            }
+
+            switch (params.operation) {
+                case DescendantOperation.ADD:
+                    // Convert existing descendants to strings for comparison
+                    const existingDescendants = new Set(role.descendants.map(d => d.toString()));
+                    // Add new descendants, ensuring uniqueness
+                    descendantObjectIds.forEach(id => {
+                        if (!existingDescendants.has(id.toString())) {
+                            role.descendants.push(id);
+                        }
+                    });
+
+                    break;
+                case DescendantOperation.REMOVE:
+                    // Convert descendants to remove to strings for comparison
+                    const descendantsToRemove = new Set(descendantObjectIds.map(id => id.toString()));
+                    // Filter out the descendants to remove
+                    role.descendants = role.descendants.filter(d => !descendantsToRemove.has(d.toString()));
+                    break;
+                case DescendantOperation.REPLACE:
+                    role.descendants = descendantObjectIds;
+                    break;
+            }
         }
-
-        const role = await RoleModel.findOneAndUpdate(
-            { _id: roleId, status: RoleStatus.ACTIVE },
-            updateQuery,
-            { new: true }
-        );
-
-        if (!role) {
-            throw createHttpError(404, 'Role not found');
-        }
-
+        await role.save();
         return role;
     }
 
     async deleteRole(id: string): Promise<void> {
-        if (id === ADMIN_ROLE_ID.toString()) {
-            throw createHttpError(403, 'Admin role cannot be deleted');
+        const role = await RoleModel.findOne({
+            _id: id,
+            status: RoleStatus.ACTIVE
+        });
+        if (!role) {
+            throw createHttpError(404, 'Active role not found');
         }
 
-        const role = await RoleModel.findById(id);
-        if (!role) {
-            throw createHttpError(404, 'Role not found');
+        if (role.name === ADMIN_ROLE_NAME) {
+            throw createHttpError.Forbidden('Cannot delete admin role');
+        }
+
+        // Check for users with this role
+        // Check for active users with this role
+        const activeUsersWithRole = await UserModel.countDocuments({
+            role: role._id,
+            status: UserStatus.ACTIVE
+        });
+        if (activeUsersWithRole > 0) {
+            throw createHttpError.Conflict('Cannot delete role with existing active users');
         }
 
         const session = await mongoose.startSession();
         try {
             await session.withTransaction(async () => {
-                // Soft delete the role
                 await RoleModel.findByIdAndUpdate(id, {
                     status: RoleStatus.DELETED,
                     name: `${role.name}_DELETED_${Date.now()}`  // Ensure unique name
                 });
 
-                // Remove from admin's descendants
-                await RoleModel.findByIdAndUpdate(
-                    ADMIN_ROLE_ID,
+                await RoleModel.findOneAndUpdate(
+                    { name: ADMIN_ROLE_NAME },
                     { $pull: { descendants: role._id } }
-                );
+                )
 
                 // Remove from all other roles' descendants
                 await RoleModel.updateMany(

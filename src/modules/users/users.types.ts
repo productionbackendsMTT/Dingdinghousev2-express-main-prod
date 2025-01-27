@@ -1,11 +1,11 @@
 import { Model, Types } from "mongoose";
-import { IRole } from "../roles/roles.model";
 import { IResourcePermission, Resource } from "../../utils/resources";
-import { config } from "../../config/config";
+import { IRole } from "../roles/roles.types";
 
-export const ADMIN_USER_ID = new Types.ObjectId("000000000000000000000001");
+export const ADMIN_NAME = 'Administrator'
 export const ADMIN_USERNAME = 'admin';
 export const ADMIN_PASSWORD = 'admin123';
+
 
 export enum UserStatus {
     ACTIVE = 'active',

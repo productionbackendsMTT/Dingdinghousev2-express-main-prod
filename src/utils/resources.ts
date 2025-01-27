@@ -1,4 +1,4 @@
-import { ADMIN_ROLE_NAME } from "../modules/roles/roles.model";
+import { ADMIN_ROLE_NAME } from "../modules/roles/roles.types";
 
 export enum Resource {
     USERS = 'users',

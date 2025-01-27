@@ -5,8 +5,8 @@ import TransactionModel, { TransactionType } from "../transactions/transactions.
 import TransactionService from "../transactions/transactions.service";
 import bcrypt from "bcrypt";
 import { IUser, PermissionOperation, UserStatus } from "./users.types";
-import RoleModel from "../roles/roles.model";
 import { PERMISSION_PATTERN, Resource } from "../../utils/resources";
+import RoleModel from "../roles/roles.model";
 
 class UserService {
     private transactionService: TransactionService;
@@ -166,8 +166,25 @@ class UserService {
         if (descendants.length > 0) {
             throw createHttpError(400, 'Cannot delete user with descendants');
         }
-        user.status = UserStatus.DELETED;
-        await user.save();
+
+        const session = await mongoose.startSession();
+        try {
+            await session.withTransaction(async () => {
+                // Modify username to allow reuse
+                user.username = `${user.username}_DELETED_${Date.now()}`;
+                user.status = UserStatus.DELETED;
+
+                // Clear sensitive data
+                user.token = undefined;
+                user.permissions = [];
+
+                await user.save({ session });
+            });
+        } catch (error) {
+            throw error; // Let the error propagate
+        } finally {
+            await session.endSession();
+        }
     }
 
     // Generate report for a specific user
@@ -220,40 +237,30 @@ class UserService {
             throw createHttpError(404, 'User not found');
         }
 
-        // Normalize and validate permissions
-        const normalizedPermissions = permissions.map(perm => ({
-            resource: perm.resource,
-            permission: perm.permission.padEnd(3, '-')  // Pad with dashes: 'rw' -> 'rw-'
-        }));
+        permissions.forEach(newPermission => {
+            const existingPermissionIndex = user.permissions.findIndex(p => p.resource === newPermission.resource);
+            if (existingPermissionIndex !== -1) {
+                // Update the existing permission
+                const existingPermission = user.permissions[existingPermissionIndex].permission;
+                let updatedPermission = '';
 
-        // Validate permissions format
-        for (const perm of normalizedPermissions) {
-            if (perm.permission.length > 3 || !PERMISSION_PATTERN.test(perm.permission)) {
-                throw createHttpError(400, 'Invalid permission format. Must contain only r,w,x or - characters, max length 3');
-            }
-        }
-
-        switch (operation) {
-            case PermissionOperation.ADD:
-                for (const newPerm of normalizedPermissions) {
-                    const existingIndex = user.permissions.findIndex(p => p.resource === newPerm.resource);
-                    if (existingIndex === -1) {
-                        user.permissions.push(newPerm);
+                for (let i = 0; i < 3; i++) {
+                    const newChar = newPermission.permission[i];
+                    const existingChar = existingPermission[i];
+                    if (operation === PermissionOperation.ADD) {
+                        // Add the new permission if it's not already present
+                        updatedPermission += (newChar !== '-' && newChar !== existingChar) ? newChar : existingChar;
+                    } else if (operation === PermissionOperation.REMOVE) {
+                        // Remove the permission if it's present
+                        updatedPermission += (newChar === existingChar) ? '-' : existingChar;
                     }
                 }
-                break;
-
-            case PermissionOperation.REMOVE:
-                user.permissions = user.permissions.filter(existing =>
-                    !permissions.some(p => p.resource === existing.resource)
-                );
-                break;
-
-            case PermissionOperation.REPLACE:
-                user.permissions = normalizedPermissions;
-                break;
-        }
-
+                user.permissions[existingPermissionIndex].permission = updatedPermission;
+            } else {
+                // Add the new permission
+                user.permissions.push(newPermission);
+            }
+        });
         await user.save();
         return user;
     }

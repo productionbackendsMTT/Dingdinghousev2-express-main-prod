@@ -8,10 +8,8 @@ import mongoose from "mongoose";
 import { TransactionType } from "../transactions/transactions.model";
 import { verifyToken } from "../../middlewares";
 import { ILoginResponse, IRegisterParams } from "./auth.types";
-import { IRole } from "../roles/roles.model";
 import { UserStatus } from "../users/users.types";
-
-
+import { IRole } from "../roles/roles.types";
 
 
 class AuthService {

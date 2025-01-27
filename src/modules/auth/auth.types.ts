@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
-import { IRole } from "../roles/roles.model";
 import { UserStatus } from "../users/users.types";
+import { IRole } from "../roles/roles.types";
 
 
 export interface IRegisterRequest {

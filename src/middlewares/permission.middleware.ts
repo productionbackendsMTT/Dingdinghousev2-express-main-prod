@@ -1,10 +1,10 @@
 import { NextFunction, Request, Response } from "express";
-import { AuthRequest } from "./auth.middleware";
 import createHttpError from "http-errors";
-
 import { UserModel } from "../modules/users";
 import { Resource } from "../utils/resources";
 import mongoose from "mongoose";
+import { AuthRequest } from "./auth.middleware";
+import RoleModel from "../modules/roles/roles.model";
 
 export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => {
     return async (req: Request, res: Response, next: NextFunction) => {
@@ -25,6 +25,11 @@ export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => 
                     throw createHttpError(400, 'Invalid user ID format');
                 }
 
+                // Allow if user is accessing their own data
+                if (req.params.userId === requestingUser._id.toString()) {
+                    return next();
+                }
+
                 const targetUser = await UserModel.findById(req.params.userId).populate('role');
                 if (!targetUser) {
                     throw createHttpError(404, 'User not found');
@@ -37,6 +42,28 @@ export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => 
                 // Check if the requesting user is an ancestor of the target user
                 if (!targetUser.path.includes(requestingUser._id.toString())) {
                     throw createHttpError(403, 'You are not authorized to perform this action');
+                }
+            }
+
+            // If dealing with role-related operations
+            if (resource === Resource.ROLES && req.params.roleId) {
+                if (!mongoose.isValidObjectId(req.params.roleId)) {
+                    throw createHttpError(400, 'Invalid role ID format');
+                }
+
+                // Allow if user is accessing their own role
+                if (req.params.roleId === requestingUser.role._id.toString()) {
+                    return next();
+                }
+
+                const targetRole = await RoleModel.findById(req.params.roleId).lean();
+                if (!targetRole) {
+                    throw createHttpError(404, 'Role not found');
+                }
+
+                // Check if requesting user's role has the target role in its descendants
+                if (!requestingUser.role.descendants.includes(targetRole._id)) {
+                    throw createHttpError(403, 'You cannot access roles with this level');
                 }
             }
             next()
