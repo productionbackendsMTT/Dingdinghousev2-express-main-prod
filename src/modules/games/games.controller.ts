@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { GameService } from "./games.service";
-import { GameStatus } from './games.model';
+import { GameStatus, IGame } from './games.model';
 import createHttpError from 'http-errors';
 import { successResponse } from '../../utils';
+import mongoose from 'mongoose';
 
 
 export class GameController {
@@ -96,18 +97,67 @@ export class GameController {
 
     async updateGame(req: Request, res: Response, next: NextFunction) {
         try {
-            const { name, description, url, type, category, status, tag, slug } = req.body;
+
+            if (!req.params.id) {
+                throw createHttpError.BadRequest('Game ID is required');
+            }
+
+            if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+                throw createHttpError.BadRequest('Invalid game ID');
+            }
+            const hasBodyUpdates = Object.keys(req.body).length > 0;
+            const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+            const hasFileUpdates = files && (
+                files['thumbnail']?.[0] ||
+                files['payout']?.[0]
+            );
+
+            if (!hasBodyUpdates && !hasFileUpdates) {
+                throw createHttpError.BadRequest('No updates provided - please provide either field updates or files to update');
+            }
+
+            // Build update object with only provided fields
+            const updateData: Partial<IGame> = {};
+            const allowedFields = ['name', 'description', 'url', 'type', 'category', 'status', 'tag', 'slug'] as const;
+            type AllowedField = typeof allowedFields[number];
+
+            allowedFields.forEach((field: AllowedField) => {
+                const value = req.body[field];
+                if (value !== undefined && value !== '') {
+                    (updateData[field as keyof IGame] as any) = value;
+                }
+            });
 
             // Validate status if provided
-            if (status && !Object.values(GameStatus).includes(status)) {
+            if (updateData.status && !Object.values(GameStatus).includes(updateData.status)) {
                 throw createHttpError.BadRequest('Invalid status value');
             }
 
-            const game = await this.gameService.updateGame(req.params.id, req.body);
-            res.json({
-                success: true,
-                data: game
-            });
+
+            let thumbnailBuffer: Buffer | undefined;
+            if (files?.thumbnail?.[0]) {
+                thumbnailBuffer = files.thumbnail[0].buffer;
+            }
+
+            let payoutContent: any;
+            if (files?.payout?.[0]) {
+                try {
+                    payoutContent = JSON.parse(files.payout[0].buffer.toString());
+                } catch (error) {
+                    throw createHttpError.BadRequest('Invalid payout JSON format');
+                }
+            }
+
+            const game = await this.gameService.updateGame(
+                req.params.id,
+                Object.keys(updateData).length > 0 ? updateData : {},
+                thumbnailBuffer,
+                payoutContent
+            );
+            return res.status(200).json(
+                successResponse(game, 'Game updated successfully')
+            );
         } catch (error) {
             next(error);
         }
@@ -115,8 +165,12 @@ export class GameController {
 
     async deleteGame(req: Request, res: Response, next: NextFunction) {
         try {
+            if (!req.params.id) {
+                throw createHttpError.BadRequest('Game ID is required');
+            }
+
             await this.gameService.deleteGame(req.params.id);
-            res.status(204).send();
+            res.status(200).json(successResponse(null, 'Game deleted successfully'));
         } catch (error) {
             next(error);
         }

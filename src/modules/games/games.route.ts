@@ -13,8 +13,8 @@ const resource = Resource.GAMES;
 
 gamesRoutes.post('/', authHandler, checkPermission(resource, 'w'), upload.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'payout', maxCount: 1 }]), gamesController.createGame);
 gamesRoutes.get('/', authHandler, checkPermission(resource, 'r'), gamesController.getGames);
-gamesRoutes.get('/:id', gamesController.getGameById);
-gamesRoutes.put('/:id', gamesController.updateGame);
-gamesRoutes.delete('/:id', gamesController.deleteGame);
+gamesRoutes.get('/:id', authHandler, checkPermission(resource, 'r'), gamesController.getGameById);
+gamesRoutes.put('/:id', authHandler, checkPermission(resource, 'w'), upload.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'payout', maxCount: 1 }]), gamesController.updateGame);
+gamesRoutes.delete('/:id', authHandler, checkPermission(resource, 'x'), gamesController.deleteGame);
 
 export default gamesRoutes;

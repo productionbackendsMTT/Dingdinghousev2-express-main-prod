@@ -23,7 +23,8 @@ export class GameService {
         try {
             // 1. Check existing game
             const existingGame = await GameModel.findOne({
-                $or: [{ name: gameData.name }, { tag: gameData.tag }]
+                $or: [{ name: gameData.name }, { tag: gameData.tag }],
+                status: { $ne: GameStatus.DELETED }
             }).select('_id').lean().session(session);
 
             if (existingGame) {
@@ -84,7 +85,9 @@ export class GameService {
             limit: number
         }
     }> {
-        const filter = status ? { status } : {};
+        const baseFilter = { status: { $ne: GameStatus.DELETED } };
+        const filter = status ? { ...baseFilter, status } : baseFilter;
+
         const [games, total] = await Promise.all([
             GameModel.find(filter)
                 .sort({ order: 1, createdAt: -1 })
@@ -110,47 +113,104 @@ export class GameService {
             throw createHttpError.BadRequest('Invalid game ID format')
         }
 
-        const game = await GameModel.findById(id).populate<{ payout: mongoose.Types.ObjectId }>('payout').lean<IGame>().exec();
+        const game = await GameModel
+            .findOne({
+                _id: id,
+                status: { $ne: GameStatus.DELETED }
+            })
+            .populate<{ payout: mongoose.Types.ObjectId }>('payout')
+            .lean<IGame>()
+            .exec();
 
         if (!game) throw createHttpError.NotFound('Game not found');
         return game;
     }
 
-    async updateGame(id: string, gameData: Partial<IGame>): Promise<IGame> {
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            throw createHttpError.BadRequest('Invalid game ID format');
-        }
+    async updateGame(id: string, updateData: Partial<IGame>, thumbnailBuffer?: Buffer, payoutContent?: any): Promise<IGame> {
+        const session = await mongoose.startSession();
+        session.startTransaction();
 
-        // Check for unique constraints
-        if (gameData.name || gameData.tag) {
-            const existingGame = await GameModel.findOne({
-                $and: [
-                    { _id: { $ne: id } },
+        try {
+            // 1. First check if game exists
+            const existingGame = await GameModel.findById(id)
+                .populate('payout')
+                .session(session);
+
+            if (!existingGame) {
+                throw createHttpError.NotFound('Game not found');
+            }
+
+            // 2. Check for duplicates if name or tag is being updated
+            if (updateData.name || updateData.tag) {
+                const duplicate = await GameModel.findOne({
+                    _id: { $ne: id },
+                    $or: [
+                        ...(updateData.name ? [{ name: updateData.name }] : []),
+                        ...(updateData.tag ? [{ tag: updateData.tag }] : [])
+                    ]
+                }).session(session);
+
+                if (duplicate) {
+                    throw createHttpError.Conflict('Game name or tag already exists');
+                }
+            }
+
+            // 3. Handle payout update if provided
+            if (payoutContent) {
+                const currentVersion = existingGame.payout ?
+                    (await PayoutModel.findById(existingGame.payout).lean())?.version || 0 : 0;
+
+                // Create new payout
+                const newPayout = await PayoutModel.create([{
+                    gameId: existingGame._id,
+                    version: currentVersion + 1,
+                    isActive: true,
+                    content: payoutContent
+                }], { session });
+
+                // Deactivate old payouts
+                await PayoutModel.updateMany(
                     {
-                        $or: [
-                            ...(gameData.name ? [{ name: gameData.name }] : []),
-                            ...(gameData.tag ? [{ tag: gameData.tag }] : [])
-                        ]
-                    }
-                ]
-            }).select('_id').lean();
+                        gameId: existingGame._id,
+                        _id: { $ne: newPayout[0]._id }
+                    },
+                    { isActive: false },
+                    { session }
+                );
 
-            if (existingGame) {
-                throw createHttpError.Conflict('Game name or tag already exists');
+                // Update game with new payout reference
+                updateData.payout = newPayout[0]._id;
             }
+
+            // 4. Handle thumbnail if provided
+            if (thumbnailBuffer) {
+                const uploadResult = await this.cloudinaryService.uploadImage(thumbnailBuffer);
+                updateData.thumbnail = uploadResult.secure_url;
+            }
+
+            // 5. Update game with all changes
+            const updatedGame = await GameModel.findByIdAndUpdate(
+                id,
+                { $set: updateData },
+                {
+                    new: true,
+                    runValidators: true,
+                    session
+                }
+            ).populate('payout');
+
+            if (!updatedGame) {
+                throw createHttpError.NotFound('Game not found');
+            }
+
+            await session.commitTransaction();
+            return updatedGame;
+        } catch (error) {
+            await session.abortTransaction();
+            throw error;
+        } finally {
+            session.endSession();
         }
-
-        const updatedGame = await GameModel.findByIdAndUpdate(
-            id,
-            gameData,
-            {
-                new: true,
-                runValidators: true
-            }
-        ).lean<IGame>().exec();
-
-        if (!updatedGame) throw createHttpError.NotFound('Game not found');
-        return updatedGame;
     }
 
     async deleteGame(id: string): Promise<void> {
@@ -158,17 +218,25 @@ export class GameService {
             throw createHttpError.BadRequest('Invalid game ID format');
         }
 
-        const game = await GameModel.findById(id).select('status').exec();
+        const game = await GameModel.findById(id).select('status name tag').exec();
 
         if (!game) throw createHttpError.NotFound('Game not found');
         if (game.status === GameStatus.DELETED) {
             throw createHttpError.Conflict('Game already deleted');
         }
 
-        // Soft delete using status change
+        // Update with deletion details
         const result = await GameModel.updateOne(
             { _id: id },
-            { $set: { status: GameStatus.DELETED } }
+            {
+                $set: {
+                    status: GameStatus.DELETED,
+                    deletedAt: new Date(),
+                    // Append random string to name/tag to free them up
+                    name: `${game.name}_deleted_${Date.now()}`,
+                    tag: `${game.tag}_deleted_${Date.now()}`
+                }
+            }
         ).exec();
 
         if (result.matchedCount === 0) {
