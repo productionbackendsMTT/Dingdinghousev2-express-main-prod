@@ -6,8 +6,6 @@ export enum DescendantOperation {
     REPLACE = 'replace'
 }
 
-export const ADMIN_ROLE_NAME = "admin";
-
 export enum RoleStatus {
     ACTIVE = 'active',
     DELETED = 'deleted'

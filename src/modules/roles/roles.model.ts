@@ -1,5 +1,6 @@
 import mongoose, { Model, Schema, Types } from "mongoose";
-import { ADMIN_ROLE_NAME, IRole, IRoleModel, RoleStatus } from "./roles.types";
+import { IRole, IRoleModel, RoleStatus } from "./roles.types";
+import { config } from "../../config/config";
 
 const RoleSchema = new Schema<IRole, IRoleModel>({
     name: {
@@ -21,8 +22,8 @@ const RoleSchema = new Schema<IRole, IRoleModel>({
 }, { timestamps: true });
 
 RoleSchema.pre('validate', async function (next) {
-    if (this.isNew && this.name !== ADMIN_ROLE_NAME) {
-        const adminRole = await RoleModel.findOne({ name: ADMIN_ROLE_NAME });
+    if (this.isNew && this.name !== config.root.role) {
+        const adminRole = await RoleModel.findOne({ name: config.root.role });
         if (adminRole) {
             adminRole.descendants.push(this._id);
             await adminRole.save();
@@ -32,10 +33,10 @@ RoleSchema.pre('validate', async function (next) {
 })
 
 RoleSchema.statics.ensureAdminRole = async function () {
-    const adminRole = await this.findOne({ name: ADMIN_ROLE_NAME });
+    const adminRole = await this.findOne({ name: config.root.role });
     if (!adminRole) {
         return await this.create({
-            name: ADMIN_ROLE_NAME,
+            name: config.root.role,
             descendants: [],
             status: RoleStatus.ACTIVE
         });

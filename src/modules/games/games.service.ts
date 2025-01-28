@@ -1,24 +1,78 @@
 import createHttpError from "http-errors";
 import GameModel, { GameStatus, IGame } from "./games.model";
 import mongoose from "mongoose";
+import PayoutModel from "../payouts/payouts.model";
+import { CloudinaryService } from "../../utils/cloudinary";
 
 export class GameService {
-    async createGame(gameData: IGame): Promise<IGame> {
-        const existingGame = await GameModel.findOne({
-            $or: [
-                { name: gameData.name },
-                { tag: gameData.tag }
-            ]
-        }).select('_id').lean();
+    private cloudinaryService: CloudinaryService;
 
-        if (existingGame) {
-            throw createHttpError.Conflict('Game name or tag already exists');
-        }
+    constructor() {
+        this.cloudinaryService = new CloudinaryService();
+    }
+
+    private async getNextGameOrder(): Promise<number> {
+        const lastGame = await GameModel.findOne().sort({ order: -1 }).select('order').lean<IGame>().exec();
+        return lastGame ? lastGame.order + 1 : 1;
+    }
+
+    async createGameWithPayout(gameData: { name: string, description: string, url: string, type: string, category: string, status: GameStatus, tag: string, slug: string }, thumbnailBuffer: Buffer, payoutContent?: any): Promise<IGame> {
+        const session = await mongoose.startSession();
+        session.startTransaction();
 
         try {
-            return await GameModel.create(gameData);
+            // 1. Check existing game
+            const existingGame = await GameModel.findOne({
+                $or: [{ name: gameData.name }, { tag: gameData.tag }]
+            }).select('_id').lean().session(session);
+
+            if (existingGame) {
+                throw createHttpError.Conflict('Game name or tag already exists');
+            }
+
+            // 2. Create initial game without thumbnail
+            const order = await this.getNextGameOrder();
+            const game = await GameModel.create([{
+                ...gameData,
+                order
+            }], { session });
+
+
+            // 3. Create payout if provided
+            let payoutId;
+            if (payoutContent) {
+                const payout = await PayoutModel.create([{
+                    gameId: game[0]._id,
+                    version: 1,
+                    isActive: true,
+                    content: payoutContent
+                }], { session });
+                payoutId = payout[0]._id;
+            }
+
+            // 4. Upload thumbnail
+            const thumbnailUploadResult = await this.cloudinaryService.uploadImage(thumbnailBuffer);
+
+            // 5. Update game with thumbnail and payout
+            const updatedGame = await GameModel.findByIdAndUpdate(
+                game[0]._id,
+                {
+                    thumbnail: thumbnailUploadResult.secure_url,
+                    ...(payoutId && { payout: payoutId })
+                },
+                { session, returnDocument: 'after' }
+            );
+            if (!updatedGame) {
+                throw createHttpError.NotFound('Game not found');
+            }
+
+            await session.commitTransaction();
+            return updatedGame;
         } catch (error) {
-            throw createHttpError.BadRequest(this.sanitizeMongoError(error));
+            await session.abortTransaction();
+            throw error;
+        } finally {
+            session.endSession();
         }
     }
 
@@ -33,7 +87,6 @@ export class GameService {
         const filter = status ? { status } : {};
         const [games, total] = await Promise.all([
             GameModel.find(filter)
-                .populate('payout')
                 .sort({ order: 1, createdAt: -1 })
                 .skip((page - 1) * limit)
                 .limit(limit)

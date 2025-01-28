@@ -1,4 +1,4 @@
-import { ADMIN_ROLE_NAME } from "../modules/roles/roles.types";
+import { config } from "../config/config";
 
 export enum Resource {
     USERS = 'users',
@@ -20,6 +20,6 @@ export const PERMISSION_PATTERN = /^[r-][w-][x-]$/;
 export const generateDefaultPermissions = (role: string) => {
     return Object.values(Resource).map(resource => ({
         resource,
-        permission: role === ADMIN_ROLE_NAME ? DEFAULT_ADMIN_PERMISSION : DEFAULT_USER_PERMISSION
+        permission: role === config.root.role ? DEFAULT_ADMIN_PERMISSION : DEFAULT_USER_PERMISSION
     }))
 }

@@ -1,9 +1,9 @@
 import mongoose, { model, Schema, Types } from "mongoose";
-import { ADMIN_NAME, ADMIN_PASSWORD, ADMIN_USERNAME, IToken, IUser, IUserModel, UserStatus } from "./users.types";
+import { IToken, IUser, IUserModel, UserStatus } from "./users.types";
 import { generateDefaultPermissions, PERMISSION_PATTERN, Resource } from "../../utils/resources";
 import bcrypt from 'bcrypt';
 import RoleModel from "../roles/roles.model";
-import { ADMIN_ROLE_NAME } from "../roles/roles.types";
+import { config } from "../../config/config";
 
 
 const TokenSchema = new Schema<IToken>({
@@ -81,7 +81,7 @@ UserSchema.pre('validate', async function (next) {
             throw new Error('Role is required');
         }
 
-        if (role?.name === ADMIN_ROLE_NAME) {
+        if (role?.name === config.root.role) {
             const existingAdmin = await UserModel.findOne({
                 'role': role._id,
                 '_id': { $ne: this._id } // Exclude current document
@@ -143,17 +143,20 @@ UserSchema.methods.getPermissionString = function (resource: Resource): string {
 
 UserSchema.statics.ensureAdminUser = async function () {
 
-    const adminRole = await RoleModel.findOne({ name: ADMIN_ROLE_NAME });
+    const adminRole = await RoleModel.findOne({ name: config.root.role });
     if (!adminRole) {
         throw new Error('Admin role must exist before creating admin user');
     }
 
-    const adminExists = await this.findOne({ username: ADMIN_USERNAME });
+    const adminExists = await this.findOne({ username: config.root.username });
     if (!adminExists) {
-        const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
+        if (!config.root.password) {
+            throw new Error('Root password must be defined in the configuration');
+        }
+        const hashedPassword = await bcrypt.hash(config.root.password, 10);
         return await this.create({
-            name: ADMIN_NAME,
-            username: ADMIN_USERNAME,
+            name: config.root.name,
+            username: config.root.username,
             password: hashedPassword,
             role: adminRole._id,
             status: UserStatus.ACTIVE,

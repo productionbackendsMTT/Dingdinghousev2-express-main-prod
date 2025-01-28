@@ -2,11 +2,6 @@ import { Model, Types } from "mongoose";
 import { IResourcePermission, Resource } from "../../utils/resources";
 import { IRole } from "../roles/roles.types";
 
-export const ADMIN_NAME = 'Administrator'
-export const ADMIN_USERNAME = 'admin';
-export const ADMIN_PASSWORD = 'admin123';
-
-
 export enum UserStatus {
     ACTIVE = 'active',
     INACTIVE = 'inactive',

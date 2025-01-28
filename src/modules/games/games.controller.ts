@@ -1,8 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { GameService } from "./games.service";
 import { GameStatus } from './games.model';
+import createHttpError from 'http-errors';
+import { successResponse } from '../../utils';
+
 
 export class GameController {
+
     constructor(private readonly gameService: GameService) {
         this.createGame = this.createGame.bind(this);
         this.getGames = this.getGames.bind(this);
@@ -13,11 +17,48 @@ export class GameController {
 
     async createGame(req: Request, res: Response, next: NextFunction) {
         try {
-            const game = await this.gameService.createGame(req.body);
-            res.status(201).json({
-                success: true,
-                data: game
-            });
+            // 1. Validate request body
+            const { name, description, url, type, category, status, tag, slug } = req.body;
+            if (!name || !url || !type || !category || !tag || !slug) {
+                throw createHttpError.BadRequest('Missing required fields');
+            }
+
+            if (status && !Object.values(GameStatus).includes(status)) {
+                throw createHttpError.BadRequest('Invalid status value');
+            }
+
+            // 2. Validate files
+            if (!req.files || !(req.files as { [fieldname: string]: Express.Multer.File[] })['thumbnail']?.[0]) {
+                throw createHttpError.BadRequest('Thumbnail is required');
+            }
+
+            const thumbnailBuffer = (req.files as { [fieldname: string]: Express.Multer.File[] })['thumbnail'][0].buffer;
+
+            // 3. Parse payout if exists
+            let payoutContent;
+            if (req.files && (req.files as { [fieldname: string]: Express.Multer.File[] })['payout']?.[0]) {
+                const payoutFile = (req.files as { [fieldname: string]: Express.Multer.File[] })['payout'][0];
+                payoutContent = JSON.parse(payoutFile.buffer.toString());
+            }
+
+            // 4. Create game with service
+            const game = await this.gameService.createGameWithPayout(
+                {
+                    name,
+                    description,
+                    url,
+                    type,
+                    category,
+                    status: status || GameStatus.ACTIVE,
+                    tag,
+                    slug
+                },
+                thumbnailBuffer,
+                payoutContent,
+
+            );
+
+            return res.status(201).json(successResponse(game, 'Game created successfully'));
         } catch (error) {
             next(error);
         }
@@ -29,13 +70,13 @@ export class GameController {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 10;
 
-            const result = await this.gameService.getGames(status, page, limit);
+            // Validate status if provided
+            if (status && !Object.values(GameStatus).includes(status)) {
+                throw createHttpError.BadRequest('Invalid status value');
+            }
 
-            res.json({
-                success: true,
-                data: result.data,
-                meta: result.meta
-            });
+            const result = await this.gameService.getGames(status, page, limit);
+            return res.status(200).json(successResponse(result.data, 'Games fetched successfully', result.meta));
         } catch (error) {
             next(error);
         }

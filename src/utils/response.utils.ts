@@ -1,11 +1,16 @@
-
-export const successResponse = (data: any, message = 'Successful') => {
-    return {
+export const successResponse = (data: any, message = 'Successful', meta?: { total?: number; page?: number; limit?: number }) => {
+    const response: any = {
         success: true,
         message,
-        data
+        data,
+    };
+
+    if (meta) {
+        response.meta = meta; // Include meta if provided (for paginated responses)
     }
-}
+
+    return response;
+};
 
 export const errorResponse = (status: number, message: string, errorStack = "") => {
     return {
@@ -13,7 +18,7 @@ export const errorResponse = (status: number, message: string, errorStack = "") 
         error: {
             status,
             message,
-            stack: errorStack
-        }
-    }
-}
+            stack: errorStack || undefined, // Include stack only if provided
+        },
+    };
+};

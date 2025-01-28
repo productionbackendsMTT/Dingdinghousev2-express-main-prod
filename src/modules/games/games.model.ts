@@ -27,7 +27,7 @@ export interface IGame extends Document {
 const GameSchema: Schema = new Schema({
     name: { type: String, required: true, unique: true },
     description: { type: String },
-    thumbnail: { type: String, required: true },
+    thumbnail: { type: String, required: false },
     url: { type: String, required: true },
     type: { type: String, required: true },
     category: { type: String },
@@ -35,7 +35,7 @@ const GameSchema: Schema = new Schema({
     tag: { type: String, required: true, unique: true },
     slug: { type: String },
     order: { type: Number },
-    payout: { type: mongoose.Types.ObjectId, ref: "Payout", required: true }
+    payout: { type: mongoose.Types.ObjectId, ref: "Payout", required: false }
 }, { timestamps: true });
 
 GameSchema.index({ name: 1 }, { unique: true });

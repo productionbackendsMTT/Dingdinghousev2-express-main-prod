@@ -24,7 +24,7 @@ class UserController {
             if (!requestingUser) {
                 throw createHttpError(400, 'Requesting user not found');
             }
-            res.status(200).json(successResponse({
+            const data = {
                 _id: requestingUser._id,
                 name: requestingUser.name,
                 username: requestingUser.username,
@@ -35,9 +35,9 @@ class UserController {
                 totalReceived: requestingUser.totalReceived,
                 lastLogin: requestingUser.lastLogin,
                 createdAt: requestingUser.createdAt,
-                updatedAt: requestingUser.updatedAt
-            },
-                'User details retrieved successfully'));
+                updatedAt: requestingUser.updatedAt,
+            };
+            res.status(200).json(successResponse(data, 'User details retrieved successfully'));
         } catch (error) {
             next(error);
         }
@@ -94,7 +94,8 @@ class UserController {
                 parseInt(limit as string, 10)
             );
 
-            res.status(200).json(successResponse({ users, total, page, limit }, 'Descendants retrieved successfully'));
+            const meta = { total, page: parseInt(page as string, 10), limit: parseInt(limit as string, 10) };
+            res.status(200).json(successResponse({ users }, 'Descendants retrieved successfully', meta));
         } catch (error) {
             next(error);
         }
@@ -157,8 +158,8 @@ class UserController {
                 parseInt(limit as string, 10)
             );
 
-            res.status(200).json(successResponse({ users, total, page, limit }, 'Descendants retrieved successfully'));
-
+            const meta = { total, page: parseInt(page as string, 10), limit: parseInt(limit as string, 10) };
+            res.status(200).json(successResponse({ users }, 'Descendants retrieved successfully', meta));
         } catch (error) {
             next(error);
         }

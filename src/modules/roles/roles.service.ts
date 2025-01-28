@@ -1,9 +1,10 @@
 import createHttpError from "http-errors";
 import RoleModel from "./roles.model";
 import mongoose, { Types } from "mongoose";
-import { ADMIN_ROLE_NAME, DescendantOperation, IRole, RoleStatus, IUpdateRoleParams } from "./roles.types";
+import { DescendantOperation, IRole, RoleStatus, IUpdateRoleParams } from "./roles.types";
 import { UserModel } from "../users";
 import { UserStatus } from "../users/users.types";
+import { config } from "../../config/config";
 
 
 
@@ -137,7 +138,7 @@ class RoleService {
             throw createHttpError(404, 'Active role not found');
         }
 
-        if (role.name === ADMIN_ROLE_NAME) {
+        if (role.name === config.root.role) {
             throw createHttpError.Forbidden('Cannot delete admin role');
         }
 
@@ -160,7 +161,7 @@ class RoleService {
                 });
 
                 await RoleModel.findOneAndUpdate(
-                    { name: ADMIN_ROLE_NAME },
+                    { name: config.root.role },
                     { $pull: { descendants: role._id } }
                 )
 
