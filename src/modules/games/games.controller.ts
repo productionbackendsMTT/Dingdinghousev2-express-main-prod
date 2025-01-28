@@ -96,6 +96,13 @@ export class GameController {
 
     async updateGame(req: Request, res: Response, next: NextFunction) {
         try {
+            const { name, description, url, type, category, status, tag, slug } = req.body;
+
+            // Validate status if provided
+            if (status && !Object.values(GameStatus).includes(status)) {
+                throw createHttpError.BadRequest('Invalid status value');
+            }
+
             const game = await this.gameService.updateGame(req.params.id, req.body);
             res.json({
                 success: true,
