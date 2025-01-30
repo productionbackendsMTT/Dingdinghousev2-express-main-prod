@@ -1,14 +1,16 @@
 import createHttpError from "http-errors";
 import GameModel, { GameStatus, IGame } from "./games.model";
 import mongoose from "mongoose";
-import PayoutModel from "../payouts/payouts.model";
 import { CloudinaryService } from "../../utils/cloudinary";
+import { PayoutService } from "../payouts/payout.service";
 
 export class GameService {
     private cloudinaryService: CloudinaryService;
+    private payoutService: PayoutService;
 
     constructor() {
         this.cloudinaryService = new CloudinaryService();
+        this.payoutService = new PayoutService();
     }
 
     private async getNextGameOrder(): Promise<number> {
@@ -16,7 +18,7 @@ export class GameService {
         return lastGame ? lastGame.order + 1 : 1;
     }
 
-    async createGameWithPayout(gameData: { name: string, description: string, url: string, type: string, category: string, status: GameStatus, tag: string, slug: string }, thumbnailBuffer: Buffer, payoutContent?: any): Promise<IGame> {
+    async createGame(gameData: { name: string, description: string, url: string, type: string, category: string, status: GameStatus, tag: string, slug: string }, thumbnailBuffer: Buffer, payout?: { content: any, filename: string }): Promise<IGame> {
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -40,16 +42,7 @@ export class GameService {
 
 
             // 3. Create payout if provided
-            let payoutId;
-            if (payoutContent) {
-                const payout = await PayoutModel.create([{
-                    gameId: game[0]._id,
-                    version: 1,
-                    isActive: true,
-                    content: payoutContent
-                }], { session });
-                payoutId = payout[0]._id;
-            }
+            const payoutId = payout ? await this.payoutService.createPayout(game[0]._id, payout, session) : null;
 
             // 4. Upload thumbnail
             const thumbnailUploadResult = await this.cloudinaryService.uploadImage(thumbnailBuffer);
@@ -77,7 +70,7 @@ export class GameService {
         }
     }
 
-    async getGames(status?: GameStatus, page: number = 1, limit: number = 10): Promise<{
+    async getGames(filter: any, page: number = 1, limit: number = 10): Promise<{
         data: IGame[],
         meta: {
             total: number,
@@ -85,9 +78,6 @@ export class GameService {
             limit: number
         }
     }> {
-        const baseFilter = { status: { $ne: GameStatus.DELETED } };
-        const filter = status ? { ...baseFilter, status } : baseFilter;
-
         const [games, total] = await Promise.all([
             GameModel.find(filter)
                 .sort({ order: 1, createdAt: -1 })
@@ -96,7 +86,7 @@ export class GameService {
                 .lean<IGame[]>()
                 .exec(),
             GameModel.countDocuments(filter)
-        ])
+        ]);
 
         return {
             data: games,
@@ -105,28 +95,38 @@ export class GameService {
                 page,
                 limit
             }
-        }
+        };
     }
 
-    async getGameById(id: string): Promise<IGame> {
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            throw createHttpError.BadRequest('Invalid game ID format')
+    async getGame({ id, tag, slug, name }: { id?: string; tag?: string; slug?: string; name?: string }): Promise<IGame> {
+        const filter: any = { status: { $ne: GameStatus.DELETED } };
+
+        if (id) {
+            if (!mongoose.Types.ObjectId.isValid(id)) {
+                throw createHttpError.BadRequest("Invalid game ID format");
+            }
+            filter._id = id;
+        } else if (tag) {
+            filter.tag = tag;
+        } else if (slug) {
+            filter.slug = slug;
+        } else if (name) {
+            filter.name = { $regex: new RegExp(`^${name}$`, "i") }; // Case-insensitive exact match
+        } else {
+            throw createHttpError.BadRequest("At least one identifier (id, tag, slug, name) is required");
         }
 
         const game = await GameModel
-            .findOne({
-                _id: id,
-                status: { $ne: GameStatus.DELETED }
-            })
-            .populate<{ payout: mongoose.Types.ObjectId }>('payout')
+            .findOne(filter)
+            .populate<{ payout: mongoose.Types.ObjectId }>("payout")
             .lean<IGame>()
             .exec();
 
-        if (!game) throw createHttpError.NotFound('Game not found');
+        if (!game) throw createHttpError.NotFound("Game not found");
         return game;
     }
 
-    async updateGame(id: string, updateData: Partial<IGame>, thumbnailBuffer?: Buffer, payoutContent?: any): Promise<IGame> {
+    async updateGame(id: string, updateData: Partial<IGame>, thumbnailBuffer?: Buffer, payout?: { content: any, filename: string }): Promise<IGame> {
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -156,30 +156,11 @@ export class GameService {
             }
 
             // 3. Handle payout update if provided
-            if (payoutContent) {
-                const currentVersion = existingGame.payout ?
-                    (await PayoutModel.findById(existingGame.payout).lean())?.version || 0 : 0;
-
-                // Create new payout
-                const newPayout = await PayoutModel.create([{
-                    gameId: existingGame._id,
-                    version: currentVersion + 1,
-                    isActive: true,
-                    content: payoutContent
-                }], { session });
-
-                // Deactivate old payouts
-                await PayoutModel.updateMany(
-                    {
-                        gameId: existingGame._id,
-                        _id: { $ne: newPayout[0]._id }
-                    },
-                    { isActive: false },
-                    { session }
-                );
-
-                // Update game with new payout reference
-                updateData.payout = newPayout[0]._id;
+            if (payout && payout.content && payout.filename) {
+                const newPayoutId = await this.payoutService.createPayout(existingGame._id, payout, session);
+                if (newPayoutId) {
+                    updateData.payout = newPayoutId;
+                }
             }
 
             // 4. Handle thumbnail if provided
@@ -232,7 +213,6 @@ export class GameService {
                 $set: {
                     status: GameStatus.DELETED,
                     deletedAt: new Date(),
-                    // Append random string to name/tag to free them up
                     name: `${game.name}_deleted_${Date.now()}`,
                     tag: `${game.tag}_deleted_${Date.now()}`
                 }
@@ -244,11 +224,36 @@ export class GameService {
         }
     }
 
-    private sanitizeMongoError(error: any): string {
-        if (error.name === 'ValidationError') {
-            return Object.values(error.errors).map((err: any) => err.message).join(' ');
+    async getGamePayouts(gameId: string): Promise<any> {
+        if (!mongoose.Types.ObjectId.isValid(gameId)) {
+            throw createHttpError.BadRequest('Invalid game ID format');
         }
 
-        return error.message;
+        const game = await GameModel.findById(gameId).lean();
+        if (!game) throw createHttpError.NotFound('Game not found');
+
+        return await this.payoutService.getPayoutByGame(gameId);
+    }
+
+    async activateGamePayout(gameId: string, payoutId: string): Promise<any> {
+        if (!mongoose.Types.ObjectId.isValid(gameId) || !mongoose.Types.ObjectId.isValid(payoutId)) {
+            throw createHttpError.BadRequest('Invalid game or payout ID format');
+        }
+
+        const game = await GameModel.findById(gameId).lean();
+        if (!game) throw createHttpError.NotFound('Game not found');
+
+        return await this.payoutService.activatePayout(payoutId);
+    }
+
+    async deleteGamePayout(gameId: string, payoutId: string): Promise<void> {
+        if (!mongoose.Types.ObjectId.isValid(gameId) || !mongoose.Types.ObjectId.isValid(payoutId)) {
+            throw createHttpError.BadRequest('Invalid game or payout ID format');
+        }
+
+        const game = await GameModel.findById(gameId).lean();
+        if (!game) throw createHttpError.NotFound('Game not found');
+
+        return await this.payoutService.deletePayout(payoutId);
     }
 }

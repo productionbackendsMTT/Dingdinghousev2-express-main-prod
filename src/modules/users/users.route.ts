@@ -15,6 +15,8 @@ userRoutes.get('/me/descendants', authHandler, userController.getDescendants);
 userRoutes.get('/:userId', authHandler, checkPermission(resource, 'r'), userController.getUserById);
 userRoutes.put('/:userId', authHandler, checkPermission(resource, 'w'), userController.updateUser);
 userRoutes.delete('/:userId', authHandler, checkPermission(resource, 'x'), userController.deleteUser);
+userRoutes.get('/:userId/favourite-games', authHandler, checkPermission(resource, 'r'), userController.getUserFavouriteGames);
+userRoutes.patch('/:userId/favourite-games', authHandler, checkPermission(resource, 'w'), userController.updateFavouriteGames);
 userRoutes.get('/:userId/descendants', authHandler, checkPermission(resource, 'r'), userController.getDescendantsOfUser);
 userRoutes.get('/:userId/permissions', authHandler, checkPermission(resource, 'r'), userController.getUserPermissions);
 userRoutes.patch('/:userId/permissions', authHandler, checkPermission(resource, 'w'), userController.updateUserPermissions);

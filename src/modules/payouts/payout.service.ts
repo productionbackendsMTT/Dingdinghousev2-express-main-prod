@@ -1,37 +1,67 @@
-import mongoose from "mongoose";
+import mongoose, { Types, ClientSession } from "mongoose";
 import { IPayout } from "./payouts.types";
 import createHttpError from "http-errors";
 import GameModel from "../games/games.model";
 import PayoutModel from "./payouts.model";
 
 export class PayoutService {
-    async createPayout(gameId: string, content: any, version: number): Promise<IPayout> {
+
+    async createPayout(gameId: Types.ObjectId, payoutFile: { content: any, filename: string }, session: ClientSession): Promise<Types.ObjectId | null> {
+        if (!payoutFile) return null;
+
+        const latestVersion = await this.getLatestPayoutVersion(gameId, session);
+        const nextVersion = latestVersion ? latestVersion + 1 : 1;
+
+        // Deactivate all previous payouts for this gameId
+        await PayoutModel.updateMany(
+            { gameId, isActive: true },
+            { $set: { isActive: false } },
+            { session }
+        ).exec();
+
+        // Create new active payout
+        const [payout] = await PayoutModel.create([{
+            gameId,
+            version: nextVersion,
+            isActive: true,
+            name: payoutFile.filename,
+            content: payoutFile.content
+        }], { session });
+
+        return payout._id;
+    }
+
+    async getLatestPayoutVersion(gameId: Types.ObjectId, session: ClientSession): Promise<number> {
+        const latestPayout = await PayoutModel.findOne({ gameId })
+            .sort({ version: -1 })
+            .select("version")
+            .session(session)
+            .lean();
+
+        return latestPayout ? latestPayout.version : 0;
+    }
+
+    async getPayoutByGame(gameId: string): Promise<IPayout[]> {
         if (!mongoose.Types.ObjectId.isValid(gameId)) {
             throw createHttpError.BadRequest("Invalid game ID");
         }
 
-        const game = await GameModel.findById(gameId);
-        if (!game) {
-            throw createHttpError.NotFound("Game not found");
-        }
-
-        const existingPayout = await PayoutModel.findOne({ gameId, version });
-        if (existingPayout) throw createHttpError.Conflict("A payout with this version already exists");
-
-        const payout = new PayoutModel({ gameId, content, version, isActive: true });
-        await payout.save();
-        return payout;
+        const payouts = await PayoutModel.find({ gameId })
+            .sort({ version: -1 })
+            .lean<IPayout[]>()
+            .exec();
+        return payouts;
     }
 
     async activatePayout(payoutId: string): Promise<IPayout> {
         if (!mongoose.Types.ObjectId.isValid(payoutId)) {
-            throw createHttpError.BadGateway("Invalid payout ID");
+            throw createHttpError.BadRequest("Invalid payout ID");
         }
 
         const session = await mongoose.startSession();
-        session.startTransaction();
 
         try {
+            session.startTransaction();
             const payout = await PayoutModel.findById(payoutId).session(session);
             if (!payout) throw createHttpError.NotFound("Payout not found");
 
@@ -40,7 +70,7 @@ export class PayoutService {
                 { gameId: payout.gameId, _id: { $ne: payout._id } },
                 { $set: { isActive: false } },
                 { session }
-            );
+            ).exec();
 
             // Activate this payout
             payout.isActive = true;
@@ -51,7 +81,7 @@ export class PayoutService {
                 { _id: payout.gameId },
                 { $set: { payout: payout._id } },
                 { session }
-            );
+            ).exec();
 
             await session.commitTransaction();
             return payout;
@@ -63,13 +93,32 @@ export class PayoutService {
         }
     }
 
-    async getPayoutByGame(gameId: string): Promise<IPayout[]> {
-        if (!mongoose.Types.ObjectId.isValid(gameId)) {
-            throw createHttpError.BadGateway("Invalid game ID");
+
+    async deletePayout(payoutId: string): Promise<void> {
+        if (!mongoose.Types.ObjectId.isValid(payoutId)) {
+            throw createHttpError.BadRequest("Invalid payout ID");
         }
 
-        const payouts = await PayoutModel.find({ gameId }).sort({ version: -1 });
-        return payouts;
+        const payout = await PayoutModel.findById(payoutId);
+        if (!payout) {
+            throw createHttpError.NotFound("Payout not found");
+        }
+
+        if (payout.isActive) {
+            const payoutCount = await PayoutModel.countDocuments({ gameId: payout.gameId });
+            if (payoutCount === 1) {
+                throw createHttpError.BadRequest("Cannot delete the only active payout for this game");
+            }
+        }
+
+        await PayoutModel.findByIdAndDelete(payoutId);
+
+        if (payout.isActive) {
+            const latestPayout = await PayoutModel.findOne({ gameId: payout.gameId }).sort({ version: -1 });
+            if (latestPayout) {
+                await this.activatePayout(latestPayout._id.toString())
+            }
+        }
     }
 
     async getActivePayout(gameId: string): Promise<IPayout | null> {
@@ -90,7 +139,7 @@ export class PayoutService {
             payoutId,
             { content },
             { new: true, runValidators: true }
-        );
+        ).exec();
 
         if (!payout) {
             throw createHttpError.NotFound("Payout not found");
@@ -99,21 +148,4 @@ export class PayoutService {
         return payout;
     }
 
-    async deletePayout(payoutId: string): Promise<void> {
-        if (!mongoose.Types.ObjectId.isValid(payoutId)) {
-            throw createHttpError.BadRequest("Invalid payout ID");
-        }
-
-        const payout = await PayoutModel.findByIdAndDelete(payoutId);
-        if (!payout) {
-            throw createHttpError.NotFound("Payout not found");
-        }
-
-        if (payout.isActive) {
-            const latestPayout = await PayoutModel.findOne({ gameId: payout.gameId }).sort({ version: -1 });
-            if (latestPayout) {
-                await this.activatePayout(latestPayout._id.toString())
-            }
-        }
-    }
 }

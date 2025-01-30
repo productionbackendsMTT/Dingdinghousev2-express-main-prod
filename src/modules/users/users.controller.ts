@@ -237,6 +237,57 @@ class UserController {
         }
     }
 
+    async getUserFavouriteGames(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { userId } = req.params;
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                throw createHttpError(400, 'Invalid user ID');
+            }
+
+            const favouriteGames = await this.userService.getUserFavouriteGames(
+                new mongoose.Types.ObjectId(userId)
+            );
+
+            res.status(200).json(successResponse(favouriteGames, 'Favourite games retrieved successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async updateFavouriteGames(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { requestingUser } = req as AuthRequest;
+            if (!requestingUser) {
+                throw createHttpError(400, 'Requesting user not found');
+            }
+
+            const { userId } = req.params;
+            const { game, action } = req.body; // `action` can be 'add' or 'remove'
+
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                throw createHttpError(400, 'Invalid user ID');
+            }
+
+            if (!game || typeof game !== 'string') {
+                throw createHttpError(400, 'Game must be a valid string');
+            }
+
+            if (!['add', 'remove'].includes(action)) {
+                throw createHttpError(400, 'Action must be either "add" or "remove"');
+            }
+
+            const updatedUser = await this.userService.updateFavouriteGames(
+                new mongoose.Types.ObjectId(userId),
+                new mongoose.Types.ObjectId(game),
+                action
+            );
+
+            res.status(200).json(successResponse(updatedUser, 'Favourite games updated successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
 }
 
 export default UserController;

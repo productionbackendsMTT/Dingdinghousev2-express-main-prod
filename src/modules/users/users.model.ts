@@ -55,7 +55,8 @@ const UserSchema = new Schema<IUser>({
     totalReceived: { type: Number, default: 0 },
     lastLogin: { type: Date, default: null },
     favouriteGames: {
-        type: [String],
+        type: [mongoose.Types.ObjectId],
+        ref: "Game",
         default: []
     },
     token: {

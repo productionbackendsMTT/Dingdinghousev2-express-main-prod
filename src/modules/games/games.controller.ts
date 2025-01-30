@@ -11,9 +11,12 @@ export class GameController {
     constructor(private readonly gameService: GameService) {
         this.createGame = this.createGame.bind(this);
         this.getGames = this.getGames.bind(this);
-        this.getGameById = this.getGameById.bind(this);
         this.updateGame = this.updateGame.bind(this);
         this.deleteGame = this.deleteGame.bind(this);
+        this.getGamePayouts = this.getGamePayouts.bind(this);
+        this.activateGamePayout = this.activateGamePayout.bind(this);
+        this.deleteGamePayout = this.deleteGamePayout.bind(this);
+        this.getGame = this.getGame.bind(this);
     }
 
     async createGame(req: Request, res: Response, next: NextFunction) {
@@ -37,13 +40,16 @@ export class GameController {
 
             // 3. Parse payout if exists
             let payoutContent;
+            let payoutFilename;
+
             if (req.files && (req.files as { [fieldname: string]: Express.Multer.File[] })['payout']?.[0]) {
                 const payoutFile = (req.files as { [fieldname: string]: Express.Multer.File[] })['payout'][0];
                 payoutContent = JSON.parse(payoutFile.buffer.toString());
+                payoutFilename = payoutFile.originalname;
             }
 
             // 4. Create game with service
-            const game = await this.gameService.createGameWithPayout(
+            const game = await this.gameService.createGame(
                 {
                     name,
                     description,
@@ -55,7 +61,10 @@ export class GameController {
                     slug
                 },
                 thumbnailBuffer,
-                payoutContent,
+                {
+                    content: payoutContent,
+                    filename: payoutFilename || ''
+                },
 
             );
 
@@ -67,25 +76,39 @@ export class GameController {
 
     async getGames(req: Request, res: Response, next: NextFunction) {
         try {
-            const status = req.query.status as GameStatus | undefined;
-            const page = parseInt(req.query.page as string) || 1;
-            const limit = parseInt(req.query.limit as string) || 10;
+            const { status, page = "1", limit = "10", ...filters } = req.query;
+            const parsedPage = parseInt(page as string, 10) || 1;
+            const parsedLimit = parseInt(limit as string, 10) || 10;
 
             // Validate status if provided
-            if (status && !Object.values(GameStatus).includes(status)) {
-                throw createHttpError.BadRequest('Invalid status value');
+            if (status && !Object.values(GameStatus).includes(status as GameStatus)) {
+                throw createHttpError.BadRequest("Invalid status value");
+            }
+            // Construct search filters dynamically
+            const filterQuery: any = { status: { $ne: GameStatus.DELETED } };
+
+            if (status) {
+                filterQuery.status = status;
             }
 
-            const result = await this.gameService.getGames(status, page, limit);
+            Object.keys(filters).forEach((key) => {
+                if (filters[key]) {
+                    filterQuery[key] = { $regex: filters[key], $options: "i" }; // Case-insensitive search
+                }
+            });
+
+            const result = await this.gameService.getGames(filterQuery, parsedPage, parsedLimit);
             return res.status(200).json(successResponse(result.data, 'Games fetched successfully', result.meta));
         } catch (error) {
             next(error);
         }
     }
 
-    async getGameById(req: Request, res: Response, next: NextFunction) {
+    async getGame(req: Request, res: Response, next: NextFunction) {
         try {
-            const game = await this.gameService.getGameById(req.params.id);
+            const { id, tag, slug, name } = req.params;
+            const game = await this.gameService.getGame({ id, tag, slug, name });
+
             res.json({
                 success: true,
                 data: game
@@ -141,8 +164,11 @@ export class GameController {
             }
 
             let payoutContent: any;
+            let payoutFilename: string = '';
+
             if (files?.payout?.[0]) {
                 try {
+                    payoutFilename = files.payout[0].originalname;
                     payoutContent = JSON.parse(files.payout[0].buffer.toString());
                 } catch (error) {
                     throw createHttpError.BadRequest('Invalid payout JSON format');
@@ -153,7 +179,10 @@ export class GameController {
                 req.params.id,
                 Object.keys(updateData).length > 0 ? updateData : {},
                 thumbnailBuffer,
-                payoutContent
+                {
+                    content: payoutContent,
+                    filename: payoutFilename || ''
+                }
             );
             return res.status(200).json(
                 successResponse(game, 'Game updated successfully')
@@ -171,6 +200,46 @@ export class GameController {
 
             await this.gameService.deleteGame(req.params.id);
             res.status(200).json(successResponse(null, 'Game deleted successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getGamePayouts(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = req.params;
+            const payouts = await this.gameService.getGamePayouts(id);
+            res.status(200).json(successResponse(payouts, 'Payouts fetched successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async activateGamePayout(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id, payoutId } = req.params;
+
+            if (!id || !payoutId) {
+                throw createHttpError.BadRequest('Game ID and Payout ID are required');
+            }
+
+            const payout = await this.gameService.activateGamePayout(id, payoutId);
+            res.status(200).json(successResponse(payout, 'Payout activated successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async deleteGamePayout(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id, payoutId } = req.params;
+
+            if (!id || !payoutId) {
+                throw createHttpError.BadRequest('Game ID and Payout ID are required');
+            }
+
+
+
         } catch (error) {
             next(error);
         }

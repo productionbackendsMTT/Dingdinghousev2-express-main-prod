@@ -7,6 +7,7 @@ import bcrypt from "bcrypt";
 import { IUser, PermissionOperation, UserStatus } from "./users.types";
 import { PERMISSION_PATTERN, Resource } from "../../utils/resources";
 import RoleModel from "../roles/roles.model";
+import GameModel from "../games/games.model";
 
 class UserService {
     private transactionService: TransactionService;
@@ -263,6 +264,69 @@ class UserService {
         });
         await user.save();
         return user;
+    }
+
+    async getUserFavouriteGames(userId: mongoose.Types.ObjectId) {
+        const user = await UserModel
+            .findById(userId)
+            .select('favouriteGames')
+            .populate({
+                path: 'favouriteGames',
+                select: '-payout', // Exclude payout
+            })
+            .lean();
+
+        return user?.favouriteGames || [];
+    }
+
+    async updateFavouriteGames(userId: mongoose.Types.ObjectId, gameId: mongoose.Types.ObjectId, action: 'add' | 'remove'): Promise<Partial<IUser>> {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            const user = await UserModel.findById(userId).session(session);
+            if (!user) {
+                throw createHttpError(404, 'User not found');
+            }
+
+            const game = await GameModel.findById(gameId).session(session);
+            if (!game) {
+                throw createHttpError(404, 'Game not found');
+            }
+
+            let updateQuery: any;
+            if (action === 'add') {
+                // Use $addToSet to add the game ID if it doesn't already exist
+                updateQuery = { $addToSet: { favouriteGames: gameId } };
+            } else if (action === 'remove') {
+                // Use $pull to remove the game ID if it exists
+                updateQuery = { $pull: { favouriteGames: gameId } };
+            } else {
+                throw createHttpError(400, 'Invalid action');
+            }
+
+            // Perform the update operation
+            const updatedUser = await UserModel.findByIdAndUpdate(
+                userId,
+                updateQuery,
+                { new: true, session } // Return the updated document
+            );
+
+            if (!updatedUser) {
+                throw createHttpError(404, 'User not found after update');
+            }
+
+
+            await session.commitTransaction();
+            session.endSession();
+
+            return { favouriteGames: updatedUser.favouriteGames };
+
+        } catch (error) {
+            await session.abortTransaction();
+            session.endSession();
+            throw error;
+        }
     }
 }
 
