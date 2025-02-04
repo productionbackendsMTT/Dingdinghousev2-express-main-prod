@@ -2,11 +2,11 @@
   "name": "dingding-house",
   "version": "1.0.0",
   "description": "A Node.js server project using TypeScript",
-  "main": "app.ts",
+  "main": "server.ts",
   "scripts": {
-    "start": "node app.js",
+    "start": "node server.js",
     "build": "tsc",
-    "dev": "tsc-watch --onSuccess \"nodemon dist/app.js\""
+    "dev": "tsc-watch --onSuccess \"nodemon dist/server.js\""
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
