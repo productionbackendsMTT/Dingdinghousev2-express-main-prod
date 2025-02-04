@@ -20,6 +20,7 @@ export interface IRole extends Document {
 
 export interface IRoleModel extends Model<IRole> {
     ensureAdminRole(): Promise<void>;
+    ensurePlayerRole(): Promise<void>;
 }
 
 export interface IUpdateRoleParams {

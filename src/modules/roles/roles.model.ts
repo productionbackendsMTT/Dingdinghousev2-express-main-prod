@@ -2,6 +2,8 @@ import mongoose, { Model, Schema, Types } from "mongoose";
 import { IRole, IRoleModel, RoleStatus } from "./roles.types";
 import { config } from "../../config/config";
 
+const PLAYER_ROLE = "player";
+
 const RoleSchema = new Schema<IRole, IRoleModel>({
     name: {
         type: String,
@@ -44,6 +46,17 @@ RoleSchema.statics.ensureAdminRole = async function () {
     return adminRole;
 };
 
+RoleSchema.statics.ensurePlayerRole = async function () {
+    const playerRole = await this.findOne({ name: PLAYER_ROLE });
+    if (!playerRole) {
+        return await this.create({
+            name: PLAYER_ROLE,
+            descendants: [],
+            status: RoleStatus.ACTIVE
+        })
+    }
+    return playerRole;
+}
 
 const RoleModel = mongoose.model<IRole, IRoleModel>("Role", RoleSchema);
 export default RoleModel;
