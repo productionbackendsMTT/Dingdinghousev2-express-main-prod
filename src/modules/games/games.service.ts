@@ -3,6 +3,7 @@ import GameModel, { GameStatus, IGame } from "./games.model";
 import mongoose from "mongoose";
 import { CloudinaryService } from "../../utils/cloudinary";
 import { PayoutService } from "../payouts/payout.service";
+import { create } from "domain";
 
 export class GameService {
     private cloudinaryService: CloudinaryService;
@@ -255,5 +256,130 @@ export class GameService {
         if (!game) throw createHttpError.NotFound('Game not found');
 
         return await this.payoutService.deletePayout(payoutId);
+    }
+
+    async reorderGames(reorderData: { gameId: string; order: number }[]): Promise<void> {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        try {
+            // Validate all IDs first
+            const invalidIds = reorderData.filter(({ gameId }) => !mongoose.Types.ObjectId.isValid(gameId));
+            if (invalidIds.length > 0) {
+                throw createHttpError.BadRequest(`Invalid game IDs: ${invalidIds.map(i => i.gameId).join(', ')}`);
+            }
+
+            // Verify all games exist
+            const gameIds = reorderData.map(item => item.gameId);
+            const existingGames = await GameModel.find({ _id: { $in: gameIds } })
+                .select('_id')
+                .session(session);
+
+            if (existingGames.length !== gameIds.length) {
+                const missingIds = gameIds.filter(id =>
+                    !existingGames.find(game => game._id.toString() === id)
+                );
+                throw createHttpError.NotFound(`Games not found: ${missingIds.join(', ')}`);
+            }
+
+            // Perform bulk update
+            const bulkOps = reorderData.map(({ gameId, order }) => ({
+                updateOne: {
+                    filter: { _id: gameId },
+                    update: { $set: { order } }
+                }
+            }));
+
+            await GameModel.bulkWrite(bulkOps, { session });
+            await session.commitTransaction();
+        } catch (error) {
+            await session.abortTransaction();
+            throw error;
+        } finally {
+            session.endSession();
+        }
+    }
+
+    async uploadGames(games: IGame[]): Promise<{ total: number; created: number, skipped: number, errors: string[] }> {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+
+        const result = {
+            total: games.length,
+            created: 0,
+            skipped: 0,
+            errors: [] as string[]
+        }
+
+        try {
+            for (const game of games) {
+                try {
+                    const existingGame = await GameModel.findOne({ $or: [{ name: game.name }, { tag: game.tag }] }).session(session);
+                    if (existingGame) {
+                        result.skipped++;
+                        result.errors.push(`Game ${game.name} already exists`);
+                        continue;
+                    }
+
+                    const order = await this.getNextGameOrder();
+
+                    // Create game without payout first
+                    const createdGame = await GameModel.create([{
+                        name: game.name,
+                        description: game.description,
+                        url: game.url,
+                        type: game.type,
+                        category: game.category,
+                        status: game.status || GameStatus.ACTIVE,
+                        tag: game.tag,
+                        slug: game.slug,
+                        thumbnail: game.thumbnail,
+                        order,
+                    }], { session });
+
+                    // Handle payout if exists
+                    if (game.payout) {
+                        const payoutId = await this.payoutService.createPayout(
+                            createdGame[0]._id,
+                            {
+                                content: (game.payout as any).content,
+                                filename: (game.payout as any).name
+                            },
+                            session
+                        );
+
+                        // Update game with payout reference
+                        await GameModel.findByIdAndUpdate(
+                            createdGame[0]._id,
+                            { payout: payoutId },
+                            { session }
+                        );
+                    }
+
+
+                    result.created++;
+                } catch (error) {
+                    if (error instanceof Error) {
+                        result.errors.push(`Failed to import ${game.name}: ${error.message}`);
+                    } else {
+                        result.errors.push(`Failed to import ${game.name}: Unknown error`);
+                    }
+                    result.skipped++;
+                }
+            }
+
+            await session.commitTransaction();
+            return result;
+        } catch (error) {
+            await session.abortTransaction();
+            throw error;
+        } finally {
+            session.endSession();
+        }
+    }
+
+    async downloadGames(): Promise<IGame[]> {
+        const games = await GameModel.find({ status: { $ne: GameStatus.DELETED } }).populate('payout').sort({ order: 1, createdAt: -1 }).lean<IGame[]>().exec();
+        return games;
     }
 }

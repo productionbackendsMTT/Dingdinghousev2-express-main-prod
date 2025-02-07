@@ -13,6 +13,9 @@ const resource = Resource.GAMES;
 
 gamesRoutes.post('/', authHandler, checkPermission(resource, 'w'), upload.fields([{ name: 'thumbnail', maxCount: 1 }, { name: 'payout', maxCount: 1 }]), gamesController.createGame);
 gamesRoutes.get('/', authHandler, checkPermission(resource, 'r'), gamesController.getGames);
+gamesRoutes.post('/upload', authHandler, checkPermission(resource, 'w'), upload.fields([{ name: 'games', maxCount: 1 }]), gamesController.uploadGames);
+gamesRoutes.get('/download', authHandler, checkPermission(resource, 'r'), gamesController.downloadGames);
+gamesRoutes.put('/reorder', authHandler, checkPermission(resource, 'w'), gamesController.reorderGames);
 
 gamesRoutes.get('/:id', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
 gamesRoutes.get('/:id/payouts', authHandler, checkPermission(resource, 'r'), gamesController.getGamePayouts);
@@ -24,6 +27,7 @@ gamesRoutes.delete('/:id', authHandler, checkPermission(resource, 'x'), gamesCon
 gamesRoutes.get('/tag/:tag', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
 gamesRoutes.get('/slug/:slug', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
 gamesRoutes.get('/name/:name', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
+
 
 
 export default gamesRoutes;

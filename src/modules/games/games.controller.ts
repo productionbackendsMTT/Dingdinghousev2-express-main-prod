@@ -17,6 +17,9 @@ export class GameController {
         this.activateGamePayout = this.activateGamePayout.bind(this);
         this.deleteGamePayout = this.deleteGamePayout.bind(this);
         this.getGame = this.getGame.bind(this);
+        this.reorderGames = this.reorderGames.bind(this);
+        this.uploadGames = this.uploadGames.bind(this);
+        this.downloadGames = this.downloadGames.bind(this);
     }
 
     async createGame(req: Request, res: Response, next: NextFunction) {
@@ -237,9 +240,101 @@ export class GameController {
             if (!id || !payoutId) {
                 throw createHttpError.BadRequest('Game ID and Payout ID are required');
             }
+        } catch (error) {
+            next(error);
+        }
+    }
 
+    async reorderGames(req: Request, res: Response, next: NextFunction) {
+        try {
+            const reorderData = req.body;
 
+            if (!Array.isArray(reorderData)) {
+                throw createHttpError.BadRequest('Request body must be an array');
+            }
 
+            if (!reorderData.every(item => item.gameId && typeof item.order === 'number')) {
+                throw createHttpError.BadRequest('Each item must have gameId and order');
+            }
+
+            await this.gameService.reorderGames(reorderData);
+            return res.status(200).json(successResponse(null, 'Games reordered successfully'));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async uploadGames(req: Request, res: Response, next: NextFunction) {
+        try {
+            if (!req.files || !(req.files as { [fieldname: string]: Express.Multer.File[] })['games']?.[0]) {
+                throw createHttpError.BadRequest('Games JSON file is required');
+            }
+
+            const gamesFile = (req.files as { [fieldname: string]: Express.Multer.File[] })['games'][0];
+            let gamesData: any[];
+
+            try {
+                const parsedData = JSON.parse(gamesFile.buffer.toString());
+                if (!parsedData || typeof parsedData !== 'object' || !Array.isArray(parsedData.data)) {
+                    throw new Error('Invalid format');
+                }
+                gamesData = parsedData.data;
+            } catch (error) {
+                throw createHttpError.BadRequest('Invalid JSON format');
+            }
+
+            const result = await this.gameService.uploadGames(gamesData);
+            return res.status(201).json({
+                success: true,
+                data: {
+                    total: result.total,
+                    created: result.created,
+                    skipped: result.skipped,
+                    errors: result.errors
+                },
+                message: 'Games imported successfully'
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async downloadGames(req: Request, res: Response, next: NextFunction) {
+        try {
+            const games = await this.gameService.downloadGames();
+            if (!games || games.length === 0) {
+                throw createHttpError.NotFound("No games found to download");
+            }
+
+            const formattedGames = games.map(game => ({
+                name: game.name,
+                description: game.description,
+                url: game.url,
+                type: game.type,
+                category: game.category,
+                status: game.status,
+                tag: game.tag,
+                slug: game.slug,
+                thumbnail: game.thumbnail,
+                order: game.order,
+                payout: game.payout,
+                createdAt: game.createdAt,
+                updatedAt: game.updatedAt
+            }));
+
+            const filename = `games_export_${new Date().toISOString()}.json`;
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+
+            return res.json({
+                success: true,
+                data: formattedGames,
+                meta: {
+                    total: formattedGames.length,
+                    exportedAt: new Date().toISOString()
+                }
+            });
         } catch (error) {
             next(error);
         }
