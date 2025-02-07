@@ -72,11 +72,12 @@ export class GameService {
     }
 
     async getGames(filter: any, page: number = 1, limit: number = 10): Promise<{
-        data: IGame[],
+        games: IGame[],
         meta: {
             total: number,
             page: number,
-            limit: number
+            limit: number,
+            pages: number
         }
     }> {
         const [games, total] = await Promise.all([
@@ -90,11 +91,12 @@ export class GameService {
         ]);
 
         return {
-            data: games,
+            games: games,
             meta: {
                 total,
                 page,
-                limit
+                limit,
+                pages: Math.ceil(total / limit)
             }
         };
     }

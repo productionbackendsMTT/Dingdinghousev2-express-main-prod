@@ -101,7 +101,7 @@ export class GameController {
             });
 
             const result = await this.gameService.getGames(filterQuery, parsedPage, parsedLimit);
-            return res.status(200).json(successResponse(result.data, 'Games fetched successfully', result.meta));
+            return res.status(200).json(successResponse(result, 'Games fetched successfully'));
         } catch (error) {
             next(error);
         }

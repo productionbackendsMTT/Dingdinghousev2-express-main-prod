@@ -1,13 +1,9 @@
-export const successResponse = (data: any, message = 'Successful', meta?: { total?: number; page?: number; limit?: number }) => {
+export const successResponse = (data: any, message = 'Successful') => {
     const response: any = {
         success: true,
         message,
         data,
     };
-
-    if (meta) {
-        response.meta = meta; // Include meta if provided (for paginated responses)
-    }
 
     return response;
 };

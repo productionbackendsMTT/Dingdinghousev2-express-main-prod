@@ -87,15 +87,14 @@ class UserController {
 
             const { page = 1, limit = 10, ...filters } = req.query;
 
-            const { users, total } = await this.userService.getDescendants(
+            const result = await this.userService.getDescendants(
                 new mongoose.Types.ObjectId(userId),
                 filters,
                 parseInt(page as string, 10),
                 parseInt(limit as string, 10)
             );
 
-            const meta = { total, page: parseInt(page as string, 10), limit: parseInt(limit as string, 10) };
-            res.status(200).json(successResponse({ users }, 'Descendants retrieved successfully', meta));
+            res.status(200).json(successResponse(result, 'Descendants retrieved successfully'));
         } catch (error) {
             next(error);
         }
@@ -151,15 +150,14 @@ class UserController {
             }
 
             const { page = 1, limit = 10, ...filters } = req.query;
-            const { users, total } = await this.userService.getDescendants(
+            const result = await this.userService.getDescendants(
                 requestingUser._id,
                 filters,
                 parseInt(page as string, 10),
                 parseInt(limit as string, 10)
             );
 
-            const meta = { total, page: parseInt(page as string, 10), limit: parseInt(limit as string, 10) };
-            res.status(200).json(successResponse({ users }, 'Descendants retrieved successfully', meta));
+            res.status(200).json(successResponse(result, 'Descendants retrieved successfully'));
         } catch (error) {
             next(error);
         }

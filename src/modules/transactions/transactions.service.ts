@@ -153,19 +153,38 @@ class TransactionService {
     }
 
     // Get all transactions
-    async getAll(): Promise<ITransaction[]> {
-        const transactions = await TransactionModel.find()
-            .populate({
-                path: 'sender',
-                select: 'name username balance role',
-                match: { status: { $ne: UserStatus.DELETED } }
-            })
-            .populate({
-                path: 'receiver',
-                select: 'name username balance role',
-                match: { status: { $ne: UserStatus.DELETED } }
-            });
-        return transactions;
+    async getAll(filters: any = {}, options: any = {}) {
+        const { page = 1, limit = 10, sort = { createdAt: -1 } } = options;
+
+
+        const [transactions, total] = await Promise.all([
+            TransactionModel.find(filters)
+                .sort(sort)
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .populate({
+                    path: 'sender',
+                    select: 'name username balance role',
+                    match: { status: { $ne: UserStatus.DELETED } }
+                })
+                .populate({
+                    path: 'receiver',
+                    select: 'name username balance role',
+                    match: { status: { $ne: UserStatus.DELETED } }
+                })
+                .lean(),
+            TransactionModel.countDocuments(filters)
+        ]);
+
+        return {
+            transactions,
+            meta: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        };
     }
 
     // Get all transactions for a user and their descendants using materialized path
