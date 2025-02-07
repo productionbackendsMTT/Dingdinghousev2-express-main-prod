@@ -38,29 +38,60 @@ class RoleService {
         return role;
     }
 
-    async getAllRoles(page: number = 1, limit: number = 10, search?: string, requestingRoleId?: Types.ObjectId): Promise<{ roles: IRole[], total: number }> {
-        const query: { status: RoleStatus; name?: RegExp, _id?: { $in: Types.ObjectId[] } } = {
-            status: RoleStatus.ACTIVE
+    async getAllRoles(filters: any = {}, options: any = {}): Promise<{
+        data: IRole[],
+        meta: {
+            total: number,
+            page: number,
+            limit: number,
+            pages: number
+        }
+    }> {
+        const {
+            page = 1,
+            limit = 10,
+            search,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+            requestingRoleId
+        } = options;
+
+
+        const query: { status: RoleStatus; name?: RegExp; _id?: { $in: Types.ObjectId[] } } = {
+            status: RoleStatus.ACTIVE,
+            ...filters
         };
 
+        // Add search filter
         if (search) {
             query['name'] = new RegExp(search, 'i');
         }
 
+        // Add role hierarchy filter
         if (requestingRoleId) {
             const requestingRole = await RoleModel.findById(requestingRoleId);
             if (requestingRole) {
-                query['_id'] = { $in: requestingRole.descendants };
+                query['_id'] = { $in: [...requestingRole.descendants] };
             }
         }
 
-        const total = await RoleModel.countDocuments(query);
-        const roles = await RoleModel.find(query)
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .sort({ createdAt: -1 });
+        const [roles, total] = await Promise.all([
+            RoleModel.find(query)
+                .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+                .skip((page - 1) * limit)
+                .limit(limit),
+            RoleModel.countDocuments(query)
+        ]);
 
-        return { roles, total };
+        return {
+            data: roles,
+            meta: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        };
     }
 
     async validateRole(requestingRoleId: Types.ObjectId, targetRoleId: Types.ObjectId): Promise<void> {

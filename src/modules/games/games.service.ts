@@ -72,7 +72,7 @@ export class GameService {
     }
 
     async getGames(filter: any, page: number = 1, limit: number = 10): Promise<{
-        games: IGame[],
+        data: IGame[],
         meta: {
             total: number,
             page: number,
@@ -91,7 +91,7 @@ export class GameService {
         ]);
 
         return {
-            games: games,
+            data: games,
             meta: {
                 total,
                 page,

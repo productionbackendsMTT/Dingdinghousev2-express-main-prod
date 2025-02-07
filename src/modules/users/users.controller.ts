@@ -94,7 +94,7 @@ class UserController {
                 parseInt(limit as string, 10)
             );
 
-            res.status(200).json(successResponse(result, 'Descendants retrieved successfully'));
+            res.status(200).json(successResponse(result.data, 'Descendants retrieved successfully', result.meta));
         } catch (error) {
             next(error);
         }
@@ -157,7 +157,7 @@ class UserController {
                 parseInt(limit as string, 10)
             );
 
-            res.status(200).json(successResponse(result, 'Descendants retrieved successfully'));
+            res.status(200).json(successResponse(result.data, 'Descendants retrieved successfully', result.meta));
         } catch (error) {
             next(error);
         }

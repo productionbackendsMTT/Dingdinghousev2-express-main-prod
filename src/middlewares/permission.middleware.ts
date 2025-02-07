@@ -20,7 +20,7 @@ export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => 
             }
 
             // If dealing with user-related operations
-            if (resource === Resource.USERS && req.params.userId) {
+            if ((resource === Resource.USERS || resource === Resource.TRANSACTIONS) && req.params.userId) {
                 if (!mongoose.isValidObjectId(req.params.userId)) {
                     throw createHttpError(400, 'Invalid user ID format');
                 }

@@ -34,7 +34,7 @@ class UserService {
     }
 
     // Get all descendants of a user with pagination and filtering
-    async getDescendants(userId: mongoose.Types.ObjectId, filters: any, page: number, limit: number): Promise<{ users: IUser[], meta: { total: number, page: number, limit: number, pages: number } }> {
+    async getDescendants(userId: mongoose.Types.ObjectId, filters: any, page: number, limit: number): Promise<{ data: IUser[], meta: { total: number, page: number, limit: number, pages: number } }> {
         const user = await UserModel.findById(userId);
         if (!user) {
             throw createHttpError(404, 'User not found');
@@ -78,7 +78,7 @@ class UserService {
             .limit(limit);
 
         return {
-            users,
+            data: users,
             meta: {
                 total,
                 page,

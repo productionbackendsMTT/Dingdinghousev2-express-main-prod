@@ -26,8 +26,20 @@ class TransactionController {
     async getTransactionsByUser(req: Request, res: Response, next: NextFunction) {
         try {
             const { userId } = req.params;
-            const transactions = await this.transactionService.getByUser(new mongoose.Types.ObjectId(userId));
-            res.status(200).json(successResponse(transactions));
+            const { page = "1", limit = "10", ...filters } = req.query;
+
+            const options = {
+                page: parseInt(page as string, 10),
+                limit: parseInt(limit as string, 10)
+            };
+
+
+            const result = await this.transactionService.getByUser(
+                new mongoose.Types.ObjectId(userId),
+                filters,
+                options
+            );
+            res.status(200).json(successResponse(result.data, 'Transactions retrieved successfully', result.meta));
         } catch (error) {
             next(error);
         }
@@ -70,8 +82,8 @@ class TransactionController {
                 sort: { [sortBy as string]: sortOrder === 'asc' ? 1 : -1 }
             };
 
-            const transactions = await this.transactionService.getAll(filters, options);
-            res.status(200).json(successResponse(transactions, 'Transactions retrieved successfully'));
+            const result = await this.transactionService.getAll(filters, options);
+            res.status(200).json(successResponse(result.data, 'Transactions retrieved successfully', result.meta));
         } catch (error) {
             next(error);
         }
@@ -80,8 +92,20 @@ class TransactionController {
     async getTransactionsByUserAndDescendants(req: Request, res: Response, next: NextFunction) {
         try {
             const { userId } = req.params;
-            const transactions = await this.transactionService.getByUserAndDescendants(new mongoose.Types.ObjectId(userId));
-            res.status(200).json(successResponse(transactions));
+            const { page = "1", limit = "10", ...filters } = req.query;
+
+            const options = {
+                page: parseInt(page as string, 10),
+                limit: parseInt(limit as string, 10)
+            };
+
+
+            const result = await this.transactionService.getByUserAndDescendants(
+                new mongoose.Types.ObjectId(userId),
+                filters,
+                options
+            );
+            res.status(200).json(successResponse(result.data, 'Transactions retrieved successfully', result.meta));
         } catch (error) {
             next(error);
         }

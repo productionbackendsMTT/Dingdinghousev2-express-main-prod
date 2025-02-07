@@ -86,35 +86,86 @@ class TransactionService {
     }
 
     // Get all transactions for a specific user
-    async getByUser(userId: mongoose.Types.ObjectId): Promise<ITransaction[]> {
-        const transactions = await TransactionModel.find({
-            $or: [{ sender: userId }, { receiver: userId }]
-        })
-            .populate({
-                path: 'sender',
-                select: 'name username balance role',
-                match: { status: { $ne: UserStatus.DELETED } }
-            })
-            .populate({
-                path: 'receiver',
-                select: 'name username balance role',
-                match: { status: { $ne: UserStatus.DELETED } }
-            });
+    async getByUser(userId: mongoose.Types.ObjectId, filters: any = {}, options: any = {}): Promise<{ data: ITransaction[], meta: { total: number, page: number, limit: number, pages: number } }> {
+        const { page = 1, limit = 10, sort = { createdAt: -1 } } = options;
 
-        return transactions;
+        const query = {
+            $or: [{ sender: userId }, { receiver: userId }],
+            ...filters
+        };
+
+        const [transactions, total] = await Promise.all([
+            TransactionModel.find(query)
+                .sort(sort)
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .populate({
+                    path: 'sender',
+                    select: 'name username balance role',
+                    match: { status: { $ne: UserStatus.DELETED } }
+                })
+                .populate({
+                    path: 'receiver',
+                    select: 'name username balance role',
+                    match: { status: { $ne: UserStatus.DELETED } }
+                })
+                .lean(),
+            TransactionModel.countDocuments(query)
+        ]);
+
+        return {
+            data: transactions as ITransaction[],
+            meta: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        };
     }
 
     // Get all transactions performed by a user's users
-    async getByUsers(users: mongoose.Types.ObjectId[], startDate: Date, endDate: Date): Promise<ITransaction[]> {
-        const transactions = await TransactionModel.find({
+    async getByUsers(users: mongoose.Types.ObjectId[], startDate: Date, endDate: Date, options: any = {}): Promise<{
+        data: ITransaction[],
+        meta: { total: number; page: number; limit: number; pages: number; }
+    }> {
+        const { page = 1, limit = 10, sort = { createdAt: -1 } } = options;
+        const query = {
             $or: [
                 { sender: { $in: users } },
                 { receiver: { $in: users } }
             ],
             createdAt: { $gte: startDate, $lte: endDate }
-        });
+        };
 
-        return transactions;
+        const [transactions, total] = await Promise.all([
+            TransactionModel.find(query)
+                .sort(sort)
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .populate({
+                    path: 'sender',
+                    select: 'name username balance role',
+                    match: { status: { $ne: UserStatus.DELETED } }
+                })
+                .populate({
+                    path: 'receiver',
+                    select: 'name username balance role',
+                    match: { status: { $ne: UserStatus.DELETED } }
+                })
+                .lean(),
+            TransactionModel.countDocuments(query)
+        ]);
+
+        return {
+            data: transactions,
+            meta: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        };
     }
 
     // Get total received and spent amounts for a user within a date range
@@ -177,7 +228,7 @@ class TransactionService {
         ]);
 
         return {
-            transactions,
+            data: transactions,
             meta: {
                 total,
                 page,
@@ -188,7 +239,12 @@ class TransactionService {
     }
 
     // Get all transactions for a user and their descendants using materialized path
-    async getByUserAndDescendants(userId: mongoose.Types.ObjectId): Promise<ITransaction[]> {
+    async getByUserAndDescendants(userId: mongoose.Types.ObjectId, filters: any = {}, options: any = {}): Promise<{
+        data: ITransaction[],
+        meta: { total: number; page: number; limit: number; pages: number; }
+    }> {
+        const { page = 1, limit = 10, sort = { createdAt: -1 } } = options;
+
         const user = await UserModel.findById(userId);
         if (!user) {
             throw createHttpError(404, "User not found");
@@ -197,21 +253,41 @@ class TransactionService {
         const descendants = await user.getDescendants();
         const userIds = [user._id, ...descendants.map(descendant => descendant._id)];
 
-        const transactions = await TransactionModel.find({
-            $or: [{ sender: { $in: userIds } }, { receiver: { $in: userIds } }]
-        })
-            .populate({
-                path: 'sender',
-                select: 'name username balance role',
-                match: { status: { $ne: UserStatus.DELETED } }
-            })
-            .populate({
-                path: 'receiver',
-                select: 'name username balance role',
-                match: { status: { $ne: UserStatus.DELETED } }
-            });
 
-        return transactions;
+        const query = {
+            $or: [{ sender: { $in: userIds } }, { receiver: { $in: userIds } }],
+            ...filters
+        };
+
+        const [transactions, total] = await Promise.all([
+            TransactionModel.find(query)
+                .sort(sort)
+                .skip((page - 1) * limit)
+                .limit(limit)
+                .populate({
+                    path: 'sender',
+                    select: 'name username balance role',
+                    match: { status: { $ne: UserStatus.DELETED } }
+                })
+                .populate({
+                    path: 'receiver',
+                    select: 'name username balance role',
+                    match: { status: { $ne: UserStatus.DELETED } }
+                })
+                .lean(),
+            TransactionModel.countDocuments(query)
+        ]);
+
+
+        return {
+            data: transactions,
+            meta: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        };
     }
 
 }

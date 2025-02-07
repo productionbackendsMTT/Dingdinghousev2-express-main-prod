@@ -96,14 +96,27 @@ class RoleController {
     async getAllRoles(req: Request, res: Response, next: NextFunction) {
         try {
             const { requestingUser } = req as AuthRequest;
-            const { page = 1, limit = 10, search } = req.query;
-            const roles = await this.roleService.getAllRoles(
-                Number(page),
-                Number(limit),
-                search as string,
-                requestingUser.role._id
+            const { page = "1", limit = "10", search, sortBy = "createdAt", sortOrder = "desc", ...filters } = req.query;
+
+            const options = {
+                page: parseInt(page as string),
+                limit: parseInt(limit as string),
+                search: search as string,
+                sortBy,
+                sortOrder,
+                requestingRoleId: requestingUser.role._id
+            };
+            const result = await this.roleService.getAllRoles(
+                filters,
+                options
             );
-            res.status(200).json(successResponse(roles, 'Roles retrieved successfully'));
+
+            res.status(200).json(successResponse(
+                result.data,
+                'Roles retrieved successfully',
+                result.meta
+            ));
+
         } catch (err) {
             next(err);
         }

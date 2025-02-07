@@ -1,9 +1,13 @@
-export const successResponse = (data: any, message = 'Successful') => {
+export const successResponse = (data: any, message = 'Successful', meta?: any) => {
     const response: any = {
         success: true,
         message,
         data,
     };
+
+    if (meta) {
+        response.meta = meta;
+    }
 
     return response;
 };
