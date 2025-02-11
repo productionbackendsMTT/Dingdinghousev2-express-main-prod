@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
 import UserService from "./users.service";
-import { successResponse } from "../../utils";
+import { Resource, successResponse } from "../../utils";
 import { AuthRequest } from "../../middlewares";
 import mongoose from "mongoose";
+import { config } from "../../config/config";
 
 class UserController {
     constructor(private userService: UserService) {
@@ -24,6 +25,15 @@ class UserController {
             if (!requestingUser) {
                 throw createHttpError(400, 'Requesting user not found');
             }
+
+            // Filter permissions - only include role resource if user has full rwx access
+            const filteredPermissions = requestingUser.permissions.map(p => {
+                if (p.resource === Resource.ROLES && p.permission !== 'rwx') {
+                    return null;
+                }
+                return p;
+            }).filter(Boolean);
+
             const data = {
                 _id: requestingUser._id,
                 name: requestingUser.name,
@@ -31,12 +41,10 @@ class UserController {
                 role: requestingUser.role,
                 balance: requestingUser.balance,
                 status: requestingUser.status,
-                totalSpent: requestingUser.totalSpent,
-                totalReceived: requestingUser.totalReceived,
-                lastLogin: requestingUser.lastLogin,
-                createdAt: requestingUser.createdAt,
-                updatedAt: requestingUser.updatedAt,
+                permissions: filteredPermissions
             };
+
+            console.log(data);
             res.status(200).json(successResponse(data, 'User details retrieved successfully'));
         } catch (error) {
             next(error);

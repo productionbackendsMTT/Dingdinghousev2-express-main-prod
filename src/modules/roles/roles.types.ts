@@ -8,6 +8,7 @@ export enum DescendantOperation {
 
 export enum RoleStatus {
     ACTIVE = 'active',
+    INACTIVE = 'inactive',
     DELETED = 'deleted'
 }
 
@@ -25,6 +26,7 @@ export interface IRoleModel extends Model<IRole> {
 
 export interface IUpdateRoleParams {
     name?: string;
+    status?: RoleStatus;
     descendants?: string[];
     operation?: DescendantOperation;
 }

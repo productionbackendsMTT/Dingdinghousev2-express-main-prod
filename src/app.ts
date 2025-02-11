@@ -11,8 +11,13 @@ const app = express();
 // Middleware for parsing JSON
 app.use(express.json());
 app.use(cookieParser())
-app.use(cors())
-
+app.use(cors({
+    origin: ['http://localhost:3000', 'https://yourdomain.com'],  // Allow specific origins
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], // Allowed HTTP methods  
+    allowedHeaders: ['Content-Type', 'Authorization'],  // Allowed headers
+    credentials: true,  // Allow credentials (cookies, authorization headers)
+    maxAge: 86400  // How long the results of a preflight request can be cached (in seconds)
+}));
 
 app.get('/', (req: Request, res: Response) => {
     const response = {

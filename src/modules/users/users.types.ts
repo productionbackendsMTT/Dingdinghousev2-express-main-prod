@@ -1,4 +1,4 @@
-import { Model, Types } from "mongoose";
+import mongoose, { Model, Types } from "mongoose";
 import { IResourcePermission, Resource } from "../../utils/resources";
 import { IRole } from "../roles/roles.types";
 
@@ -48,4 +48,17 @@ export interface IUser extends Document {
 
 export interface IUserModel extends Model<IUser> {
     ensureAdminUser(): Promise<void>;
+}
+
+export interface ITransformedUser {
+    _id: mongoose.Types.ObjectId;
+    name: string;
+    username: string;
+    balance: number;
+    role: string | null;
+    status: UserStatus;
+    createdBy: string | null;
+    totalSpent: number;
+    totalReceived: number;
+    lastLogin?: Date;
 }

@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import createHttpError from "http-errors";
 import { successResponse } from "../../utils";
 import { AuthRequest } from "../../middlewares";
-import { DescendantOperation } from "./roles.types";
+import { DescendantOperation, RoleStatus } from "./roles.types";
 
 
 class RoleController {
@@ -29,12 +29,18 @@ class RoleController {
     async updateRole(req: Request, res: Response, next: NextFunction) {
         try {
             const { roleId } = req.params;
-            const { name, descendants, operation } = req.body;
+            const { name, status, descendants, operation } = req.body;
 
 
             if (!mongoose.isValidObjectId(roleId)) {
                 throw createHttpError(400, 'Invalid role ID');
             }
+
+            // Validate status if provided
+            if (status && ![RoleStatus.ACTIVE, RoleStatus.INACTIVE].includes(status)) {
+                throw createHttpError(400, 'Status can only be active or inactive');
+            }
+
 
             // Validate descendants if provided
             if (descendants !== undefined) {
@@ -53,11 +59,12 @@ class RoleController {
 
             const role = await this.roleService.updateRole(roleId, {
                 name,
+                status,
                 descendants,
                 operation: operation as DescendantOperation
             });
 
-            res.status(200).json(successResponse(role, 'Role updated successfully'));
+            res.status(200).json(successResponse(role, `Role ${role.name} updated successfully`));
 
         } catch (error) {
             next(error);

@@ -28,7 +28,11 @@ class RoleService {
     async getRole(id: Types.ObjectId): Promise<IRole> {
         const role = await RoleModel.findOne({
             _id: id,
-            status: RoleStatus.ACTIVE
+            status: { $ne: RoleStatus.DELETED },
+        }).populate({
+            path: 'descendants',
+            select: 'name status',
+            match: { status: RoleStatus.ACTIVE }
         });
 
         if (!role) {
@@ -58,7 +62,7 @@ class RoleService {
 
 
         const query: { status: RoleStatus; name?: RegExp; _id?: { $in: Types.ObjectId[] } } = {
-            status: RoleStatus.ACTIVE,
+            status: { $ne: RoleStatus.DELETED },
             ...filters
         };
 
@@ -77,6 +81,7 @@ class RoleService {
 
         const [roles, total] = await Promise.all([
             RoleModel.find(query)
+                .select('_id name status') // Only select required fields
                 .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
                 .skip((page - 1) * limit)
                 .limit(limit),
@@ -120,13 +125,18 @@ class RoleService {
             role.name = params.name;
         }
 
+        // Update status if provided
+        if (params.status) {
+            role.status = params.status;
+        }
+
         // Update descendants if provided
         if (params.descendants && params.operation) {
             const descendantObjectIds = params.descendants.map(id => new Types.ObjectId(id));
 
             const count = await RoleModel.countDocuments({
                 _id: { $in: descendantObjectIds },
-                status: RoleStatus.ACTIVE
+                status: { $ne: RoleStatus.DELETED },
             });
 
             if (count !== params.descendants.length) {
@@ -163,7 +173,7 @@ class RoleService {
     async deleteRole(id: string): Promise<void> {
         const role = await RoleModel.findOne({
             _id: id,
-            status: RoleStatus.ACTIVE
+            status: { $ne: RoleStatus.DELETED },
         });
         if (!role) {
             throw createHttpError(404, 'Active role not found');
