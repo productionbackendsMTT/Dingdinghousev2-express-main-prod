@@ -45,7 +45,6 @@ class UserController {
                 permissions: filteredPermissions
             };
 
-            console.log(data);
             res.status(200).json(successResponse(data, 'User details retrieved successfully'));
         } catch (error) {
             next(error);
@@ -93,14 +92,65 @@ class UserController {
                 throw createHttpError(404, 'Target user not found');
             }
 
+            const {
+                page = "1",
+                limit = "10",
+                from,
+                to,
+                sortBy = "createdAt",
+                sortOrder = "desc",
+                search = "",
+                view,
+                role,
+                status,
+                username,
+            } = req.query;
 
-            const { page = 1, limit = 10, ...filters } = req.query;
+            // Build filters object
+            const queryFilters: any = {};
+
+            // Add search filter
+            if (search) {
+                queryFilters.search = search;
+            }
+
+            // Add date range filter
+            if (from || to) {
+                queryFilters.createdAt = {};
+                if (from) queryFilters.createdAt.$gte = new Date(from as string);
+                if (to) queryFilters.createdAt.$lte = new Date(to as string);
+            }
+
+            // Add role filter
+            if (role) {
+                queryFilters.role = role;
+            }
+
+            // Add status filter
+            if (status) {
+                queryFilters.status = status;
+            }
+
+            // Add username filter
+            if (username) {
+                queryFilters.username = username;
+            }
+
+            // Add view filter
+            if (view) {
+                queryFilters.view = view;
+            }
+
+            const options = {
+                page: parseInt(page as string, 10),
+                limit: parseInt(limit as string, 10),
+                sort: { [sortBy as string]: sortOrder === "desc" ? -1 : 1 },
+            };
 
             const result = await this.userService.getDescendants(
                 new mongoose.Types.ObjectId(userId),
-                filters,
-                parseInt(page as string, 10),
-                parseInt(limit as string, 10)
+                queryFilters,
+                options
             );
 
             res.status(200).json(successResponse(result.data, 'Descendants retrieved successfully', result.meta));
@@ -127,7 +177,7 @@ class UserController {
             );
             res.status(200).json(successResponse(updatedUser, 'User updated successfully'));
         } catch (error) {
-            console.log(error);
+            console.error(error);
             next(error);
         }
     }
@@ -148,7 +198,7 @@ class UserController {
 
             res.status(200).json(successResponse(deletedUser, `User deleted successfully`));
         } catch (error) {
-            console.log(error);
+            console.error(error);
             next(error);
         }
     }
@@ -159,13 +209,67 @@ class UserController {
             if (!requestingUser) {
                 throw createHttpError(400, 'Requesting user not found');
             }
+            const {
+                page = "1",
+                limit = "10",
+                from,
+                to,
+                sortBy = "createdAt",
+                sortOrder = "desc",
+                search = "",
+                view,
+                role,
+                status,
+                username,
+            } = req.query;
 
-            const { page = 1, limit = 10, ...filters } = req.query;
+
+            // Build filters object
+            const queryFilters: any = {};
+
+            // Add search filter
+            if (search) {
+                queryFilters.search = search;
+            }
+
+            // Add date range filter
+            if (from || to) {
+                queryFilters.createdAt = {};
+                if (from) queryFilters.createdAt.$gte = new Date(from as string);
+                if (to) queryFilters.createdAt.$lte = new Date(to as string);
+            }
+
+            // Add role filter
+            if (role) {
+                queryFilters.role = role;
+            }
+
+            // Add status filter
+            if (status) {
+                queryFilters.status = status;
+            }
+
+            // Add username filter
+            if (username) {
+                queryFilters.username = username;
+            }
+
+            // Add view filter
+            if (view) {
+                queryFilters.view = view;
+            }
+
+            const options = {
+                page: parseInt(page as string, 10),
+                limit: parseInt(limit as string, 10),
+                sort: { [sortBy as string]: sortOrder === "desc" ? -1 : 1 },
+            };
+
+
             const result = await this.userService.getDescendants(
                 requestingUser._id,
-                filters,
-                parseInt(page as string, 10),
-                parseInt(limit as string, 10)
+                queryFilters,
+                options
             );
 
             res.status(200).json(successResponse(result.data, 'Descendants retrieved successfully', result.meta));

@@ -17,7 +17,12 @@ class UserService {
     }
 
     async getUserById(requestingUserId: mongoose.Types.ObjectId, userId: mongoose.Types.ObjectId): Promise<IUser | null> {
-        const user = await UserModel.findById(userId).exec();
+        const user = await UserModel.findById(userId)
+            .select('-permissions -token -password')
+            .populate('role', 'name')
+            .populate('createdBy', 'name')
+            .exec();
+
         if (!user) {
             throw createHttpError(404, 'User not found');
         }
@@ -34,13 +39,13 @@ class UserService {
     }
 
     // Get all descendants of a user with pagination and filtering
-    async getDescendants(userId: mongoose.Types.ObjectId, filters: any, page: number, limit: number) {
+    async getDescendants(userId: mongoose.Types.ObjectId, filters: any, options: { page: number; limit: number; sort: any }) {
         const user = await UserModel.findById(userId);
         if (!user) {
             throw createHttpError(404, 'User not found');
         }
 
-        const { search, sort, view, role: roleName, from, to, ...otherFilters } = filters;
+        const { search, view, role: roleName, from, to, status, username, ...otherFilters } = filters;
 
         // Get all role descendants that user has access to
         const role = await RoleModel.findById(user.role);
@@ -69,9 +74,7 @@ class UserService {
         }
 
         if (roleName) {
-            // Escape special regex characters
             const escapedRoleName = roleName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
             const targetRole = await RoleModel.findOne({
                 name: { $regex: new RegExp(escapedRoleName, 'i') }
             });
@@ -118,47 +121,27 @@ class UserService {
             }
         }
 
-
         const total = await UserModel.countDocuments(query);
-
-        let sortOption: { [key: string]: SortOrder } = { createdAt: -1 }; // Default sort by createdAt desc
-        if (sort) {
-            const [field, order] = sort.split(':');
-            sortOption = { [field]: order === 'desc' ? -1 : 1 };
-        }
 
         const users = await UserModel.find(query)
             .select('name username balance role status createdBy totalSpent totalReceived permissions lastLogin createdAt')
             .populate('role', 'name')
             .populate('createdBy', 'name')
-            .sort(sortOption)
-            .skip((page - 1) * limit)
-            .limit(limit);
+            .sort(options.sort)
+            .skip((options.page - 1) * options.limit)
+            .limit(options.limit);
 
+        // console.log("query : ", query);
 
-        // const transformedUsers = users.map(user => ({
-        //     _id: user._id,
-        //     name: user.name,
-        //     username: user.username,
-        //     balance: user.balance,
-        //     role: (user.role && typeof user.role !== 'string' && 'name' in user.role) ? user.role.name : null,
-        //     status: user.status,
-        //     createdBy: (user.createdBy && typeof user.createdBy !== 'string' && 'name' in user.createdBy) ? user.createdBy.name : null,
-        //     totalSpent: user.totalSpent,
-        //     totalReceived: user.totalReceived,
-        //     lastLogin: user.lastLogin,
-        //     createdAt: user.createdAt
-        // }));
-
-        // console.log(transformedUsers);
+        console.log(users.length);
 
         return {
             data: users,
             meta: {
                 total,
-                page,
-                limit,
-                pages: Math.ceil(total / limit)
+                page: options.page,
+                limit: options.limit,
+                pages: Math.ceil(total / options.limit)
             }
         };
 
