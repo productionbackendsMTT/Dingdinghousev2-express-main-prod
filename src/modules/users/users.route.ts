@@ -11,7 +11,9 @@ const userController = new UserController(userService);
 const resource = Resource.USERS;
 
 userRoutes.get('/me', authHandler, userController.getCurrentUser);
-userRoutes.get('/me/descendants', authHandler, userController.getDescendants);
+userRoutes.get('/me/descendants', authHandler, checkPermission(resource, 'r'), userController.getDescendants);
+userRoutes.get("/me/report", authHandler, checkPermission(resource, 'r'), userController.getDescendantsReport);
+
 userRoutes.get('/:userId', authHandler, checkPermission(resource, 'r'), userController.getUserById);
 userRoutes.put('/:userId', authHandler, checkPermission(resource, 'w'), userController.updateUser);
 userRoutes.delete('/:userId', authHandler, checkPermission(resource, 'x'), userController.deleteUser);

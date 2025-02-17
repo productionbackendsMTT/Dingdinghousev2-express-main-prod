@@ -7,7 +7,7 @@ const _config = {
     db: process.env.MONGODB_URI,
     access: {
         secret: process.env.JWT_SECRET,
-        expiresIn: process.env.NODE_ENV === "development" ? '1h' : '15m'
+        expiresIn: process.env.NODE_ENV === "development" ? '6h' : '15m'
     },
     refresh: {
         secret: process.env.JWT_REFRESH_SECRET,

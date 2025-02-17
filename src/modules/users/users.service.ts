@@ -40,7 +40,7 @@ class UserService {
             throw createHttpError(404, 'User not found');
         }
 
-        const { search, sort, view, role: roleName, ...otherFilters } = filters;
+        const { search, sort, view, role: roleName, from, to, ...otherFilters } = filters;
 
         // Get all role descendants that user has access to
         const role = await RoleModel.findById(user.role);
@@ -55,6 +55,18 @@ class UserService {
             role: { $in: [...role.descendants, user.role] },  // Only get users with roles user has access to
             ...otherFilters
         };
+
+
+        // Add date range filtering
+        if (from || to) {
+            query.createdAt = {};
+            if (from) {
+                query.createdAt.$gte = new Date(from);
+            }
+            if (to) {
+                query.createdAt.$lte = new Date(to);
+            }
+        }
 
         if (roleName) {
             // Escape special regex characters
@@ -106,16 +118,17 @@ class UserService {
             }
         }
 
+
         const total = await UserModel.countDocuments(query);
 
-        let sortOption: { [key: string]: SortOrder } = {};
+        let sortOption: { [key: string]: SortOrder } = { createdAt: -1 }; // Default sort by createdAt desc
         if (sort) {
             const [field, order] = sort.split(':');
-            sortOption[field] = order === 'desc' ? -1 : 1;
+            sortOption = { [field]: order === 'desc' ? -1 : 1 };
         }
 
         const users = await UserModel.find(query)
-            .select('name username balance role status createdBy totalSpent totalReceived lastLogin')
+            .select('name username balance role status createdBy totalSpent totalReceived permissions lastLogin createdAt')
             .populate('role', 'name')
             .populate('createdBy', 'name')
             .sort(sortOption)
@@ -123,23 +136,24 @@ class UserService {
             .limit(limit);
 
 
-        const transformedUsers = users.map(user => ({
-            _id: user._id,
-            name: user.name,
-            username: user.username,
-            balance: user.balance,
-            role: (user.role && typeof user.role !== 'string' && 'name' in user.role) ? user.role.name : null,
-            status: user.status,
-            createdBy: (user.createdBy && typeof user.createdBy !== 'string' && 'name' in user.createdBy) ? user.createdBy.name : null,
-            totalSpent: user.totalSpent,
-            totalReceived: user.totalReceived,
-            lastLogin: user.lastLogin
-        }));
+        // const transformedUsers = users.map(user => ({
+        //     _id: user._id,
+        //     name: user.name,
+        //     username: user.username,
+        //     balance: user.balance,
+        //     role: (user.role && typeof user.role !== 'string' && 'name' in user.role) ? user.role.name : null,
+        //     status: user.status,
+        //     createdBy: (user.createdBy && typeof user.createdBy !== 'string' && 'name' in user.createdBy) ? user.createdBy.name : null,
+        //     totalSpent: user.totalSpent,
+        //     totalReceived: user.totalReceived,
+        //     lastLogin: user.lastLogin,
+        //     createdAt: user.createdAt
+        // }));
 
-        console.log(transformedUsers);
+        // console.log(transformedUsers);
 
         return {
-            data: transformedUsers,
+            data: users,
             meta: {
                 total,
                 page,
@@ -222,64 +236,274 @@ class UserService {
         }
     }
 
-    async deleteUser(requestingUserId: string, targetUserId: string) {
-        const user = await UserModel.findById(targetUserId);
-        if (!user) {
-            throw createHttpError(404, 'User not found')
-        }
-
-        if (!this.isAncestor(requestingUserId, user)) {
-            throw createHttpError(403, 'You are not authorized to perform this action');
-        }
-
-        const descendants = await user.getDescendants();
-        if (descendants.length > 0) {
-            throw createHttpError(400, 'Cannot delete user with descendants');
-        }
-
+    async deleteUser(targetUserId: string) {
         const session = await mongoose.startSession();
         try {
-            await session.withTransaction(async () => {
-                // Modify username to allow reuse
-                user.username = `${user.username}_DELETED_${Date.now()}`;
-                user.status = UserStatus.DELETED;
+            return await session.withTransaction(async () => {
+                // First get the current user to access their username
+                const currentUser = await UserModel.findOne({
+                    _id: targetUserId,
+                    status: { $ne: UserStatus.DELETED }
+                }).session(session);
 
-                // Clear sensitive data
-                user.token = undefined;
-                user.permissions = [];
+                if (!currentUser) {
+                    throw createHttpError(404, 'User not found or already deleted');
+                }
 
-                await user.save({ session });
+                // Generate random hash for deleted user's password
+                const deletedPassword = await bcrypt.hash(`DELETED_${Date.now()}`, 10);
+
+
+                // Then update with the known username
+                const user = await UserModel.findOneAndUpdate(
+                    { _id: targetUserId },
+                    {
+                        $set: {
+                            username: `${currentUser.username}_DELETED_${Date.now()}`,
+                            status: UserStatus.DELETED,
+                            token: undefined,
+                            permissions: [],
+                            password: deletedPassword
+                        }
+                    },
+                    {
+                        session,
+                        new: true,
+                        runValidators: true
+                    }
+                );
+
+                if (!user) {
+                    throw createHttpError(404, 'User not found');
+                }
+
+                const descendants = await UserModel.countDocuments({
+                    path: { $regex: `^${user.path}/` },
+                    status: { $ne: UserStatus.DELETED }
+                });
+
+                if (descendants > 0) {
+                    throw createHttpError(400, 'Cannot delete user with descendants');
+                }
+
+                return user;
             });
-        } catch (error) {
-            throw error; // Let the error propagate
         } finally {
             await session.endSession();
         }
     }
 
+    async generateDescendantsReport(
+        userId: mongoose.Types.ObjectId,
+        from?: Date,
+        to?: Date
+    ): Promise<any> {
+        // Default the date range to the last 7 days if not provided
+        const currentDate = new Date();
+        const defaultFrom = new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+        const defaultTo = currentDate;
+
+        const startDate = from || defaultFrom;
+        const endDate = to || defaultTo;
+
+        const requestingUser = await UserModel.findById(userId);
+        if (!requestingUser) {
+            throw createHttpError(404, 'User not found');
+        }
+
+        // Get descendant user IDs
+        const descendants = await UserModel.find({
+            path: { $regex: `^${requestingUser.path}/` },
+            status: { $ne: UserStatus.DELETED },
+        }).select('_id');
+
+        const descendantIds = descendants.map(user => user._id);
+
+        // Determine aggregation interval
+        const totalDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+        const groupFormat =
+            totalDays <= 1
+                ? { format: "%Y-%m-%dT%H:00:00Z", label: "hour" } // Hourly
+                : totalDays <= 7
+                    ? { format: "%Y-%m-%d", label: "day" } // Daily
+                    : { format: "%Y-%U", label: "week" }; // Weekly
+
+        // Aggregate user creations
+        const userCreationSummary = await UserModel.aggregate([
+            {
+                $match: {
+                    createdBy: { $in: descendantIds },
+                    createdAt: { $gte: startDate, $lte: endDate },
+                },
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: groupFormat.format, date: "$createdAt" } },
+                    count: { $sum: 1 },
+                },
+            },
+            { $sort: { _id: 1 } },
+        ]);
+
+        // Aggregate transactions
+        const transactionSummary = await TransactionModel.aggregate([
+            {
+                $match: {
+                    $or: [
+                        { sender: { $in: descendantIds } },
+                        { receiver: { $in: descendantIds } },
+                    ],
+                    createdAt: { $gte: startDate, $lte: endDate },
+                },
+            },
+            {
+                $group: {
+                    _id: {
+                        period: { $dateToString: { format: groupFormat.format, date: "$createdAt" } },
+                        type: "$type",
+                        target: {
+                            $cond: [{ $in: ["$sender", descendantIds] }, "sent", "received"],
+                        },
+                    },
+                    totalAmount: { $sum: "$amount" },
+                    count: { $sum: 1 },
+                },
+            },
+            { $sort: { "_id.period": 1 } },
+        ]);
+
+        // Restructure transaction data for the frontend
+        const transactionData: { [key: string]: any } = {};
+        transactionSummary.forEach(item => {
+            const period = item._id.period;
+            const key = `${item._id.type}_${item._id.target}`;
+
+            if (!transactionData[period]) {
+                transactionData[period] = { period };
+            }
+            transactionData[period][key] = {
+                count: item.count,
+                totalAmount: item.totalAmount,
+            };
+        });
+
+        return {
+            timeRange: {
+                from: startDate.toISOString(),
+                to: endDate.toISOString(),
+                duration: `${Math.round(totalDays)} days`,
+            },
+            userCreationSummary, // Aggregated user creation
+            transactionSummary: Object.values(transactionData), // Aggregated transactions
+            metrics: {
+                totalCreatedUsers: userCreationSummary.reduce((sum, uc) => sum + uc.count, 0),
+                totalRechargeReceived: transactionSummary
+                    .filter(t => t._id.type === TransactionType.RECHARGE && t._id.target === "received")
+                    .reduce((sum, t) => sum + t.totalAmount, 0),
+                totalRechargeSent: transactionSummary
+                    .filter(t => t._id.type === TransactionType.RECHARGE && t._id.target === "sent")
+                    .reduce((sum, t) => sum + t.totalAmount, 0),
+                totalRedeemDeducted: transactionSummary
+                    .filter(t => t._id.type === TransactionType.REDEEM && t._id.target === "sent")
+                    .reduce((sum, t) => sum + t.totalAmount, 0),
+                totalRedeemReceived: transactionSummary
+                    .filter(t => t._id.type === TransactionType.REDEEM && t._id.target === "received")
+                    .reduce((sum, t) => sum + t.totalAmount, 0),
+            },
+        };
+    }
+
     // Generate report for a specific user
-    async generateUserReport(requestingUserId: string, userId: mongoose.Types.ObjectId, startDate: Date, endDate: Date): Promise<any> {
-        const user = await UserModel.findById(userId).populate('createdBy', 'username');
+    async generateUserReport(
+        userId: mongoose.Types.ObjectId,
+        from?: Date,
+        to?: Date
+    ): Promise<any> {
+        const currentDate = new Date();
+        const defaultFrom = new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+        const defaultTo = currentDate;
+
+        const startDate = from || defaultFrom;
+        const endDate = to || defaultTo;
+
+        const user = await UserModel.findById(userId)
+            .populate('createdBy', 'username')
+            .populate('role', 'name');
+
         if (!user) {
             throw createHttpError(404, 'User not found');
         }
 
-        if (!this.isAncestor(requestingUserId, user)) {
-            throw createHttpError(403, 'You are not authorized to perform this action');
-        }
+        // Fetch users created by this user
+        const createdUsers = await UserModel.aggregate([
+            {
+                $match: {
+                    createdBy: userId,
+                    createdAt: { $gte: startDate, $lte: endDate },
+                },
+            },
+            {
+                $project: {
+                    _id: 1,
+                    name: "$name",
+                    username: "$username",
+                    role: "$role",
+                    timestamp: "$createdAt",
+                },
+            },
+        ]);
 
-        // Get all users created by this user
-        const createdUsers = await UserModel.find({
-            createdBy: userId,
-            createdAt: { $gte: startDate, $lte: endDate }
-        });
+        // Fetch transactions (recharge/redeem)
+        const transactions = await TransactionModel.aggregate([
+            {
+                $match: {
+                    $or: [{ sender: userId }, { receiver: userId }],
+                    createdAt: { $gte: startDate, $lte: endDate },
+                },
+            },
+            {
+                $project: {
+                    _id: 1,
+                    type: "$type",
+                    timestamp: "$createdAt",
+                    amount: "$amount",
+                    target: {
+                        $cond: [
+                            { $eq: ["$sender", userId] },
+                            "sent",
+                            "received",
+                        ],
+                    },
+                },
+            },
+        ]);
 
+        // Group transactions by type
+        const groupedTransactions = {
+            recharge: transactions.filter((t) => t.type === TransactionType.RECHARGE),
+            redeem: transactions.filter((t) => t.type === TransactionType.REDEEM),
+        };
 
-        // Get all transactions performed by this user's users
-        const transactions = await this.transactionService.getByUsers(createdUsers.map(u => u._id), startDate, endDate);
+        // Calculate metrics
+        const rechargeMetrics = {
+            received: groupedTransactions.recharge
+                .filter((t) => t.target === "received")
+                .reduce((sum, t) => sum + t.amount, 0),
+            sent: groupedTransactions.recharge
+                .filter((t) => t.target === "sent")
+                .reduce((sum, t) => sum + t.amount, 0),
+        };
 
-        // Calculate total amount received and spent
-        const { totalReceived, totalSpent } = await this.transactionService.getTotalAmounts(userId, startDate, endDate);
+        const redeemMetrics = {
+            deducted: groupedTransactions.redeem
+                .filter((t) => t.target === "sent")
+                .reduce((sum, t) => sum + t.amount, 0),
+            received: groupedTransactions.redeem
+                .filter((t) => t.target === "received")
+                .reduce((sum, t) => sum + t.amount, 0),
+        };
+
+        const createdUsersCount = createdUsers.length;
 
         const userDetails = {
             _id: user._id,
@@ -289,15 +513,27 @@ class UserService {
             role: user.role,
             status: user.status,
             createdBy: user.createdBy && typeof user.createdBy !== 'string' ? ((user.createdBy as unknown) as IUser).username : null,
-            lastLogin: user.lastLogin
+            lastLogin: user.lastLogin,
+        };
+
+        // Calculate duration
+        const duration = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        const timeRange = {
+            from: startDate.toISOString(),
+            to: endDate.toISOString(),
+            duration: duration > 1 ? `${duration} days` : `${duration * 24} hours`,
         };
 
         return {
-            ...userDetails,
+            timeRange,
+            userDetails,
             createdUsers,
-            transactions,
-            totalReceived,
-            totalSpent
+            transactions: groupedTransactions,
+            metrics: {
+                createdUsersCount,
+                rechargeMetrics,
+                redeemMetrics,
+            },
         };
     }
 

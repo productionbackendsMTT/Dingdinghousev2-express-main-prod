@@ -215,13 +215,11 @@ class TransactionService {
                 .limit(limit)
                 .populate({
                     path: 'sender',
-                    select: 'name username balance role',
-                    match: { status: { $ne: UserStatus.DELETED } }
+                    select: 'name',
                 })
                 .populate({
                     path: 'receiver',
-                    select: 'name username balance role',
-                    match: { status: { $ne: UserStatus.DELETED } }
+                    select: 'name',
                 })
                 .lean(),
             TransactionModel.countDocuments(filters)
@@ -244,6 +242,9 @@ class TransactionService {
         meta: { total: number; page: number; limit: number; pages: number; }
     }> {
         const { page = 1, limit = 10, sort = { createdAt: -1 } } = options;
+        const searchTerm = filters.search;
+        delete filters.search;
+
 
         const user = await UserModel.findById(userId);
         if (!user) {
@@ -254,10 +255,40 @@ class TransactionService {
         const userIds = [user._id, ...descendants.map(descendant => descendant._id)];
 
 
-        const query = {
+        let query: any = {
             $or: [{ sender: { $in: userIds } }, { receiver: { $in: userIds } }],
             ...filters
         };
+    
+        if (searchTerm) {
+            // First, find users matching the search term
+            const matchingUsers = await UserModel.find({
+                $or: [
+                    { name: new RegExp(searchTerm, "i") },
+                    { username: new RegExp(searchTerm, "i") }
+                ]
+            }).select('_id');
+
+            const userMatchIds = matchingUsers.map(user => user._id);
+
+            // Update query to include user matches and other search criteria
+            query = {
+                $and: [
+                    query,
+                    {
+                        $or: [
+                            { type: new RegExp(searchTerm, "i") },
+                            { amount: !isNaN(Number(searchTerm)) ? Number(searchTerm) : null },
+                            { sender: { $in: userMatchIds } },
+                            { receiver: { $in: userMatchIds } }
+                        ].filter(condition =>
+                            condition.amount !== null ||
+                            Object.keys(condition).length > 0
+                        )
+                    }
+                ]
+            };
+        }
 
         const [transactions, total] = await Promise.all([
             TransactionModel.find(query)

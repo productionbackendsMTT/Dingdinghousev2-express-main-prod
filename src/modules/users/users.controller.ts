@@ -17,6 +17,7 @@ class UserController {
         this.getUserReport = this.getUserReport.bind(this);
         this.getUserPermissions = this.getUserPermissions.bind(this);
         this.updateUserPermissions = this.updateUserPermissions.bind(this);
+        this.getDescendantsReport = this.getDescendantsReport.bind(this);
     }
 
     async getCurrentUser(req: Request, res: Response, next: NextFunction) {
@@ -126,6 +127,7 @@ class UserController {
             );
             res.status(200).json(successResponse(updatedUser, 'User updated successfully'));
         } catch (error) {
+            console.log(error);
             next(error);
         }
     }
@@ -142,10 +144,11 @@ class UserController {
                 throw createHttpError(400, 'Invalid user ID');
             }
 
-            await this.userService.deleteUser(requestingUser._id.toString(), userId);
+            const deletedUser = await this.userService.deleteUser(userId);
 
-            res.status(200).json(successResponse({}, 'User deleted successfully'));
+            res.status(200).json(successResponse(deletedUser, `User deleted successfully`));
         } catch (error) {
+            console.log(error);
             next(error);
         }
     }
@@ -171,6 +174,34 @@ class UserController {
         }
     }
 
+    async getDescendantsReport(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { requestingUser } = req as AuthRequest;
+            if (!requestingUser) {
+                throw createHttpError(400, 'Requesting user not found');
+            }
+            const { from, to } = req.query;
+
+            if (!mongoose.Types.ObjectId.isValid(requestingUser._id)) {
+                throw createHttpError(400, 'Invalid user ID');
+            }
+
+            const report = await this.userService.generateDescendantsReport(
+                new mongoose.Types.ObjectId(requestingUser._id),
+                from ? new Date(from as string) : undefined,
+                to ? new Date(to as string) : undefined
+            );
+
+            res.status(200).json({
+                success: true,
+                message: "Descendants report generated successfully",
+                data: report,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async getUserReport(req: Request, res: Response, next: NextFunction) {
         try {
             const { requestingUser } = req as AuthRequest;
@@ -179,17 +210,20 @@ class UserController {
             }
 
             const { userId } = req.params;
-            const { startDate, endDate } = req.query;
+            const { from, to } = req.query;
 
             if (!mongoose.Types.ObjectId.isValid(userId)) {
                 throw createHttpError(400, 'Invalid user ID');
             }
 
+            // Parse the query parameters if they are provided
+            const fromDate = from ? new Date(from as string) : undefined;
+            const toDate = to ? new Date(to as string) : undefined;
+
             const report = await this.userService.generateUserReport(
-                requestingUser._id.toString(),
                 new mongoose.Types.ObjectId(userId),
-                new Date(startDate as string),
-                new Date(endDate as string)
+                fromDate,
+                toDate
             );
 
             res.status(200).json(successResponse(report, 'User report generated successfully'));
