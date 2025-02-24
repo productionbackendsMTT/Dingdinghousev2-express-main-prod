@@ -19,7 +19,7 @@ export class GameService {
         return lastGame ? lastGame.order + 1 : 1;
     }
 
-    async createGame(gameData: { name: string, description: string, url: string, type: string, category: string, status: GameStatus, tag: string, slug: string }, thumbnailBuffer: Buffer, payout?: { content: any, filename: string }): Promise<IGame> {
+    async createGame(gameData: { name: string, description: string, url: string, type: string, category: string, status: GameStatus, tag: string, slug: string, order: number }, thumbnailBuffer: Buffer, payout?: { content: any, filename: string }): Promise<IGame> {
         const session = await mongoose.startSession();
         session.startTransaction();
 
@@ -35,10 +35,8 @@ export class GameService {
             }
 
             // 2. Create initial game without thumbnail
-            const order = await this.getNextGameOrder();
             const game = await GameModel.create([{
                 ...gameData,
-                order
             }], { session });
 
 
@@ -71,32 +69,78 @@ export class GameService {
         }
     }
 
-    async getGames(filter: any, page: number = 1, limit: number = 10): Promise<{
+    async getGames(filters: any, options: { page: number; limit: number; sort: any }): Promise<{
         data: IGame[],
         meta: {
-            total: number,
-            page: number,
-            limit: number,
-            pages: number
+            total: number; page: number; limit: number; pages: number; filters: {
+                categories: string[];
+                types: string[];
+            }
         }
     }> {
-        const [games, total] = await Promise.all([
-            GameModel.find(filter)
-                .sort({ order: 1, createdAt: -1 })
-                .skip((page - 1) * limit)
-                .limit(limit)
-                .lean<IGame[]>()
-                .exec(),
-            GameModel.countDocuments(filter)
+        const { search, from, to, status, type, category, tag, ...otherFilters } = filters;
+        const query: any = {
+            status: { $ne: GameStatus.DELETED },
+            ...otherFilters
+        };
+
+        // Add date range filtering
+        if (from || to) {
+            query.createdAt = {};
+            if (from) query.createdAt.$gte = new Date(from);
+            if (to) query.createdAt.$lte = new Date(to);
+        }
+
+        // Add status filter
+        if (status) {
+            query.status = status;
+        }
+
+        // Add search functionality
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            query.$or = [
+                { name: searchRegex },
+                { description: searchRegex },
+                { type: searchRegex },
+                { category: searchRegex },
+                { tag: searchRegex }
+            ];
+        }
+
+        // Add specific filters
+        if (type) query.type = type;
+        if (category) query.category = category;
+        if (tag) query.tag = tag;
+
+
+        const [games, total, distinctValues] = await Promise.all([
+            GameModel.find(query)
+                .sort(options.sort)
+                .skip((options.page - 1) * options.limit)
+                .limit(options.limit)
+                .lean<IGame[]>(),
+            GameModel.countDocuments(query),
+            Promise.all([
+                GameModel.distinct('category', { status: { $ne: GameStatus.DELETED } }),
+                GameModel.distinct('type', { status: { $ne: GameStatus.DELETED } }),
+            ])
         ]);
+
+        const [categories, types] = distinctValues;
+
 
         return {
             data: games,
             meta: {
                 total,
-                page,
-                limit,
-                pages: Math.ceil(total / limit)
+                page: options.page,
+                limit: options.limit,
+                pages: Math.ceil(total / options.limit),
+                filters: {
+                    categories,
+                    types,
+                }
             }
         };
     }
@@ -181,7 +225,7 @@ export class GameService {
                     runValidators: true,
                     session
                 }
-            ).populate('payout');
+            );
 
             if (!updatedGame) {
                 throw createHttpError.NotFound('Game not found');

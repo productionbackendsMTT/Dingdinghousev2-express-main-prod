@@ -25,8 +25,8 @@ export class GameController {
     async createGame(req: Request, res: Response, next: NextFunction) {
         try {
             // 1. Validate request body
-            const { name, description, url, type, category, status, tag, slug } = req.body;
-            if (!name || !url || !type || !category || !tag || !slug) {
+            const { name, description, url, type, category, status, tag, slug, order } = req.body;
+            if (!name || !url || !type || !category || !tag || !slug || !order === undefined) {
                 throw createHttpError.BadRequest('Missing required fields');
             }
 
@@ -61,7 +61,8 @@ export class GameController {
                     category,
                     status: status || GameStatus.ACTIVE,
                     tag,
-                    slug
+                    slug,
+                    order
                 },
                 thumbnailBuffer,
                 {
@@ -79,28 +80,86 @@ export class GameController {
 
     async getGames(req: Request, res: Response, next: NextFunction) {
         try {
-            const { status, page = "1", limit = "10", ...filters } = req.query;
-            const parsedPage = parseInt(page as string, 10) || 1;
-            const parsedLimit = parseInt(limit as string, 10) || 10;
+            const {
+                page = "1",
+                limit = "10",
+                from,
+                to,
+                sortBy = "order",
+                sortOrder = "desc",
+                search = "",
+                status,
+                type,
+                category,
+                tag,
+                download = "false"
+            } = req.query
 
-            // Validate status if provided
             if (status && !Object.values(GameStatus).includes(status as GameStatus)) {
                 throw createHttpError.BadRequest("Invalid status value");
             }
-            // Construct search filters dynamically
-            const filterQuery: any = { status: { $ne: GameStatus.DELETED } };
 
-            if (status) {
-                filterQuery.status = status;
+            // Build filters object
+            const queryFilters: any = {};
+
+            // Add search filter
+            if (search) {
+                queryFilters.search = search;
             }
 
-            Object.keys(filters).forEach((key) => {
-                if (filters[key]) {
-                    filterQuery[key] = { $regex: filters[key], $options: "i" }; // Case-insensitive search
-                }
-            });
+            // Add date range filter
+            if (from || to) {
+                queryFilters.createdAt = {};
+                if (from) queryFilters.createdAt.$gte = new Date(from as string);
+                if (to) queryFilters.createdAt.$lte = new Date(to as string);
+            }
 
-            const result = await this.gameService.getGames(filterQuery, parsedPage, parsedLimit);
+            // Add other filters
+            if (status) queryFilters.status = status;
+            if (type) queryFilters.type = type;
+            if (category) queryFilters.category = category;
+            if (tag) queryFilters.tag = tag;
+
+            const options = {
+                page: parseInt(page as string, 10),
+                limit: parseInt(limit as string, 10),
+                sort: { [sortBy as string]: sortOrder === "desc" ? -1 : 1 }
+            };
+
+            const result = await this.gameService.getGames(queryFilters, options);
+
+            if (download === "true") {
+                const filename = `games_export_${new Date().toISOString()}.json`;
+                res.setHeader('Content-Type', 'application/json');
+                res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+
+                console.log("FILNAME", filename);
+
+                return res.json({
+                    success: true,
+                    data: result.data.map(game => ({
+                        name: game.name,
+                        description: game.description,
+                        url: game.url,
+                        type: game.type,
+                        category: game.category,
+                        status: game.status,
+                        tag: game.tag,
+                        slug: game.slug,
+                        thumbnail: game.thumbnail,
+                        order: game.order,
+                        payout: game.payout,
+                        createdAt: game.createdAt,
+                        updatedAt: game.updatedAt
+                    })),
+                    meta: {
+                        total: result.meta.total,
+                        exportedAt: new Date().toISOString(),
+                        filters: result.meta.filters
+                    }
+                });
+            }
+
             return res.status(200).json(successResponse(result.data, 'Games fetched successfully', result.meta));
         } catch (error) {
             next(error);
@@ -145,7 +204,7 @@ export class GameController {
 
             // Build update object with only provided fields
             const updateData: Partial<IGame> = {};
-            const allowedFields = ['name', 'description', 'url', 'type', 'category', 'status', 'tag', 'slug'] as const;
+            const allowedFields = ['name', 'description', 'url', 'type', 'category', 'status', 'tag', 'slug', 'order'] as const;
             type AllowedField = typeof allowedFields[number];
 
             allowedFields.forEach((field: AllowedField) => {
