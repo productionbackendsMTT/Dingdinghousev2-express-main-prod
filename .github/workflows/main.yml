@@ -1,0 +1,65 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - "dev"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Push updated package.json to dev-build branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.G_TOKEN }}
+        run: |
+          git checkout dev
+          git checkout -b dev-build
+         
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact
+          path: ./dist/**/*.js
+
+      - name: Copy Src and app.js in root
+        run: |
+          git config --global user.email "prathamesh@underpinservices.com"
+          git config --global user.name "Prathm0025"
+          git stash -u
+          git checkout dev-build
+          
+          # Copy built files
+          cp -r ./dist/src .
+          cp -r ./dist/app.js .
+
+          # Clean up
+          rm -rf ./dist
+          rm -rf ./node_modules
+          rm -rf ./app.ts
+
+          # Delete all .ts files just in case
+          find ./src -name "*.ts" -type f -delete
+
+          git add -f ./app.js ./src
+          git commit -m "add new build" || echo "No changes to commit"
+          git push origin dev-build --force
