@@ -52,6 +52,9 @@ class AuthService {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7) // 7 Days from now
 
+        user.lastLogin = new Date();
+        await user.save();
+
         user.token = {
             refreshToken,
             userAgent,
@@ -74,35 +77,35 @@ class AuthService {
         };
     }
 
-    async register(params: IRegisterParams) {
+    async register(data: IRegisterParams) {
         const session = await mongoose.startSession();
         session.startTransaction();
 
         try {
-            const existingUser = await UserModel.findOne({ username: params.username }).session(session);
+            const existingUser = await UserModel.findOne({ username: data.username }).session(session);
             if (existingUser) {
                 throw createHttpError(409, 'Please choose a different username');
             }
 
             // hash the password
-            const hashedPassword = await bcrypt.hash(params.password, 10);
+            const hashedPassword = await bcrypt.hash(data.password, 10);
 
             // create a new user
             const newUser = new UserModel({
-                name: params.name,
-                username: params.username,
+                name: data.name,
+                username: data.username,
                 password: hashedPassword,
                 balance: 0,
-                role: params.roleId,
-                status: params.status,
-                createdBy: params.createdBy
+                role: data.roleId,
+                status: data.status,
+                createdBy: data.createdBy
             });
             await newUser.save({ session });
 
 
             // Create a transaction if balance is greater than 0
-            if (params.balance > 0 && params.createdBy) {
-                await this.transactionService.create(params.createdBy, newUser._id, TransactionType.RECHARGE, params.balance, session)
+            if (data.balance > 0 && data.createdBy) {
+                await this.transactionService.create(data.createdBy, newUser._id, TransactionType.RECHARGE, data.balance, session)
             }
 
             // Fetch the updated user data

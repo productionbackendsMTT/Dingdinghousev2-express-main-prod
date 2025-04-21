@@ -6,10 +6,33 @@ import { AuthRequest } from "../../middlewares";
 import { config } from "../../config/config";
 import { ILoginResponse, IRegisterRequest } from "./auth.types";
 import RoleService from "../roles/roles.service";
+import { z } from "zod";
+import { Types } from "mongoose";
+import { UserStatus } from "../users/users.types";
 
 
 class AuthController {
     private roleService: RoleService;
+
+    private registerSchema = z.object({
+        name: z.string({ required_error: "Name is required" })
+            .min(2, "Name must be at least 2 characters long")
+            .max(100, "Name is too long"),
+        username: z.string({ required_error: "Username is required" })
+            .min(3, "Username must be at least 3 characters long")
+            .max(30, "Username is too long"),
+        password: z.string({ required_error: "Password is required" })
+            .min(6, "Password must be at least 6 characters long"),
+        roleId: z.string({ required_error: "Role ID is required" })
+            .refine(val => Types.ObjectId.isValid(val), {
+                message: "Invalid role ID format"
+            }),
+        balance: z.number().default(0),
+        status: z.nativeEnum(UserStatus, {
+            required_error: "Status is required",
+            invalid_type_error: "Status must be a valid user status"
+        }),
+    });
 
     constructor(private authService: AuthService) {
         this.roleService = new RoleService();
@@ -31,10 +54,12 @@ class AuthController {
 
             const { refreshToken, accessToken, user }: ILoginResponse = await this.authService.login(username, password, userAgent, ipAddress);
             res.cookie('refreshToken', refreshToken, {
-                httpOnly: true, // Prevents JavaScript access
-                secure: config.env === "production", // Only set cookies over HTTPS in production
-                sameSite: "strict", // Can adjust baded on cross-origin requirements
-                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 day expiration (match token expiration)
+                httpOnly: true,
+                secure: config.env === "production",
+                sameSite: config.env === "production" ? 'none' : 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000,
+                path: '/',
+                domain: config.domain
             });
 
             // Send the access token in response body (for authorization in API requests)
@@ -47,27 +72,38 @@ class AuthController {
     async register(req: Request, res: Response, next: NextFunction) {
         try {
             const { requestingUser } = req as AuthRequest;
-            const { name, username, password, balance, roleId, status } = req.body as IRegisterRequest;
+
+            const validationResult = this.registerSchema.safeParse(req.body);
+            if (!validationResult.success) {
+                const errorMessage = validationResult.error.errors[0].message;
+                throw createHttpError(400, errorMessage);
+            }
+
+            const { name, username, password, roleId, status, balance } = validationResult.data;
+
 
             if (!requestingUser) {
                 throw createHttpError(400, 'Requesting user ID not found');
             }
 
-
-            if (!name || !username || !password || balance === undefined || !roleId || !status) {
-                throw createHttpError(400, 'All required fields must be provided')
-            }
-
             // Validate role exits
-            const targetRole = await this.roleService.getRole(roleId);
+            const targetRole = await this.roleService.getRole(new Types.ObjectId(roleId));
             if (!targetRole) {
                 throw createHttpError(404, 'Role not found');
             }
 
             // Validare the role hierarchy
-            await this.roleService.validateRole(requestingUser.role._id, roleId);
+            await this.roleService.validateRole(requestingUser.role._id, new Types.ObjectId(roleId));
 
-            const newUser = await this.authService.register({ name, username, password, balance, roleId, status, createdBy: requestingUser._id });
+            const newUser = await this.authService.register({
+                name,
+                username,
+                password,
+                roleId: new Types.ObjectId(roleId),
+                status,
+                balance, // ✅ Optional value is passed only if present
+                createdBy: requestingUser._id
+            });
             res.status(200).json(successResponse(newUser, 'User registered successfully'));
         } catch (error) {
             next(error)
