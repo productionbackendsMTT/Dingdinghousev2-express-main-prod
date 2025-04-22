@@ -1,10 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
-import { UserModel } from "../modules/users";
-import { Resource } from "../utils/resources";
 import mongoose from "mongoose";
 import { AuthRequest } from "./auth.middleware";
-import RoleModel from "../modules/roles/roles.model";
+import { Resource } from "../lib/resources";
+import RoleModel from "../../modules/roles/roles.model";
+import UserModel from "../../modules/users/users.model";
 
 export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => {
     return async (req: Request, res: Response, next: NextFunction) => {

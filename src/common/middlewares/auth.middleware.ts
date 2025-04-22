@@ -2,11 +2,11 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import jwt from "jsonwebtoken";
 import { config } from "../config/config";
-import UserModel from "../modules/users/users.model";
 
 import { Document } from "mongoose";
-import { IUser } from "../modules/users/users.types";
-import { IRole } from "../modules/roles/roles.types";
+import { IRole } from "../../modules/roles/roles.types";
+import { IUser } from "../../modules/users/users.types";
+import UserModel from "../../modules/users/users.model";
 
 export interface AuthRequest extends Request {
     requestingUser: (IUser & Document) & {

@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 import TransactionModel, { ITransaction, TransactionType } from "./transactions.model";
-import { UserModel } from "../users";
 import createHttpError from "http-errors";
 import { UserStatus } from "../users/users.types";
+import UserModel from "../users/users.model";
 
 
 class TransactionService {
@@ -259,7 +259,7 @@ class TransactionService {
             $or: [{ sender: { $in: userIds } }, { receiver: { $in: userIds } }],
             ...filters
         };
-    
+
         if (searchTerm) {
             // First, find users matching the search term
             const matchingUsers = await UserModel.find({

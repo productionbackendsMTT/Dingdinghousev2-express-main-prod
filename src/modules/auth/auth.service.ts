@@ -1,15 +1,15 @@
-import { UserModel } from "../users";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { config } from "../../config/config";
+import { config } from "../../common/config/config";
 import createHttpError from "http-errors";
 import TransactionService from "../transactions/transactions.service";
 import mongoose from "mongoose";
 import { TransactionType } from "../transactions/transactions.model";
-import { verifyToken } from "../../middlewares";
 import { ILoginResponse, IRegisterParams } from "./auth.types";
 import { UserStatus } from "../users/users.types";
 import { IRole } from "../roles/roles.types";
+import UserModel from '../users/users.model';
+import { verifyToken } from '../../common/middlewares/auth.middleware';
 
 
 class AuthService {

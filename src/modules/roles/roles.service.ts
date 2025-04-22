@@ -2,21 +2,21 @@ import createHttpError from "http-errors";
 import RoleModel from "./roles.model";
 import mongoose, { Types } from "mongoose";
 import { DescendantOperation, IRole, RoleStatus, IUpdateRoleParams } from "./roles.types";
-import { UserModel } from "../users";
 import { UserStatus } from "../users/users.types";
-import { config } from "../../config/config";
-
+import { config } from "../../common/config/config";
+import { Roles } from "../../common/lib/default-role-hierarchy";
+import UserModel from "../users/users.model";
 
 
 class RoleService {
 
     async addRole(name: string, descendants: string[]): Promise<IRole> {
         const existingRole = await RoleModel.findOne({
-            name,
-            status: RoleStatus.ACTIVE
+            name: { $regex: new RegExp(`^${name}$`, "i") },
+            status: RoleStatus.ACTIVE,
         });
         if (existingRole) {
-            throw createHttpError(400, 'Role already exists');
+            throw createHttpError(400, "Role already exists");
         }
 
         const role = new RoleModel({ name, descendants });
@@ -30,62 +30,68 @@ class RoleService {
             _id: id,
             status: { $ne: RoleStatus.DELETED },
         }).populate({
-            path: 'descendants',
-            select: 'name status',
-            match: { status: RoleStatus.ACTIVE }
+            path: "descendants",
+            select: "name status",
+            match: { status: RoleStatus.ACTIVE },
         });
 
         if (!role) {
-            throw createHttpError(404, 'Role not found');
+            throw createHttpError(404, "Role not found");
         }
 
         return role;
     }
 
-    async getAllRoles(filters: any = {}, options: any = {}): Promise<{
-        data: IRole[],
+    async getAllRoles(
+        filters: any = {},
+        options: any = {}
+    ): Promise<{
+        data: IRole[];
         meta: {
-            total: number,
-            page: number,
-            limit: number,
-            pages: number
-        }
+            total: number;
+            page: number;
+            limit: number;
+            pages: number;
+        };
     }> {
         const {
             page = 1,
             limit = 10,
             search,
-            sortBy = 'createdAt',
-            sortOrder = 'desc',
-            requestingRoleId
+            sortBy = "createdAt",
+            sortOrder = "desc",
+            requestingRoleId,
         } = options;
 
-
-        const query: { status: RoleStatus; name?: RegExp; _id?: { $in: Types.ObjectId[] } } = {
+        const query: {
+            status: RoleStatus;
+            name?: RegExp;
+            _id?: { $in: Types.ObjectId[] };
+        } = {
             status: { $ne: RoleStatus.DELETED },
-            ...filters
+            ...filters,
         };
 
         // Add search filter
         if (search) {
-            query['name'] = new RegExp(search, 'i');
+            query["name"] = new RegExp(search, "i");
         }
 
         // Add role hierarchy filter
         if (requestingRoleId) {
             const requestingRole = await RoleModel.findById(requestingRoleId);
             if (requestingRole) {
-                query['_id'] = { $in: [...requestingRole.descendants] };
+                query["_id"] = { $in: [...requestingRole.descendants] };
             }
         }
 
         const [roles, total] = await Promise.all([
             RoleModel.find(query)
-                .select('_id name status') // Only select required fields
-                .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
+                .select("_id name status") // Only select required fields
+                .sort({ [sortBy]: sortOrder === "desc" ? -1 : 1 })
                 .skip((page - 1) * limit)
                 .limit(limit),
-            RoleModel.countDocuments(query)
+            RoleModel.countDocuments(query),
         ]);
 
         return {
@@ -94,30 +100,34 @@ class RoleService {
                 total,
                 page,
                 limit,
-                pages: Math.ceil(total / limit)
-            }
+                pages: Math.ceil(total / limit),
+            },
         };
     }
 
-    async validateRole(requestingRoleId: Types.ObjectId, targetRoleId: Types.ObjectId): Promise<void> {
+
+    async validateRole(
+        requestingRoleId: Types.ObjectId,
+        targetRoleId: Types.ObjectId
+    ): Promise<void> {
         const requestingRole = await RoleModel.findOne({
             _id: requestingRoleId,
-            status: RoleStatus.ACTIVE
+            status: RoleStatus.ACTIVE,
         });
 
         if (!requestingRole) {
-            throw createHttpError(404, 'Requesting role not found');
+            throw createHttpError(404, "Requesting role not found");
         }
 
         if (!requestingRole.descendants.includes(targetRoleId)) {
-            throw createHttpError(403, 'Access denied: Role hierarchy violation');
+            throw createHttpError(403, "Access denied: Role hierarchy violation");
         }
     }
 
     async updateRole(id: string, params: IUpdateRoleParams): Promise<IRole> {
         const role = await RoleModel.findById(id);
         if (!role) {
-            throw createHttpError.NotFound('Role not found');
+            throw createHttpError.NotFound("Role not found");
         }
 
         // Update name if provided
@@ -132,7 +142,9 @@ class RoleService {
 
         // Update descendants if provided
         if (params.descendants && params.operation) {
-            const descendantObjectIds = params.descendants.map(id => new Types.ObjectId(id));
+            const descendantObjectIds = params.descendants.map(
+                (id) => new Types.ObjectId(id)
+            );
 
             const count = await RoleModel.countDocuments({
                 _id: { $in: descendantObjectIds },
@@ -140,15 +152,19 @@ class RoleService {
             });
 
             if (count !== params.descendants.length) {
-                throw createHttpError.BadRequest('One or more descendant roles not found or inactive');
+                throw createHttpError.BadRequest(
+                    "One or more descendant roles not found or inactive"
+                );
             }
 
             switch (params.operation) {
                 case DescendantOperation.ADD:
                     // Convert existing descendants to strings for comparison
-                    const existingDescendants = new Set(role.descendants.map(d => d.toString()));
+                    const existingDescendants = new Set(
+                        role.descendants.map((d) => d.toString())
+                    );
                     // Add new descendants, ensuring uniqueness
-                    descendantObjectIds.forEach(id => {
+                    descendantObjectIds.forEach((id) => {
                         if (!existingDescendants.has(id.toString())) {
                             role.descendants.push(id);
                         }
@@ -157,9 +173,13 @@ class RoleService {
                     break;
                 case DescendantOperation.REMOVE:
                     // Convert descendants to remove to strings for comparison
-                    const descendantsToRemove = new Set(descendantObjectIds.map(id => id.toString()));
+                    const descendantsToRemove = new Set(
+                        descendantObjectIds.map((id) => id.toString())
+                    );
                     // Filter out the descendants to remove
-                    role.descendants = role.descendants.filter(d => !descendantsToRemove.has(d.toString()));
+                    role.descendants = role.descendants.filter(
+                        (d) => !descendantsToRemove.has(d.toString())
+                    );
                     break;
                 case DescendantOperation.REPLACE:
                     role.descendants = descendantObjectIds;
@@ -176,21 +196,28 @@ class RoleService {
             status: { $ne: RoleStatus.DELETED },
         });
         if (!role) {
-            throw createHttpError(404, 'Active role not found');
+            throw createHttpError(404, "Active role not found");
         }
 
-        if (role.name === config.root.role) {
-            throw createHttpError.Forbidden('Cannot delete admin role');
+        // Check if the role is a root role or a system role
+        if (
+            role.name === config.root.role ||
+            role.name === Roles.ADMIN ||
+            role.name === Roles.PLAYER
+        ) {
+            throw createHttpError.Forbidden("Cannot delete this role");
         }
 
         // Check for users with this role
         // Check for active users with this role
         const activeUsersWithRole = await UserModel.countDocuments({
             role: role._id,
-            status: UserStatus.ACTIVE
+            status: UserStatus.ACTIVE,
         });
         if (activeUsersWithRole > 0) {
-            throw createHttpError.Conflict('Cannot delete role with existing active users');
+            throw createHttpError.Conflict(
+                "Cannot delete role with existing active users"
+            );
         }
 
         const session = await mongoose.startSession();
@@ -198,13 +225,13 @@ class RoleService {
             await session.withTransaction(async () => {
                 await RoleModel.findByIdAndUpdate(id, {
                     status: RoleStatus.DELETED,
-                    name: `${role.name}_DELETED_${Date.now()}`  // Ensure unique name
+                    name: `${role.name}_DELETED_${Date.now()}`, // Ensure unique name
                 });
 
                 await RoleModel.findOneAndUpdate(
                     { name: config.root.role },
                     { $pull: { descendants: role._id } }
-                )
+                );
 
                 // Remove from all other roles' descendants
                 await RoleModel.updateMany(

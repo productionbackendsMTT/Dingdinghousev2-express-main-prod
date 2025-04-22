@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import AuthService from "./auth.service";
 import createHttpError from "http-errors";
-import { successResponse } from "../../utils";
-import { AuthRequest } from "../../middlewares";
-import { config } from "../../config/config";
-import { ILoginResponse, IRegisterRequest } from "./auth.types";
+import { config } from "../../common/config/config";
+import { ILoginResponse } from "./auth.types";
 import RoleService from "../roles/roles.service";
 import { z } from "zod";
 import { Types } from "mongoose";
 import { UserStatus } from "../users/users.types";
+import { successResponse } from "../../common/lib/response";
+import { AuthRequest } from "../../common/middlewares/auth.middleware";
 
 
 class AuthController {

@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import userRoutes from './users/users.route';
 import transactionRoutes from './transactions/transactions.route';
-import { authRoutes } from './auth';
 import roleRouter from './roles/roles.routes';
 import gamesRoutes from './games/games.route';
+import authRoutes from './auth/auth.route';
 
 const moduleRoutes = Router();
 

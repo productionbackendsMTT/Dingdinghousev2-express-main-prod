@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { HttpError } from 'http-errors';
-import { errorResponse } from '../utils';
 import { config } from '../config/config';
+import { errorResponse } from '../lib/response';
 
 const errorHandler = (err: HttpError, req: Request, res: Response, next: NextFunction) => {
     const status = err.status || 500;

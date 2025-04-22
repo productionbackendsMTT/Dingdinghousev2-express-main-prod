@@ -2,9 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import RoleService from "./roles.service";
 import mongoose from "mongoose";
 import createHttpError from "http-errors";
-import { successResponse } from "../../utils";
-import { AuthRequest } from "../../middlewares";
 import { DescendantOperation, RoleStatus } from "./roles.types";
+import { successResponse } from "../../common/lib/response";
+import { AuthRequest } from "../../common/middlewares/auth.middleware";
 
 
 class RoleController {

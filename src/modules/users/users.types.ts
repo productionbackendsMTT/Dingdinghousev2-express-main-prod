@@ -1,5 +1,5 @@
 import mongoose, { Model, Types } from "mongoose";
-import { IResourcePermission, Resource } from "../../utils/resources";
+import { IResourcePermission, Resource } from "../../common/lib/resources";
 import { IRole } from "../roles/roles.types";
 
 export enum UserStatus {
@@ -47,7 +47,8 @@ export interface IUser extends Document {
 }
 
 export interface IUserModel extends Model<IUser> {
-    ensureAdminUser(): Promise<void>;
+    ensureRootUser(): Promise<void>;
+    getAdminIdsFromPath(userPath: string): Promise<Types.ObjectId[]>;
 }
 
 export interface ITransformedUser {

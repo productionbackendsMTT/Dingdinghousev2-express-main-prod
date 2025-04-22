@@ -1,5 +1,5 @@
+import { Roles } from "../lib/default-role-hierarchy";
 import { JWTConfig } from "./jwt-config";
-import { Roles } from "./roles";
 
 export interface AppConfig {
     port: number;

@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
 import UserService from "./users.service";
-import { Resource, successResponse } from "../../utils";
-import { AuthRequest } from "../../middlewares";
 import mongoose from "mongoose";
-import { config } from "../../config/config";
+import { Resource } from "../../common/lib/resources";
+import { Roles } from "../../common/lib/default-role-hierarchy";
+import { successResponse } from "../../common/lib/response";
+import { AuthRequest } from "../../common/middlewares/auth.middleware";
+
 
 class UserController {
     constructor(private userService: UserService) {
@@ -27,13 +29,10 @@ class UserController {
                 throw createHttpError(400, 'Requesting user not found');
             }
 
-            // Filter permissions - only include role resource if user has full rwx access
-            const filteredPermissions = requestingUser.permissions.map(p => {
-                if (p.resource === Resource.ROLES && p.permission !== 'rwx') {
-                    return null;
-                }
-                return p;
-            }).filter(Boolean);
+            const filteredPermissions =
+                requestingUser.role?.name === Roles.PLAYER ? [] : requestingUser.permissions
+                    .map(p => (p.resource === Resource.ROLES && p.permission !== 'rwx' ? null : p))
+                    .filter(Boolean);
 
             const data = {
                 _id: requestingUser._id,
@@ -106,6 +105,7 @@ class UserController {
                 username,
             } = req.query;
 
+
             // Build filters object
             const queryFilters: any = {};
 
@@ -167,14 +167,15 @@ class UserController {
             }
 
             const { userId } = req.params;
-            const { balance, ...updateData } = req.body;
+            const { credits, ...updateData } = req.body;
 
             const updatedUser = await this.userService.updateUser(
                 requestingUser._id.toString(),
                 new mongoose.Types.ObjectId(userId),
-                { ...updateData, balance: balance?.amount },
-                balance?.type
+                { ...updateData, credits: credits?.amount },
+                credits?.type
             );
+
             res.status(200).json(successResponse(updatedUser, 'User updated successfully'));
         } catch (error) {
             console.error(error);
@@ -223,7 +224,6 @@ class UserController {
                 username,
             } = req.query;
 
-
             // Build filters object
             const queryFilters: any = {};
 
@@ -251,6 +251,7 @@ class UserController {
 
             // Add username filter
             if (username) {
+                console.log('username', username);
                 queryFilters.username = username;
             }
 
