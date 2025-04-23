@@ -132,7 +132,7 @@ class UserService {
         const total = await UserModel.countDocuments(query);
 
         const users = await UserModel.find(query)
-            .select('name username credits role status createdBy totalSpent totalReceived permissions lastLogin createdAt')
+            .select('name username balance role status createdBy totalSpent totalReceived permissions lastLogin createdAt')
             .populate('role', 'name')
             .populate('createdBy', 'name')
             .sort(options.sort)

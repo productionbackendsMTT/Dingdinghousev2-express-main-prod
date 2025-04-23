@@ -167,13 +167,13 @@ class UserController {
             }
 
             const { userId } = req.params;
-            const { credits, ...updateData } = req.body;
+            const { balance, ...updateData } = req.body;
 
             const updatedUser = await this.userService.updateUser(
                 requestingUser._id.toString(),
                 new mongoose.Types.ObjectId(userId),
-                { ...updateData, credits: credits?.amount },
-                credits?.type
+                { ...updateData, balance: balance?.amount },
+                balance?.type
             );
 
             res.status(200).json(successResponse(updatedUser, 'User updated successfully'));
