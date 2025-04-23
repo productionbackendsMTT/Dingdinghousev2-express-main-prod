@@ -1,8 +1,9 @@
 import { Router } from "express";
 import AuthController from "./auth.controller";
 import AuthService from "./auth.service";
-import { authHandler, checkPermission } from "../../middlewares";
-import { Resource } from "../../utils";
+import { Resource } from "../../common/lib/resources";
+import { authHandler } from "../../common/middlewares/auth.middleware";
+import { checkPermission } from "../../common/middlewares/permission.middleware";
 
 const authRoutes = Router();
 const authService = new AuthService();

@@ -1,5 +1,5 @@
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
-import { config } from '../config/config';
+import { config } from './config';
 import createHttpError from 'http-errors';
 
 export class CloudinaryService {

@@ -1,9 +1,9 @@
 import mongoose, { model, Schema, Types } from "mongoose";
 import { IToken, IUser, IUserModel, UserStatus } from "./users.types";
-import { generateDefaultPermissions, PERMISSION_PATTERN, Resource } from "../../utils/resources";
+import { generateDefaultPermissions, PERMISSION_PATTERN, Resource } from "../../common/lib/resources";
 import bcrypt from 'bcrypt';
 import RoleModel from "../roles/roles.model";
-import { config } from "../../config/config";
+import { config } from "../../common/config/config";
 
 
 const TokenSchema = new Schema<IToken>({
@@ -142,15 +142,14 @@ UserSchema.methods.getPermissionString = function (resource: Resource): string {
     return permission ? permission.permission : '---';
 };
 
-UserSchema.statics.ensureAdminUser = async function () {
-
-    const adminRole = await RoleModel.findOne({ name: config.root.role });
-    if (!adminRole) {
-        throw new Error('Admin role must exist before creating admin user');
+UserSchema.statics.ensureRootUser = async function () {
+    const rootRole = await RoleModel.findOne({ name: config.root.role });
+    if (!rootRole) {
+        throw new Error('Root role must exist before creating root user');
     }
 
-    const adminExists = await this.findOne({ username: config.root.username });
-    if (!adminExists) {
+    const rootExists = await this.findOne({ username: config.root.username });
+    if (!rootExists) {
         if (!config.root.password) {
             throw new Error('Root password must be defined in the configuration');
         }
@@ -159,14 +158,42 @@ UserSchema.statics.ensureAdminUser = async function () {
             name: config.root.name,
             username: config.root.username,
             password: hashedPassword,
-            role: adminRole._id,
+            role: rootRole._id,
             status: UserStatus.ACTIVE,
-            balance: Infinity,
+            credits: Infinity,
             path: '',
-            permissions: generateDefaultPermissions(adminRole.name)
+            permissions: generateDefaultPermissions(rootRole.name)
         });
     }
-    return adminExists;
+    return rootExists;
+};
+
+UserSchema.statics.getAdminIdsFromPath = async function (userPath: string): Promise<Types.ObjectId[]> {
+    // For root user - get all direct admin descendants
+    if (!userPath.includes('/')) {
+        const adminUsers = await this.find({
+            path: new RegExp(`^${userPath}/[^/]+$`), // Match direct descendants only
+            status: { $ne: UserStatus.DELETED } // Include any status except DELETED
+        });
+        return adminUsers.map((admin: IUser & mongoose.Document) => admin._id);
+    }
+
+    // For other users - get their admin's ID from path
+    const pathParts = userPath.split('/');
+    if (pathParts.length > 1) {
+        const adminId = new Types.ObjectId(pathParts[1]);
+
+        // Check if the admin user is not deleted
+        const adminUser = await this.findOne({
+            _id: adminId,
+            status: { $ne: UserStatus.DELETED }
+        });
+
+        // Only return the admin ID if the admin is not deleted
+        return adminUser ? [adminId] : [];
+    }
+
+    return [];
 };
 
 const UserModel = model<IUser, IUserModel>("User", UserSchema);

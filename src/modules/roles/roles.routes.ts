@@ -1,8 +1,9 @@
 import { Router } from "express";
 import RoleService from "./roles.service";
 import RoleController from "./roles.controller";
-import { authHandler, checkPermission } from "../../middlewares";
-import { Resource } from "../../utils";
+import { Resource } from "../../common/lib/resources";
+import { authHandler } from "../../common/middlewares/auth.middleware";
+import { checkPermission } from "../../common/middlewares/permission.middleware";
 
 const roleRouter = Router();
 const roleService = new RoleService();

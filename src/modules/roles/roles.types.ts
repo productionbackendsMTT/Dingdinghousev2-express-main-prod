@@ -1,4 +1,4 @@
-import { Model, Types } from "mongoose";
+import { Document, Model, Types } from "mongoose";
 
 export enum DescendantOperation {
     ADD = 'add',
@@ -19,9 +19,10 @@ export interface IRole extends Document {
     status: RoleStatus;
 }
 
+
 export interface IRoleModel extends Model<IRole> {
-    ensureAdminRole(): Promise<void>;
-    ensurePlayerRole(): Promise<void>;
+    ensureRole(roleName: string): Promise<IRole>;
+    ensureRoleHierarchy(): Promise<IRole[]>;
 }
 
 export interface IUpdateRoleParams {

@@ -2,8 +2,9 @@ import express from 'express';
 import { GameController } from './games.controller';
 import { GameService } from './games.service';
 import multer from 'multer';
-import { authHandler, checkPermission } from '../../middlewares';
-import { Resource } from '../../utils';
+import { Resource } from '../../common/lib/resources';
+import { authHandler } from '../../common/middlewares/auth.middleware';
+import { checkPermission } from '../../common/middlewares/permission.middleware';
 
 const gamesRoutes = express.Router();
 const gamesController = new GameController(new GameService());

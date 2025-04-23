@@ -4,7 +4,7 @@ import os from 'os';
 import moduleRoutes from './modules';
 import cookieParser from 'cookie-parser';
 import cors from 'cors'
-import { errorHandler } from './middlewares';
+import errorHandler from './common/middlewares/error.middleware';
 
 const app = express();
 

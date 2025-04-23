@@ -5,7 +5,7 @@ import TransactionModel, { TransactionType } from "../transactions/transactions.
 import TransactionService from "../transactions/transactions.service";
 import bcrypt from "bcrypt";
 import { ITransformedUser, IUser, PermissionOperation, UserStatus } from "./users.types";
-import { PERMISSION_PATTERN, Resource } from "../../utils/resources";
+import { PERMISSION_PATTERN, Resource } from "../../common/lib/resources";
 import RoleModel from "../roles/roles.model";
 import GameModel from "../games/games.model";
 
@@ -61,6 +61,14 @@ class UserService {
             ...otherFilters
         };
 
+        if (username) {
+            const escapedUsername = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            query.username = { $regex: new RegExp(escapedUsername, 'i') };
+        }
+
+        if (status) {
+            query.status = status;
+        }
 
         // Add date range filtering
         if (from || to) {
@@ -124,7 +132,7 @@ class UserService {
         const total = await UserModel.countDocuments(query);
 
         const users = await UserModel.find(query)
-            .select('name username balance role status createdBy totalSpent totalReceived permissions lastLogin createdAt')
+            .select('name username credits role status createdBy totalSpent totalReceived permissions lastLogin createdAt')
             .populate('role', 'name')
             .populate('createdBy', 'name')
             .sort(options.sort)
