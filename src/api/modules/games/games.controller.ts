@@ -3,8 +3,7 @@ import { GameService } from "./games.service";
 import { GameStatus, IGame } from './games.model';
 import createHttpError from 'http-errors';
 import mongoose from 'mongoose';
-import { successResponse } from '../../common/lib/response';
-
+import { successResponse } from '../../../common/lib/response';
 
 export class GameController {
 

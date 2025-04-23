@@ -2,10 +2,10 @@ import { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
 import UserService from "./users.service";
 import mongoose from "mongoose";
-import { Resource } from "../../common/lib/resources";
-import { Roles } from "../../common/lib/default-role-hierarchy";
-import { successResponse } from "../../common/lib/response";
-import { AuthRequest } from "../../common/middlewares/auth.middleware";
+import { Resource } from "../../../common/lib/resources";
+import { Roles } from "../../../common/lib/default-role-hierarchy";
+import { successResponse } from "../../../common/lib/response";
+import { AuthRequest } from "../../../common/middlewares/auth.middleware";
 
 
 class UserController {

@@ -1,6 +1,6 @@
 import mongoose, { Model, Types } from "mongoose";
-import { IResourcePermission, Resource } from "../../common/lib/resources";
 import { IRole } from "../roles/roles.types";
+import { IResourcePermission, Resource } from "../../../common/lib/resources";
 
 export enum UserStatus {
     ACTIVE = 'active',

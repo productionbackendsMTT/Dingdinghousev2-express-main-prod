@@ -2,8 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import TransactionService from "./transactions.service";
 import mongoose from "mongoose";
 import createHttpError from "http-errors";
-import { successResponse } from "../../common/lib/response";
-import { AuthRequest } from "../../common/middlewares/auth.middleware";
+import { successResponse } from "../../../common/lib/response";
+import { AuthRequest } from "../../../common/middlewares/auth.middleware";
+
 
 class TransactionController {
     constructor(private transactionService: TransactionService) {

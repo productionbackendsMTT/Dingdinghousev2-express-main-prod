@@ -4,10 +4,11 @@ import mongoose, { SortOrder } from "mongoose";
 import TransactionModel, { TransactionType } from "../transactions/transactions.model";
 import TransactionService from "../transactions/transactions.service";
 import bcrypt from "bcrypt";
-import { ITransformedUser, IUser, PermissionOperation, UserStatus } from "./users.types";
-import { PERMISSION_PATTERN, Resource } from "../../common/lib/resources";
+import { IUser, PermissionOperation, UserStatus } from "./users.types";
 import RoleModel from "../roles/roles.model";
 import GameModel from "../games/games.model";
+import { Resource } from "../../../common/lib/resources";
+
 
 class UserService {
     private transactionService: TransactionService;

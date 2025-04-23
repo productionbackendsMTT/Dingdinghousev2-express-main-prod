@@ -3,8 +3,8 @@ import RoleService from "./roles.service";
 import mongoose from "mongoose";
 import createHttpError from "http-errors";
 import { DescendantOperation, RoleStatus } from "./roles.types";
-import { successResponse } from "../../common/lib/response";
-import { AuthRequest } from "../../common/middlewares/auth.middleware";
+import { successResponse } from "../../../common/lib/response";
+import { AuthRequest } from "../../../common/middlewares/auth.middleware";
 
 
 class RoleController {

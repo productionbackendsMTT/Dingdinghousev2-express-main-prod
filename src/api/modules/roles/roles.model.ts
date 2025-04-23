@@ -1,7 +1,8 @@
 import mongoose, { Model, Schema, Types } from "mongoose";
 import { IRole, IRoleModel, RoleStatus } from "./roles.types";
-import { getAncestorRoles } from "../../common/lib/utils";
-import { roleHierarchy, Roles } from "../../common/lib/default-role-hierarchy";
+import { getAncestorRoles } from "../../../common/lib/utils";
+import { roleHierarchy, Roles } from "../../../common/lib/default-role-hierarchy";
+
 
 const INITIALIZATION_FLAG = "ROLES_INITIALIZED";
 

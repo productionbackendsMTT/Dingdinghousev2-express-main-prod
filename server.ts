@@ -1,16 +1,31 @@
-import { config } from "./src/common/config/config";
-import connectDB from "./src/common/config/db"
-import { server } from "./src/app";
-import { initializeSystem } from "./src/common/system/init";
+import express, { Request, Response } from 'express';
+import { createServer } from 'http';
+import connectDB from './src/common/config/db';
+import { init } from './src/common/system/init';
+import api from './src/api';
+import { config } from './src/common/config/config';
 
-const startServer = async () => {
+async function bootstrap() {
+    const app = express();
+    const httpServer = createServer(app);
 
-    await connectDB();
-    await initializeSystem();
+    try {
+        await connectDB();
+        await init();
 
-    server.listen(config.port, () => {
-        console.log(`API Service listening on port ${config.port}`);
-    })
+        api(app);
+
+        // Start server
+        const PORT = config.port;
+        httpServer.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+            console.log(`API available at http://localhost:${PORT}/api`);
+        });
+
+    } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+    }
 }
 
-startServer()
+bootstrap().catch(console.error);

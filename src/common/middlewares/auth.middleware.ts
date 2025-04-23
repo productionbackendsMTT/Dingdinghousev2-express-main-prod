@@ -4,9 +4,9 @@ import jwt from "jsonwebtoken";
 import { config } from "../config/config";
 
 import { Document } from "mongoose";
-import { IRole } from "../../modules/roles/roles.types";
-import { IUser } from "../../modules/users/users.types";
-import UserModel from "../../modules/users/users.model";
+import { IUser } from "../../api/modules/users/users.types";
+import { IRole } from "../../api/modules/roles/roles.types";
+import UserModel from "../../api/modules/users/users.model";
 
 export interface AuthRequest extends Request {
     requestingUser: (IUser & Document) & {

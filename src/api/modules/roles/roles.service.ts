@@ -3,10 +3,9 @@ import RoleModel from "./roles.model";
 import mongoose, { Types } from "mongoose";
 import { DescendantOperation, IRole, RoleStatus, IUpdateRoleParams } from "./roles.types";
 import { UserStatus } from "../users/users.types";
-import { config } from "../../common/config/config";
-import { Roles } from "../../common/lib/default-role-hierarchy";
 import UserModel from "../users/users.model";
-
+import { config } from "../../../common/config/config";
+import { Roles } from "../../../common/lib/default-role-hierarchy";
 
 class RoleService {
 

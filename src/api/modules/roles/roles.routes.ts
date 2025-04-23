@@ -1,9 +1,11 @@
 import { Router } from "express";
 import RoleService from "./roles.service";
 import RoleController from "./roles.controller";
-import { Resource } from "../../common/lib/resources";
-import { authHandler } from "../../common/middlewares/auth.middleware";
-import { checkPermission } from "../../common/middlewares/permission.middleware";
+import { authHandler } from "../../../common/middlewares/auth.middleware";
+import { checkPermission } from "../../../common/middlewares/permission.middleware";
+import { Resource } from "../../../common/lib/resources";
+
+
 
 const roleRouter = Router();
 const roleService = new RoleService();

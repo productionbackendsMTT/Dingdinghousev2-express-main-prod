@@ -1,64 +1,55 @@
-# node-server-project/node-server-project/README.md
 
-# Node.js Server Project
-
-This project is a Node.js server application built with TypeScript. It serves as a template for creating scalable and maintainable server-side applications.
-
-## Folder Structure
+# Project Structure
 
 ```
-node-server-project
-├── src
-│   ├── server.ts          # Entry point of the application
-│   └── types
-│       └── index.ts      # Type definitions used throughout the application
-├── package.json           # npm configuration file
-├── tsconfig.json          # TypeScript configuration file
-└── README.md              # Project documentation
-```
+project/
+├── server.ts
+├── src/
+│   ├── common/
+│   │   ├── config/
+│   │   │   ├── cloudinary.ts
+│   │   │   ├── config.ts
+│   │   │   └── db.ts
+│   │   ├── lib/
+│   │   │   ├── default-permissions.ts
+│   │   │   ├── default-role-hierarchy.ts
+│   │   │   ├── resources.ts
+│   │   │   ├── response.ts
+│   │   │   └── utils.ts
+│   │   ├── middlewares/
+│   │   │   ├── auth.middleware.ts
+│   │   │   ├── error.middleware.ts
+│   │   │   └── permission.middleware.ts
+│   │   ├── system/
+│   │   │   └── init.ts
+│   │   └── types/
+│   │       ├── app-config.ts
+│   │       ├── auth.ts
+│   │       ├── jwt-config.ts
+│   │       └── roles.ts
+│   └── api/
+|   │   └── modules/
+|   │   |   ├── auth/
+|   │   |   │   ├── auth.controller.ts
+|   │   |   │   ├── auth.route.ts
+|   │   |   │   ├── auth.service.ts
+|   │   |   │   └── auth.types.ts
+|   │   |   ├── games/
+|   │   |   │   ├── games.controller.ts
+|   │   |   │   ├── games.model.ts
+|   │   |   │   ├── games.route.ts
+|   │   |   │   ├── games.service.ts
+|   │   |   │   └── games.types.ts
+|   │   |   ├── payouts/
+|   │   |   │   ├── payouts.controller.ts
+|   │   |   │   ├── payouts.model.ts
+|   │   |   │   ├── payouts.route.ts
+|   │   |   │   ├── payouts.service.ts
+|   │   |   │   └── payouts.types.ts
+|   │   |   ├── roles/
+|   │   |   ├── sessions/
+|   │   |   ├── transactions/
+|   │   |   └── users/
+|   |   └── index.ts
+│   └── socket/
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js (version 14 or higher)
-- npm (Node Package Manager)
-
-### Installation
-
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   cd node-server-project
-   ```
-
-2. Install the dependencies:
-   ```
-   npm install
-   ```
-
-### Running the Application
-
-To start the server, run the following command:
-```
-npm start
-```
-
-### Building the Project
-
-To compile the TypeScript files, use:
-```
-npm run build
-```
-
-### Usage
-
-Once the server is running, you can access it at `http://localhost:3000`. Adjust the port in `src/server.ts` if needed.
-
-## Contributing
-
-Feel free to submit issues or pull requests for improvements or bug fixes. 
-
-## License
-
-This project is licensed under the MIT License.

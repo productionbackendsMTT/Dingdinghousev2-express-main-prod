@@ -1,7 +1,7 @@
-import RoleModel from "../../modules/roles/roles.model";
-import UserModel from "../../modules/users/users.model";
+import RoleModel from "../../api/modules/roles/roles.model";
+import UserModel from "../../api/modules/users/users.model";
 
-export async function initializeSystem() {
+export async function init() {
     try {
         await RoleModel.ensureRoleHierarchy();
         await UserModel.ensureRootUser();
