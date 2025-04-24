@@ -1,16 +1,29 @@
-import { gameRegistry } from "./game-registry";
-import { BaseSlotGame } from "./base.slot";
-import { DefaultSlotGame } from "./default.slot";
-
+import { DefaultSlotGame } from './default.slot';
+import { GameConfig } from '../utils/GameConfig';
+import { BaseSlotGame } from './base.slot';
+import path from 'path';
 export class GameFactory {
-  static createGame(gameId: string, data: any): BaseSlotGame {
-    const GameClass = gameRegistry[gameId];
+  static create(config: GameConfig): BaseSlotGame {
+    try {
+      const sanitizedGameId = config.id.replace(/[^a-zA-Z0-9-_]/g, "");
+      const filePath = path.join(
+        __dirname,
+        "../specialGames",
+        sanitizedGameId,
+        `${sanitizedGameId}.slot.ts` 
+      );
+      console.log("Attempting to load:", filePath);
+      const GameClass = require(filePath).default || require(filePath)[sanitizedGameId.replace(/-/g, "")];
 
-    if (!GameClass) {
-      console.warn(`Game ID "${gameId}" not found. Defaulting to DefaultSlotGame.`);
-      return new DefaultSlotGame(data);
+      if (GameClass) {
+        return new GameClass(config);
+      }
+
+      throw new Error(`Game class for ID "${config.id}" not found.`);
+    } catch (error) {
+      console.warn(`Game class for ID "${config.id}" not found. Falling back to DefaultSlotGame.`);
+      return new DefaultSlotGame(config);
     }
-
-    return new GameClass(data);
   }
 }
+

@@ -3,7 +3,6 @@ import { BaseSlotGame } from "./base.slot";
 
 
 export class DefaultSlotGame extends BaseSlotGame {
-
   spin() {
     this.log("Spinning the reels...");
     const resultMatrix = this.generateRandomMatrix();
