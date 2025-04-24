@@ -3,8 +3,8 @@ import createHttpError from "http-errors";
 import mongoose from "mongoose";
 import { AuthRequest } from "./auth.middleware";
 import { Resource } from "../lib/resources";
-import RoleModel from "../../modules/roles/roles.model";
-import UserModel from "../../modules/users/users.model";
+import RoleModel from "../../api/modules/roles/roles.model";
+import UserModel from "../../api/modules/users/users.model";
 
 export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => {
     return async (req: Request, res: Response, next: NextFunction) => {

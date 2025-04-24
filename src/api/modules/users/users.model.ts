@@ -1,9 +1,9 @@
 import mongoose, { model, Schema, Types } from "mongoose";
 import { IToken, IUser, IUserModel, UserStatus } from "./users.types";
-import { generateDefaultPermissions, PERMISSION_PATTERN, Resource } from "../../common/lib/resources";
 import bcrypt from 'bcrypt';
 import RoleModel from "../roles/roles.model";
-import { config } from "../../common/config/config";
+import { config } from "../../../common/config/config";
+import { generateDefaultPermissions, PERMISSION_PATTERN, Resource } from "../../../common/lib/resources";
 
 
 const TokenSchema = new Schema<IToken>({
