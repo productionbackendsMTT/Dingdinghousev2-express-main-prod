@@ -1,9 +1,9 @@
-import mongoose, { model, Schema, Types } from "mongoose";
-import { IToken, IUser, IUserModel, UserStatus } from "./users.types";
+import { Document, model, Schema, Types } from "mongoose";
+import { IToken, IUser, IUserModel, UserStatus } from "../types/user.type";
+import { generateDefaultPermissions, PERMISSION_PATTERN, Resource } from "../lib/resources";
+import Role from "./role.schema";
+import { config } from "../config/config";
 import bcrypt from 'bcrypt';
-import RoleModel from "../roles/roles.model";
-import { config } from "../../../common/config/config";
-import { generateDefaultPermissions, PERMISSION_PATTERN, Resource } from "../../../common/lib/resources";
 
 
 const TokenSchema = new Schema<IToken>({
@@ -36,7 +36,7 @@ const UserSchema = new Schema<IUser>({
     password: { type: String, required: true },
     balance: { type: Number, default: 0 },
     role: {
-        type: mongoose.Types.ObjectId,
+        type: Types.ObjectId,
         ref: "Role",
         require: true,
     },
@@ -46,7 +46,7 @@ const UserSchema = new Schema<IUser>({
         default: UserStatus.ACTIVE
     },
     createdBy: {
-        type: mongoose.Types.ObjectId,
+        type: Types.ObjectId,
         ref: "User",
         default: null,
         nullable: true
@@ -55,7 +55,7 @@ const UserSchema = new Schema<IUser>({
     totalReceived: { type: Number, default: 0 },
     lastLogin: { type: Date, default: null },
     favouriteGames: {
-        type: [mongoose.Types.ObjectId],
+        type: [Types.ObjectId],
         ref: "Game",
         default: []
     },
@@ -73,17 +73,16 @@ const UserSchema = new Schema<IUser>({
     }
 }, { timestamps: true });
 
-
 // Middleware to set the materialized path before saving
 UserSchema.pre('validate', async function (next) {
     if (this.isNew) {
-        const role = await RoleModel.findById(this.role);
+        const role = await Role.findById(this.role);
         if (!role) {
             throw new Error('Role is required');
         }
 
         if (role?.name === config.root.role) {
-            const existingAdmin = await UserModel.findOne({
+            const existingAdmin = await User.findOne({
                 'role': role._id,
                 '_id': { $ne: this._id } // Exclude current document
             });
@@ -97,7 +96,7 @@ UserSchema.pre('validate', async function (next) {
             this.balance = Infinity;
             this.permissions = generateDefaultPermissions(role.name);
         } else if (this.createdBy) {
-            const parentUser = await UserModel.findById(this.createdBy);
+            const parentUser = await User.findById(this.createdBy);
             if (parentUser) {
                 this.path = `${parentUser.path}/${this._id}`;
             } else {
@@ -114,8 +113,8 @@ UserSchema.pre('validate', async function (next) {
 
 // Middleware to check for child users before deleting
 UserSchema.pre('deleteOne', { document: true, query: false }, async function (next) {
-    const user = this as IUser & mongoose.Document;
-    const childUsers = await UserModel.find({ createdBy: user._id });
+    const user = this as IUser & Document;
+    const childUsers = await User.find({ createdBy: user._id });
     if (childUsers.length > 0) {
         return next(new Error('Cannot delete user with existing child users. Please delete the child users first.'));
     }
@@ -124,7 +123,7 @@ UserSchema.pre('deleteOne', { document: true, query: false }, async function (ne
 
 // Method to get all descendant users using materialized path
 UserSchema.methods.getDescendants = async function (): Promise<IUser[]> {
-    const descendants = await UserModel.find({ path: { $regex: `^${this.path}/` }, status: { $ne: UserStatus.DELETED } });
+    const descendants = await User.find({ path: { $regex: `^${this.path}/` }, status: { $ne: UserStatus.DELETED } });
     return descendants;
 }
 
@@ -143,7 +142,7 @@ UserSchema.methods.getPermissionString = function (resource: Resource): string {
 };
 
 UserSchema.statics.ensureRootUser = async function () {
-    const rootRole = await RoleModel.findOne({ name: config.root.role });
+    const rootRole = await Role.findOne({ name: config.root.role });
     if (!rootRole) {
         throw new Error('Root role must exist before creating root user');
     }
@@ -175,7 +174,7 @@ UserSchema.statics.getAdminIdsFromPath = async function (userPath: string): Prom
             path: new RegExp(`^${userPath}/[^/]+$`), // Match direct descendants only
             status: { $ne: UserStatus.DELETED } // Include any status except DELETED
         });
-        return adminUsers.map((admin: IUser & mongoose.Document) => admin._id);
+        return adminUsers.map((admin: IUser & Document) => admin._id);
     }
 
     // For other users - get their admin's ID from path
@@ -196,6 +195,6 @@ UserSchema.statics.getAdminIdsFromPath = async function (userPath: string): Prom
     return [];
 };
 
-const UserModel = model<IUser, IUserModel>("User", UserSchema);
 
-export default UserModel;
+const User = model<IUser, IUserModel>("User", UserSchema);
+export default User;

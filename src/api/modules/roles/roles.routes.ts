@@ -6,7 +6,6 @@ import { checkPermission } from "../../../common/middlewares/permission.middlewa
 import { Resource } from "../../../common/lib/resources";
 
 
-
 const roleRouter = Router();
 const roleService = new RoleService();
 const roleController = new RoleController(roleService);

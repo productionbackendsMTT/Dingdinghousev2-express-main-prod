@@ -3,13 +3,13 @@ import jwt from 'jsonwebtoken';
 import createHttpError from "http-errors";
 import TransactionService from "../transactions/transactions.service";
 import mongoose from "mongoose";
-import { TransactionType } from "../transactions/transactions.model";
 import { ILoginResponse, IRegisterParams } from "./auth.types";
-import { UserStatus } from "../users/users.types";
-import { IRole } from "../roles/roles.types";
-import UserModel from '../users/users.model';
 import { config } from '../../../common/config/config';
 import { verifyToken } from '../../../common/middlewares/auth.middleware';
+import User from '../../../common/schemas/user.schema';
+import { IRole } from '../../../common/types/role.type';
+import { UserStatus } from '../../../common/types/user.type';
+import { TransactionType } from '../../../common/types/transaction.type';
 
 
 class AuthService {
@@ -28,7 +28,7 @@ class AuthService {
     }
 
     async login(username: string, password: string, userAgent: string, ipAddress: string): Promise<ILoginResponse> {
-        const user = await UserModel.findOne({ username })
+        const user = await User.findOne({ username })
             .populate<{ role: IRole }>('role')
             .select('+password');
 
@@ -82,7 +82,7 @@ class AuthService {
         session.startTransaction();
 
         try {
-            const existingUser = await UserModel.findOne({ username: data.username }).session(session);
+            const existingUser = await User.findOne({ username: data.username }).session(session);
             if (existingUser) {
                 throw createHttpError(409, 'Please choose a different username');
             }
@@ -91,7 +91,7 @@ class AuthService {
             const hashedPassword = await bcrypt.hash(data.password, 10);
 
             // create a new user
-            const newUser = new UserModel({
+            const newUser = new User({
                 name: data.name,
                 username: data.username,
                 password: hashedPassword,
@@ -109,7 +109,7 @@ class AuthService {
             }
 
             // Fetch the updated user data
-            const updatedUser = await UserModel.findById(newUser._id)
+            const updatedUser = await User.findById(newUser._id)
                 .populate('role')
                 .session(session);
 
@@ -130,7 +130,7 @@ class AuthService {
         const decoded = await verifyToken(refreshToken, config.refresh.secret!);
         const userId = (decoded as any).userId;
 
-        const user = await UserModel.findOne({ _id: userId, "token.refreshToken": refreshToken });
+        const user = await User.findOne({ _id: userId, "token.refreshToken": refreshToken });
         if (!user) {
             throw createHttpError(401, 'Invalid refresh token')
         }
@@ -144,7 +144,7 @@ class AuthService {
     }
 
     async logout(userId: mongoose.Types.ObjectId): Promise<void> {
-        const user = await UserModel.findById(userId);
+        const user = await User.findById(userId);
         if (!user) {
             throw createHttpError(404, 'User not found');
         }

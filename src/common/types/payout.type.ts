@@ -1,11 +1,9 @@
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 
-// Interface for the payout content (fully dynamic)
 export interface IPayoutContent extends Record<string, any> {
     // No fixed fields, can contain any sturcture
 }
 
-// Main Payout interface
 export interface IPayout extends Document {
     gameId: Types.ObjectId; // Reference to the game
     name: string; // Name of the payout

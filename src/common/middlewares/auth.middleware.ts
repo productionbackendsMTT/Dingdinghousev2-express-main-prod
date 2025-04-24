@@ -4,9 +4,9 @@ import jwt from "jsonwebtoken";
 import { config } from "../config/config";
 
 import { Document } from "mongoose";
-import { IUser } from "../../api/modules/users/users.types";
-import { IRole } from "../../api/modules/roles/roles.types";
-import UserModel from "../../api/modules/users/users.model";
+import { IUser } from "../types/user.type";
+import { IRole } from "../types/role.type";
+import User from "../schemas/user.schema";
 
 export interface AuthRequest extends Request {
     requestingUser: (IUser & Document) & {
@@ -43,7 +43,7 @@ export const authHandler = async (req: Request, res: Response, next: NextFunctio
         const decoded = await verifyToken(token, config.access.secret!);
         const requestingUserId = (decoded as any).userId;
 
-        const requestingUser = await UserModel.findById(requestingUserId).populate<{ role: IRole & Document }>('role');
+        const requestingUser = await User.findById(requestingUserId).populate<{ role: IRole & Document }>('role');
         if (!requestingUser) {
             return next(createHttpError(401, 'Requesting user not found'));
         }

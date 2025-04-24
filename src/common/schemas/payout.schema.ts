@@ -1,7 +1,6 @@
-import mongoose, { Schema, Types } from "mongoose";
-import { IPayout } from "./payouts.types";
+import { model, Schema } from "mongoose";
+import { IPayout } from "../types/payout.type";
 
-// Main Payout schema
 const PayoutSchema = new Schema<IPayout>({
     gameId: {
         type: Schema.Types.ObjectId,
@@ -16,10 +15,8 @@ const PayoutSchema = new Schema<IPayout>({
 }, { timestamps: true });
 
 
-// Indexes for faster queries
 PayoutSchema.index({ gameId: 1, version: 1 }, { unique: true }); // Compound index for gameId and version
 PayoutSchema.index({ gameId: 1, isActive: 1 }); // Index for active payouts
 
-const PayoutModel = mongoose.model<IPayout>("Payout", PayoutSchema);
-export default PayoutModel;
-
+const Payout = model<IPayout>("Payout", PayoutSchema);
+export default Payout;

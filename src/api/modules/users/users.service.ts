@@ -1,13 +1,14 @@
 import createHttpError from "http-errors";
-import UserModel from "./users.model";
 import mongoose, { SortOrder } from "mongoose";
-import TransactionModel, { TransactionType } from "../transactions/transactions.model";
 import TransactionService from "../transactions/transactions.service";
 import bcrypt from "bcrypt";
-import { IUser, PermissionOperation, UserStatus } from "./users.types";
-import RoleModel from "../roles/roles.model";
-import GameModel from "../games/games.model";
 import { Resource } from "../../../common/lib/resources";
+import { IUser, PermissionOperation, UserStatus } from "../../../common/types/user.type";
+import User from "../../../common/schemas/user.schema";
+import Role from "../../../common/schemas/role.schema";
+import { TransactionType } from "../../../common/types/transaction.type";
+import Transaction from "../../../common/schemas/transaction.schema";
+import Game from "../../../common/schemas/game.schema";
 
 
 class UserService {
@@ -18,7 +19,7 @@ class UserService {
     }
 
     async getUserById(requestingUserId: mongoose.Types.ObjectId, userId: mongoose.Types.ObjectId): Promise<IUser | null> {
-        const user = await UserModel.findById(userId)
+        const user = await User.findById(userId)
             .select('-permissions -token -password')
             .populate('role', 'name')
             .populate('createdBy', 'name')
@@ -41,7 +42,7 @@ class UserService {
 
     // Get all descendants of a user with pagination and filtering
     async getDescendants(userId: mongoose.Types.ObjectId, filters: any, options: { page: number; limit: number; sort: any }) {
-        const user = await UserModel.findById(userId);
+        const user = await User.findById(userId);
         if (!user) {
             throw createHttpError(404, 'User not found');
         }
@@ -49,7 +50,7 @@ class UserService {
         const { search, view, role: roleName, from, to, status, username, ...otherFilters } = filters;
 
         // Get all role descendants that user has access to
-        const role = await RoleModel.findById(user.role);
+        const role = await Role.findById(user.role);
         if (!role) {
             throw createHttpError(404, 'Role not found');
         }
@@ -84,7 +85,7 @@ class UserService {
 
         if (roleName) {
             const escapedRoleName = roleName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const targetRole = await RoleModel.findOne({
+            const targetRole = await Role.findOne({
                 name: { $regex: new RegExp(escapedRoleName, 'i') }
             });
 
@@ -108,13 +109,13 @@ class UserService {
                 const searchRegex = new RegExp(escapedSearch, 'i');
 
                 // Find roles matching search
-                const matchingRoles = await RoleModel.find({
+                const matchingRoles = await Role.find({
                     name: { $regex: searchRegex }
                 }).select('_id');
                 const roleIds = matchingRoles.map(r => r._id);
 
                 // Find users by createdBy matching search
-                const matchingCreators = await UserModel.find({
+                const matchingCreators = await User.find({
                     name: { $regex: searchRegex }
                 }).select('_id');
                 const creatorIds = matchingCreators.map(c => c._id);
@@ -130,9 +131,9 @@ class UserService {
             }
         }
 
-        const total = await UserModel.countDocuments(query);
+        const total = await User.countDocuments(query);
 
-        const users = await UserModel.find(query)
+        const users = await User.find(query)
             .select('name username balance role status createdBy totalSpent totalReceived permissions lastLogin createdAt')
             .populate('role', 'name')
             .populate('createdBy', 'name')
@@ -177,7 +178,7 @@ class UserService {
         session.startTransaction();
 
         try {
-            const user = await UserModel.findById(userId).session(session);
+            const user = await User.findById(userId).session(session);
             if (!user) {
                 throw createHttpError(404, 'User not found');
             }
@@ -207,7 +208,7 @@ class UserService {
             session.endSession();
 
             // Fetch the updated user data to include the updated balance
-            const updatedUser = await UserModel.findById(userId);
+            const updatedUser = await User.findById(userId);
 
             // Construct the updated fields object to return
             const updatedFields: Partial<IUser> = {};
@@ -233,7 +234,7 @@ class UserService {
         try {
             return await session.withTransaction(async () => {
                 // First get the current user to access their username
-                const currentUser = await UserModel.findOne({
+                const currentUser = await User.findOne({
                     _id: targetUserId,
                     status: { $ne: UserStatus.DELETED }
                 }).session(session);
@@ -247,7 +248,7 @@ class UserService {
 
 
                 // Then update with the known username
-                const user = await UserModel.findOneAndUpdate(
+                const user = await User.findOneAndUpdate(
                     { _id: targetUserId },
                     {
                         $set: {
@@ -269,7 +270,7 @@ class UserService {
                     throw createHttpError(404, 'User not found');
                 }
 
-                const descendants = await UserModel.countDocuments({
+                const descendants = await User.countDocuments({
                     path: { $regex: `^${user.path}/` },
                     status: { $ne: UserStatus.DELETED }
                 });
@@ -298,13 +299,13 @@ class UserService {
         const startDate = from || defaultFrom;
         const endDate = to || defaultTo;
 
-        const requestingUser = await UserModel.findById(userId);
+        const requestingUser = await User.findById(userId);
         if (!requestingUser) {
             throw createHttpError(404, 'User not found');
         }
 
         // Get descendant user IDs
-        const descendants = await UserModel.find({
+        const descendants = await User.find({
             path: { $regex: `^${requestingUser.path}/` },
             status: { $ne: UserStatus.DELETED },
         }).select('_id');
@@ -321,7 +322,7 @@ class UserService {
                     : { format: "%Y-%U", label: "week" }; // Weekly
 
         // Aggregate user creations
-        const userCreationSummary = await UserModel.aggregate([
+        const userCreationSummary = await User.aggregate([
             {
                 $match: {
                     createdBy: { $in: descendantIds },
@@ -338,7 +339,7 @@ class UserService {
         ]);
 
         // Aggregate transactions
-        const transactionSummary = await TransactionModel.aggregate([
+        const transactionSummary = await Transaction.aggregate([
             {
                 $match: {
                     $or: [
@@ -418,7 +419,7 @@ class UserService {
         const startDate = from || defaultFrom;
         const endDate = to || defaultTo;
 
-        const user = await UserModel.findById(userId)
+        const user = await User.findById(userId)
             .populate('createdBy', 'username')
             .populate('role', 'name');
 
@@ -427,7 +428,7 @@ class UserService {
         }
 
         // Fetch users created by this user
-        const createdUsers = await UserModel.aggregate([
+        const createdUsers = await User.aggregate([
             {
                 $match: {
                     createdBy: userId,
@@ -446,7 +447,7 @@ class UserService {
         ]);
 
         // Fetch transactions (recharge/redeem)
-        const transactions = await TransactionModel.aggregate([
+        const transactions = await Transaction.aggregate([
             {
                 $match: {
                     $or: [{ sender: userId }, { receiver: userId }],
@@ -530,7 +531,7 @@ class UserService {
     }
 
     async updateUserPermissions(userId: mongoose.Types.ObjectId, permissions: { resource: Resource, permission: string }[], operation: PermissionOperation): Promise<IUser> {
-        const user = await UserModel.findById(userId);
+        const user = await User.findById(userId);
         if (!user) {
             throw createHttpError(404, 'User not found');
         }
@@ -564,7 +565,7 @@ class UserService {
     }
 
     async getUserFavouriteGames(userId: mongoose.Types.ObjectId) {
-        const user = await UserModel
+        const user = await User
             .findById(userId)
             .select('favouriteGames')
             .populate({
@@ -581,12 +582,12 @@ class UserService {
         session.startTransaction();
 
         try {
-            const user = await UserModel.findById(userId).session(session);
+            const user = await User.findById(userId).session(session);
             if (!user) {
                 throw createHttpError(404, 'User not found');
             }
 
-            const game = await GameModel.findById(gameId).session(session);
+            const game = await Game.findById(gameId).session(session);
             if (!game) {
                 throw createHttpError(404, 'Game not found');
             }
@@ -603,7 +604,7 @@ class UserService {
             }
 
             // Perform the update operation
-            const updatedUser = await UserModel.findByIdAndUpdate(
+            const updatedUser = await User.findByIdAndUpdate(
                 userId,
                 updateQuery,
                 { new: true, session } // Return the updated document

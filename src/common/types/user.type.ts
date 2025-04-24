@@ -1,6 +1,6 @@
-import mongoose, { Model, Types } from "mongoose";
-import { IRole } from "../roles/roles.types";
-import { IResourcePermission, Resource } from "../../../common/lib/resources";
+import { Model, Types } from "mongoose";
+import { IRole } from "./role.type";
+import { IResourcePermission, Resource } from "../lib/resources";
 
 export enum UserStatus {
     ACTIVE = 'active',
@@ -49,17 +49,4 @@ export interface IUser extends Document {
 export interface IUserModel extends Model<IUser> {
     ensureRootUser(): Promise<void>;
     getAdminIdsFromPath(userPath: string): Promise<Types.ObjectId[]>;
-}
-
-export interface ITransformedUser {
-    _id: mongoose.Types.ObjectId;
-    name: string;
-    username: string;
-    balance: number;
-    role: string | null;
-    status: UserStatus;
-    createdBy: string | null;
-    totalSpent: number;
-    totalReceived: number;
-    lastLogin?: Date;
 }

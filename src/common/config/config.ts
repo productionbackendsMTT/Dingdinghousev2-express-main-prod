@@ -1,5 +1,5 @@
 import { config as conf } from "dotenv";
-import { AppConfig } from "../types/app-config";
+import { AppConfig } from "../types/config.type";
 import { Roles } from "../lib/default-role-hierarchy";
 conf();
 

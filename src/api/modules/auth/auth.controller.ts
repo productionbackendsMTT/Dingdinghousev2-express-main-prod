@@ -5,10 +5,10 @@ import { ILoginResponse } from "./auth.types";
 import RoleService from "../roles/roles.service";
 import { z } from "zod";
 import { Types } from "mongoose";
-import { UserStatus } from "../users/users.types";
 import { successResponse } from "../../../common/lib/response";
 import { config } from "../../../common/config/config";
 import { AuthRequest } from "../../../common/middlewares/auth.middleware";
+import { UserStatus } from "../../../common/types/user.type";
 
 
 class AuthController {

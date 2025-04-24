@@ -1,8 +1,8 @@
 import mongoose, { Types, ClientSession } from "mongoose";
-import { IPayout } from "./payouts.types";
 import createHttpError from "http-errors";
-import GameModel from "../games/games.model";
-import PayoutModel from "./payouts.model";
+import Payout from "../../../common/schemas/payout.schema";
+import { IPayout } from "../../../common/types/payout.type";
+import Game from "../../../common/schemas/game.schema";
 
 export class PayoutService {
 
@@ -13,14 +13,14 @@ export class PayoutService {
         const nextVersion = latestVersion ? latestVersion + 1 : 1;
 
         // Deactivate all previous payouts for this gameId
-        await PayoutModel.updateMany(
+        await Payout.updateMany(
             { gameId, isActive: true },
             { $set: { isActive: false } },
             { session }
         ).exec();
 
         // Create new active payout
-        const [payout] = await PayoutModel.create([{
+        const [payout] = await Payout.create([{
             gameId,
             version: nextVersion,
             isActive: true,
@@ -32,7 +32,7 @@ export class PayoutService {
     }
 
     async getLatestPayoutVersion(gameId: Types.ObjectId, session: ClientSession): Promise<number> {
-        const latestPayout = await PayoutModel.findOne({ gameId })
+        const latestPayout = await Payout.findOne({ gameId })
             .sort({ version: -1 })
             .select("version")
             .session(session)
@@ -46,7 +46,7 @@ export class PayoutService {
             throw createHttpError.BadRequest("Invalid game ID");
         }
 
-        const payouts = await PayoutModel.find({ gameId })
+        const payouts = await Payout.find({ gameId })
             .sort({ version: -1 })
             .lean<IPayout[]>()
             .exec();
@@ -62,11 +62,11 @@ export class PayoutService {
 
         try {
             session.startTransaction();
-            const payout = await PayoutModel.findById(payoutId).session(session);
+            const payout = await Payout.findById(payoutId).session(session);
             if (!payout) throw createHttpError.NotFound("Payout not found");
 
             // Deactivate all other payouts for the same game
-            await PayoutModel.updateMany(
+            await Payout.updateMany(
                 { gameId: payout.gameId, _id: { $ne: payout._id } },
                 { $set: { isActive: false } },
                 { session }
@@ -77,7 +77,7 @@ export class PayoutService {
             await payout.save({ session });
 
             // Update the Game mode's payout refrence 
-            await GameModel.updateOne(
+            await Game.updateOne(
                 { _id: payout.gameId },
                 { $set: { payout: payout._id } },
                 { session }
@@ -99,22 +99,22 @@ export class PayoutService {
             throw createHttpError.BadRequest("Invalid payout ID");
         }
 
-        const payout = await PayoutModel.findById(payoutId);
+        const payout = await Payout.findById(payoutId);
         if (!payout) {
             throw createHttpError.NotFound("Payout not found");
         }
 
         if (payout.isActive) {
-            const payoutCount = await PayoutModel.countDocuments({ gameId: payout.gameId });
+            const payoutCount = await Payout.countDocuments({ gameId: payout.gameId });
             if (payoutCount === 1) {
                 throw createHttpError.BadRequest("Cannot delete the only active payout for this game");
             }
         }
 
-        await PayoutModel.findByIdAndDelete(payoutId);
+        await Payout.findByIdAndDelete(payoutId);
 
         if (payout.isActive) {
-            const latestPayout = await PayoutModel.findOne({ gameId: payout.gameId }).sort({ version: -1 });
+            const latestPayout = await Payout.findOne({ gameId: payout.gameId }).sort({ version: -1 });
             if (latestPayout) {
                 await this.activatePayout(latestPayout._id.toString())
             }
@@ -126,7 +126,7 @@ export class PayoutService {
             throw createHttpError.BadRequest("Invalid game ID");
         }
 
-        const payout = await PayoutModel.findOne({ gameId, isActive: true });
+        const payout = await Payout.findOne({ gameId, isActive: true });
         return payout;
     }
 
@@ -135,7 +135,7 @@ export class PayoutService {
             throw createHttpError.BadRequest("Invalid payout ID");
         }
 
-        const payout = await PayoutModel.findByIdAndUpdate(
+        const payout = await Payout.findByIdAndUpdate(
             payoutId,
             { content },
             { new: true, runValidators: true }

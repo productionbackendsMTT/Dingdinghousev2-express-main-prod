@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { GameService } from "./games.service";
-import { GameStatus, IGame } from './games.model';
 import createHttpError from 'http-errors';
 import mongoose from 'mongoose';
 import { successResponse } from '../../../common/lib/response';
+import { GameStatus, IGame } from '../../../common/types/game.type';
+
 
 export class GameController {
 
