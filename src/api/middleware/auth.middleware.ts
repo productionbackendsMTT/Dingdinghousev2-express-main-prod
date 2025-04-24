@@ -1,12 +1,12 @@
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import jwt from "jsonwebtoken";
-import { config } from "../config/config";
+import { config } from "../../common/config/config";
 
 import { Document } from "mongoose";
-import { IUser } from "../types/user.type";
-import { IRole } from "../types/role.type";
-import User from "../schemas/user.schema";
+import { IUser } from "../../common/types/user.type";
+import { IRole } from "../../common/types/role.type";
+import User from "../../common/schemas/user.schema";
 
 export interface AuthRequest extends Request {
     requestingUser: (IUser & Document) & {

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { Types } from "mongoose";
 import { successResponse } from "../../../common/lib/response";
 import { config } from "../../../common/config/config";
-import { AuthRequest } from "../../../common/middlewares/auth.middleware";
+import { AuthRequest } from "../../middleware/auth.middleware";
 import { UserStatus } from "../../../common/types/user.type";
 
 

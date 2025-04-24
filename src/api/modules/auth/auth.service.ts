@@ -5,7 +5,7 @@ import TransactionService from "../transactions/transactions.service";
 import mongoose from "mongoose";
 import { ILoginResponse, IRegisterParams } from "./auth.types";
 import { config } from '../../../common/config/config';
-import { verifyToken } from '../../../common/middlewares/auth.middleware';
+import { verifyToken } from '../../middleware/auth.middleware';
 import User from '../../../common/schemas/user.schema';
 import { IRole } from '../../../common/types/role.type';
 import { UserStatus } from '../../../common/types/user.type';

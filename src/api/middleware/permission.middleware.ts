@@ -2,9 +2,9 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import mongoose from "mongoose";
 import { AuthRequest } from "./auth.middleware";
-import { Resource } from "../lib/resources";
-import Role from "../schemas/role.schema";
-import User from "../schemas/user.schema";
+import { Resource } from "../../common/lib/resources";
+import Role from "../../common/schemas/role.schema";
+import User from "../../common/schemas/user.schema";
 
 
 export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => {

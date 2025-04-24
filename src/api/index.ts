@@ -5,7 +5,7 @@ import roleRouter from './modules/roles/roles.routes';
 import userRoutes from './modules/users/users.route';
 import transactionRoutes from './modules/transactions/transactions.route';
 import gamesRoutes from './modules/games/games.route';
-import errorHandler from '../common/middlewares/error.middleware';
+import errorHandler from './middleware/error.middleware';
 
 export default function api(app: Express) {
     // Create main router for all API routes

@@ -2,8 +2,8 @@ import express from 'express';
 import { GameController } from './games.controller';
 import { GameService } from './games.service';
 import multer from 'multer';
-import { authHandler } from "../../../common/middlewares/auth.middleware";
-import { checkPermission } from "../../../common/middlewares/permission.middleware";
+import { authHandler } from "../../middleware/auth.middleware";
+import { checkPermission } from "../../middleware/permission.middleware";
 import { Resource } from "../../../common/lib/resources";
 
 const gamesRoutes = express.Router();

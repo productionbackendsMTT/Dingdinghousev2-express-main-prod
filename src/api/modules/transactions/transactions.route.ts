@@ -1,8 +1,8 @@
 import { Router } from "express";
 import TransactionController from "./transactions.controller";
 import TransactionService from "./transactions.service";
-import { authHandler } from "../../../common/middlewares/auth.middleware";
-import { checkPermission } from "../../../common/middlewares/permission.middleware";
+import { authHandler } from "../../middleware/auth.middleware";
+import { checkPermission } from "../../middleware/permission.middleware";
 import { Resource } from "../../../common/lib/resources";
 
 const transactionRoutes = Router();
