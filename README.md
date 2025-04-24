@@ -1,4 +1,8 @@
 
+# Dingdinghousev2-express
+dingding backend in express
+# node-server-project/node-server-project/README.md
+
 # Project Structure
 
 ```
@@ -52,4 +56,17 @@ project/
 |   │   |   └── users/
 |   |   └── index.ts
 │   └── socket/
+
+### Usage
+
+Once the server is running, you can access it at `http://localhost:3000`. Adjust the port in `src/server.ts` if needed.
+
+## Contributing
+
+Feel free to submit issues or pull requests for improvements or bug fixes. 
+
+## License
+
+This project is licensed under the MIT License.
+
 

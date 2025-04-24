@@ -28,12 +28,6 @@ jobs:
         run: |
           git checkout dev
           git checkout -b dev-build
-        # git config user.name "TrippyRahul"
-        # git config user.email "rahulrawat.trippybug@gmail.com"
-        # rm -rf ./src ./app.js
-        # git add .
-        # git commit -m "remove old artifacts" || echo "No changes to commit"
-        # git checkout dev
          
       - name: Install Dependencies
         run: npm install
@@ -69,4 +63,3 @@ jobs:
           git add -f ./app.js ./src
           git commit -m "add new build" || echo "No changes to commit"
           git push origin dev-build --force
-  
