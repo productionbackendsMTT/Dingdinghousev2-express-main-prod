@@ -1,6 +1,5 @@
-import { GameConfig } from "../utils/GameConfig";
-
-export abstract class BaseSlotGame {
+import { GameConfig } from "../../(Slots)/utils/GameConfig";
+export abstract class BaseKenoGame {
   protected config: GameConfig;
 
   constructor(config: GameConfig) {
@@ -8,7 +7,7 @@ export abstract class BaseSlotGame {
   }
 
   abstract spin(): void;
-  abstract evaluateResult(resultMatrix: number[][]): void;
+  abstract evaluateResult(): void;
 
   log(message: string) {
     console.log(`[${this.config.id}] ${message}`);

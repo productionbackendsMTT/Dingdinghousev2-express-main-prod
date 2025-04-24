@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= game.config.name %>
+    </title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #message {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+            color: green;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Welcome to <%= game.config.name %>
+    </h1>
+
+    <div class="actions">
+        <button onclick="spinGame()">Spin</button>
+        <button onclick="evaluateGame()">Evaluate Result</button>
+    </div>
+
+    <div id="message"></div>
+
+    <script>
+        function spinGame() {
+            fetch("/game/spin")
+                .then((response) => response.text())
+                .then((message) => {
+                    document.getElementById("message").textContent = message;
+                })
+                .catch((error) => {
+                    document.getElementById("message").textContent = "Error: " + error.message;
+                });
+        }
+
+        function evaluateGame() {
+            fetch("/game/evaluate")
+                .then((response) => response.text())
+                .then((message) => {
+                    document.getElementById("message").textContent = message;
+                })
+                .catch((error) => {
+                    document.getElementById("message").textContent = "Error: " + error.message;
+                });
+        }
+    </script>
+</body>
+
+</html>

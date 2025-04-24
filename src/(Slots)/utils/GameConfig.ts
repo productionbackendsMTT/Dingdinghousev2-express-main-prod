@@ -28,4 +28,5 @@ export interface GameConfig {
     defaultAmount?: number;
     symbolsCount?: number;
     increaseValue?: number;
+    symbolCount?: number;
   }
