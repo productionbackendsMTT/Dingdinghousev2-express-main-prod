@@ -32,6 +32,7 @@ project/
 │   │       ├── jwt-config.ts
 │   │       └── roles.ts
 │   └── api/
+|   |   └── index.ts
 |   │   └── modules/
 |   │   |   ├── auth/
 |   │   |   │   ├── auth.controller.ts
@@ -54,8 +55,26 @@ project/
 |   │   |   ├── sessions/
 |   │   |   ├── transactions/
 |   │   |   └── users/
-|   |   └── index.ts
 │   └── socket/
+|   |   └── index.ts
+|   │   └── gateways/
+|   │   |   ├── controls/
+|   │   |   │   ├── controls.gateway.ts
+|   │   |   │   ├── controls.service.ts
+|   │   |   │   ├── controls.events.ts
+|   │   |   │   ├── controls.types.ts
+|   │   |   ├── playground/
+|   │   |   │   ├── playground.gateway.ts
+|   │   |   │   ├── playground.service.ts
+|   │   |   │   ├── playground.events.ts
+|   │   |   │   ├── playground.types.ts
+
+
+
+
+
+
+
 
 ### Usage
 

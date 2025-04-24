@@ -1,9 +1,10 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import { createServer } from 'http';
 import connectDB from './src/common/config/db';
 import { init } from './src/common/system/init';
 import api from './src/api';
 import { config } from './src/common/config/config';
+import realtime from './src/realtime';
 
 async function bootstrap() {
     const app = express();
@@ -14,6 +15,7 @@ async function bootstrap() {
         await init();
 
         api(app);
+        realtime(httpServer);
 
         // Start server
         const PORT = config.port;
