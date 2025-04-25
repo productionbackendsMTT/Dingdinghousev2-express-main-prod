@@ -2,7 +2,7 @@ import { Socket } from "socket.io";
 import jwt from 'jsonwebtoken';
 import { config } from "../../common/config/config";
 
-export const socketAuthMiddleware = (socket: Socket, next: (err?: Error) => void) => {
+export const controlAuthMiddleware = (socket: Socket, next: (err?: Error) => void) => {
     const token = socket.handshake.auth.token;
 
     if (!token) {

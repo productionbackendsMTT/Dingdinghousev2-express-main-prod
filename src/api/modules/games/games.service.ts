@@ -1,9 +1,11 @@
 import createHttpError from "http-errors";
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { CloudinaryService } from "../../../common/config/cloudinary";
 import { PayoutService } from "../payouts/payout.service";
 import Game from "../../../common/schemas/game.schema";
 import { GameStatus, IGame } from "../../../common/types/game.type";
+import jwt from 'jsonwebtoken';
+import { config } from "../../../common/config/config";
 
 export class GameService {
     private cloudinaryService: CloudinaryService;
@@ -427,5 +429,42 @@ export class GameService {
     async downloadGames(): Promise<IGame[]> {
         const games = await Game.find({ status: { $ne: GameStatus.DELETED } }).populate('payout').sort({ order: 1, createdAt: -1 }).lean<IGame[]>().exec();
         return games;
+    }
+
+    async playGame(token: string, slug: string): Promise<string> {
+        try {
+            const filter: any = {
+                slug: slug,
+                status: { $ne: GameStatus.DELETED }
+            };
+            const game = await Game
+                .findOne(filter)
+                .select('url')
+                .lean<IGame>()
+                .exec();
+
+            if (!game) {
+                throw new Error('Game not found');
+            }
+
+            const gameToken = await this.generateGameToken(game._id, token);
+
+            // Create a signed URL by appending the token
+            const signedUrl = `${game.url}?token=${gameToken}`;
+            return signedUrl;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async generateGameToken(gameId: Types.ObjectId, platformToken: string) {
+        return jwt.sign(
+            {
+                id: gameId,          // Include game ID in the token
+                platform: platformToken  // Include platform token
+            },
+            config.game.secret!,         // Use a strong secret key
+            { expiresIn: config.game.expiresIn }         // Token expires in 1 hour (adjust as needed)
+        );
     }
 }

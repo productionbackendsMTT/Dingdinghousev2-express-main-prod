@@ -7,6 +7,7 @@ export interface AppConfig {
     db: string;
     access: JWTConfig;
     refresh: JWTConfig;
+    game: JWTConfig;
     cloudinary: {
         cloud_name?: string;
         api_key?: string;

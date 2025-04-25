@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Force Download MP4 from URL</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 2rem;
+            background-color: #f4f4f4;
+        }
+
+        input,
+        button {
+            padding: 0.5rem;
+            font-size: 1rem;
+            margin: 0.5rem 0;
+        }
+
+        input {
+            width: 80%;
+        }
+
+        button {
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Force Download MP4 File from URL</h2>
+    <div>
+        <input type="text" id="urlInput" placeholder="Paste the .mp4 URL here" /><br />
+        <input type="text" id="filenameInput" placeholder="Enter file name (without extension)" /><br />
+        <button onclick="downloadFile()">Download</button>
+    </div>
+
+    <script>
+        async function downloadFile() {
+            const url = document.getElementById("urlInput").value.trim();
+            const filename = document.getElementById("filenameInput").value.trim() || 'video';
+
+            if (!url) {
+                alert("Please enter a URL.");
+                return;
+            }
+
+            try {
+                const response = await fetch(url, { mode: 'cors' });
+                if (!response.ok) throw new Error("Failed to fetch file");
+
+                const blob = await response.blob();
+                const blobUrl = window.URL.createObjectURL(blob);
+
+                const a = document.createElement("a");
+                a.href = blobUrl;
+                a.download = filename + ".mp4";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                alert("Error downloading the file. The server might be blocking downloads.\n" + error.message);
+            }
+        }
+    </script>
+</body>
+
+</html>

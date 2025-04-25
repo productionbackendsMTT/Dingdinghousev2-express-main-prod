@@ -15,6 +15,10 @@ const _config: AppConfig = {
         secret: process.env.JWT_REFRESH_SECRET || "",
         expiresIn: "7d",
     },
+    game: {
+        secret: process.env.JWT_GAME_SECRET || "",
+        expiresIn: process.env.NODE_ENV === "development" ? "6h" : "15m",
+    },
     cloudinary: {
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
         api_key: process.env.CLOUDINARY_API_KEY,

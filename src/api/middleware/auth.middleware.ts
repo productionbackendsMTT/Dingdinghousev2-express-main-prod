@@ -78,6 +78,7 @@ export const authHandler = async (req: Request, res: Response, next: NextFunctio
 
         next();
     } catch (err) {
+        console.log(err)
         if ((err as jwt.JsonWebTokenError).name === "TokenExpiredError") {
             return next(createHttpError(401, 'Authentication token has expired'));
         } else {

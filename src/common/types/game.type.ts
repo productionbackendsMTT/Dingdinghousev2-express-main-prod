@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import { Document, Types } from "mongoose";
 
 export enum GameStatus {
     ACTIVE = 'active',
@@ -8,6 +8,7 @@ export enum GameStatus {
 }
 
 export interface IGame extends Document {
+    _id: Types.ObjectId;
     name: string;
     description: string;
     thumbnail: string;

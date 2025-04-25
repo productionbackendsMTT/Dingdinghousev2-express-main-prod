@@ -22,6 +22,32 @@ export class GameController {
         this.downloadGames = this.downloadGames.bind(this);
     }
 
+    async playGame(req: Request, res: Response, next: NextFunction) {
+        try {
+            const authHeader = req.headers.authorization;
+
+            if (!authHeader?.startsWith('Bearer ')) {
+                return next(createHttpError(401, 'Invalid token format. Expected: Bearer <token>'));
+            }
+
+            const platformToken = authHeader.split(' ')[1];
+            if (!platformToken) {
+                return next(createHttpError(401, 'Authentication token not found'));
+            }
+
+            const { slug } = req.params;
+            if (!slug) {
+                return next(createHttpError(400, 'Game slug is required'));
+            }
+
+            const token = await this.gameService.playGame(platformToken, slug);
+            return res.status(201).json(successResponse(token, 'Game token created sucessfully'));
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async createGame(req: Request, res: Response, next: NextFunction) {
         try {
             // 1. Validate request body
@@ -398,4 +424,5 @@ export class GameController {
             next(error);
         }
     }
+
 }

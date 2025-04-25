@@ -20,19 +20,30 @@ project/
 │   │   │   ├── resources.ts
 │   │   │   ├── response.ts
 │   │   │   └── utils.ts
-│   │   ├── middlewares/
-│   │   │   ├── auth.middleware.ts
-│   │   │   ├── error.middleware.ts
-│   │   │   └── permission.middleware.ts
+│   │   ├── schemas/
+│   │   │   ├── game.schema.ts
+│   │   │   ├── payout.schema.ts
+│   │   │   ├── role.schema.ts
+│   │   │   ├── transaction.schema.ts
+│   │   │   ├── user.schema.ts
 │   │   ├── system/
 │   │   │   └── init.ts
 │   │   └── types/
-│   │       ├── app-config.ts
-│   │       ├── auth.ts
-│   │       ├── jwt-config.ts
-│   │       └── roles.ts
+│   │       ├── config.type.ts
+│   │       ├── auth.type.ts
+│   │       ├── jwt.type.ts
+│   │       └── role.type.ts
+│   │       ├── game.type.ts
+│   │       ├── user.type.ts
+│   │       ├── payout.type.ts
+│   │       └── transaction.type.ts
+
 │   └── api/
 |   |   └── index.ts
+│   │   ├── middleware/
+│   │   │   ├── auth.middleware.ts
+│   │   │   ├── error.middleware.ts
+│   │   │   └── permission.middleware.ts
 |   │   └── modules/
 |   │   |   ├── auth/
 |   │   |   │   ├── auth.controller.ts
@@ -41,22 +52,21 @@ project/
 |   │   |   │   └── auth.types.ts
 |   │   |   ├── games/
 |   │   |   │   ├── games.controller.ts
-|   │   |   │   ├── games.model.ts
 |   │   |   │   ├── games.route.ts
 |   │   |   │   ├── games.service.ts
-|   │   |   │   └── games.types.ts
 |   │   |   ├── payouts/
 |   │   |   │   ├── payouts.controller.ts
-|   │   |   │   ├── payouts.model.ts
 |   │   |   │   ├── payouts.route.ts
 |   │   |   │   ├── payouts.service.ts
-|   │   |   │   └── payouts.types.ts
 |   │   |   ├── roles/
 |   │   |   ├── sessions/
 |   │   |   ├── transactions/
 |   │   |   └── users/
 │   └── socket/
 |   |   └── index.ts
+│   │   ├── middleware/
+│   │   │   ├── auth.middleware.ts
+│   │   │   ├── error.middleware.ts
 |   │   └── gateways/
 |   │   |   ├── controls/
 |   │   |   │   ├── controls.gateway.ts

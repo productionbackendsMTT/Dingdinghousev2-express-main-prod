@@ -19,6 +19,7 @@ gamesRoutes.get('/download', authHandler, checkPermission(resource, 'r'), gamesC
 gamesRoutes.put('/reorder', authHandler, checkPermission(resource, 'w'), gamesController.reorderGames);
 
 gamesRoutes.get('/:id', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
+gamesRoutes.get('/:slug/play', authHandler, checkPermission(resource, 'r'), gamesController.playGame);
 gamesRoutes.get('/:id/payouts', authHandler, checkPermission(resource, 'r'), gamesController.getGamePayouts);
 gamesRoutes.patch('/:id/payouts/:payoutId', authHandler, checkPermission(resource, 'w'), gamesController.activateGamePayout);
 gamesRoutes.delete('/:id/payouts/:payoutId', authHandler, checkPermission(resource, 'x'), gamesController.deleteGamePayout);
