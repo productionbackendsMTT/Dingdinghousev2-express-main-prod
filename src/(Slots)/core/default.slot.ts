@@ -8,6 +8,7 @@ export class DefaultSlotGame extends BaseSlotGame {
     const resultMatrix = this.generateRandomMatrix();
     this.log(`Spin result: ${JSON.stringify(resultMatrix)}`);
     this.evaluateResult(resultMatrix);
+    return JSON.stringify(resultMatrix)
   }
 
   evaluateResult(resultMatrix: number[][]) {
