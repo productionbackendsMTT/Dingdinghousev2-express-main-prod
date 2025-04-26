@@ -1,10 +1,8 @@
-import { Socket } from "socket.io";
 import { ExtendedError } from 'socket.io/dist/namespace';
 import jwt from 'jsonwebtoken';
 import { config } from "../../common/config/config";
 import { PlaygroundService } from "../gateways/playground/playground.service";
-import { PlaygroundSocket } from "../gateways/playground/playground.gateway";
-
+import { PlaygroundSocket } from '../gateways/playground/playground.types';
 
 export const playgroundAuthMiddleware = async (socket: PlaygroundSocket, next: (err?: ExtendedError | undefined) => void) => {
     const token = socket.handshake.auth.token;

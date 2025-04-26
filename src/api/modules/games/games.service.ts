@@ -496,23 +496,4 @@ export class GameService {
             throw error;
         }
     }
-
-
-    async validateGameToken(shortToken: string): Promise<{ gameId: string, platform: string, createdAt: string } | null> {
-        try {
-            // Get the token data from redis
-            const tokenKey = `game:token:${shortToken}`;
-            const tokenData = await this.redisService.getJSON<{ gameId: string; platform: string; createdAt: string; }>(tokenKey);
-
-            // If no token data found, return null
-            if (!tokenData) {
-                return null;
-            }
-
-            return tokenData;
-        } catch (error) {
-            console.error('Error validating game token:', error);
-            throw error;
-        }
-    }
 }

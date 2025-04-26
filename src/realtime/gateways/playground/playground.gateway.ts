@@ -1,21 +1,8 @@
-import { Namespace, Socket } from "socket.io";
+import { Namespace } from "socket.io";
 import { PlaygroundService } from "./playground.service";
 import RedisService from "../../../common/config/redis";
+import { PlaygroundSocket } from "./playground.types";
 
-interface PlatformPayload {
-    userId: string;
-}
-
-interface GameSessionData {
-    user: PlatformPayload;
-    game: {
-        id: string;
-    };
-}
-
-export interface PlaygroundSocket extends Socket {
-    data: GameSessionData;
-}
 
 export function setupPlayground(namespace: Namespace) {
     const playgroundService = new PlaygroundService();
