@@ -2,15 +2,30 @@ import { Namespace, Socket } from "socket.io";
 import { PlaygroundService } from "./playground.service";
 import RedisService from "../../../common/config/redis";
 
+interface PlatformPayload {
+    userId: string;
+}
+
+interface GameSessionData {
+    user: PlatformPayload;
+    game: {
+        id: string;
+    };
+}
+
+export interface PlaygroundSocket extends Socket {
+    data: GameSessionData;
+}
+
 export function setupPlayground(namespace: Namespace) {
     const playgroundService = new PlaygroundService();
     const redisService = RedisService.getInstance();
 
-    namespace.on('connection', async (socket: Socket) => {
+    namespace.on('connection', async (socket: PlaygroundSocket) => {
         try {
             // Get user and game info from the socket data (set by middleware)
-            const userId = socket.data.platform.userId;
-            const gameId = socket.data.gameId;
+            const userId = socket.data.user.userId
+            const gameId = socket.data.game.id;
 
             // 1. Get game data with payout
             const game = await playgroundService.getGameWithPayout(gameId);
@@ -29,10 +44,7 @@ export function setupPlayground(namespace: Namespace) {
                 console.log('Payout Available:', game.payout.name);
             }
 
-            // 2. Store game data in socket for later use
-            socket.data.game = game;
 
-            // ✅ 3. Send payout info immediately to client
             if (game.payout) {
                 socket.emit('payoutInfo', {
                     payoutName: game.payout.name,
