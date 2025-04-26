@@ -20,6 +20,7 @@ export class GameController {
         this.reorderGames = this.reorderGames.bind(this);
         this.uploadGames = this.uploadGames.bind(this);
         this.downloadGames = this.downloadGames.bind(this);
+        this.playGame = this.playGame.bind(this);
     }
 
     async playGame(req: Request, res: Response, next: NextFunction) {
@@ -41,7 +42,7 @@ export class GameController {
             }
 
             const token = await this.gameService.playGame(platformToken, slug);
-            return res.status(201).json(successResponse(token, 'Game token created sucessfully'));
+            return res.status(201).json(successResponse({ token }, 'Game token created sucessfully'));
 
         } catch (error) {
             next(error);

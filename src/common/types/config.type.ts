@@ -1,7 +1,7 @@
 import { Roles } from "../lib/default-role-hierarchy";
 import { JWTConfig } from "./jwt.type";
 
-export interface AppConfig {
+export interface IConfig {
     port: number;
     env: string;
     db: string;
@@ -12,6 +12,10 @@ export interface AppConfig {
         cloud_name?: string;
         api_key?: string;
         api_secret?: string;
+    };
+    redis: {
+        url: string;
+        ttl: number;
     };
     root: {
         role: Roles.ROOT;

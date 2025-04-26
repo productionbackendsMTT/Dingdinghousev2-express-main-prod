@@ -1,19 +1,24 @@
 import createHttpError from "http-errors";
 import mongoose, { Types } from "mongoose";
+import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 import { CloudinaryService } from "../../../common/config/cloudinary";
 import { PayoutService } from "../payouts/payout.service";
 import Game from "../../../common/schemas/game.schema";
 import { GameStatus, IGame } from "../../../common/types/game.type";
-import jwt from 'jsonwebtoken';
 import { config } from "../../../common/config/config";
+import RedisService from "../../../common/config/redis";
+import { randomBytes } from "crypto";
 
 export class GameService {
     private cloudinaryService: CloudinaryService;
     private payoutService: PayoutService;
+    private redisService: RedisService;
 
     constructor() {
         this.cloudinaryService = new CloudinaryService();
         this.payoutService = new PayoutService();
+        this.redisService = RedisService.getInstance();
     }
 
     private async getNextGameOrder(): Promise<number> {
@@ -431,7 +436,7 @@ export class GameService {
         return games;
     }
 
-    async playGame(token: string, slug: string): Promise<string> {
+    async playGame(platformToken: string, slug: string): Promise<string> {
         try {
             const filter: any = {
                 slug: slug,
@@ -447,24 +452,67 @@ export class GameService {
                 throw new Error('Game not found');
             }
 
-            const gameToken = await this.generateGameToken(game._id, token);
+            // Generate a short token identifier
+            const shortToken = await this.generateShortToken(game._id, platformToken);
 
             // Create a signed URL by appending the token
-            const signedUrl = `${game.url}?token=${gameToken}`;
+            const signedUrl = `${game.url}?token=${shortToken}`;
+
+
             return signedUrl;
         } catch (error) {
             throw error;
         }
     }
 
-    async generateGameToken(gameId: Types.ObjectId, platformToken: string) {
-        return jwt.sign(
-            {
-                id: gameId,          // Include game ID in the token
-                platform: platformToken  // Include platform token
-            },
-            config.game.secret!,         // Use a strong secret key
-            { expiresIn: config.game.expiresIn }         // Token expires in 1 hour (adjust as needed)
-        );
+    async generateShortToken(gameId: Types.ObjectId, platformToken: string): Promise<string> {
+        try {
+            // Use full UUID without hyphens for maximum uniqueness
+            let token = uuidv4().replace(/-/g, '');
+
+            const data = {
+                gameId: gameId.toString(),
+                platform: platformToken,
+                createdAt: new Date().toISOString(),
+                nonce: randomBytes(4).toString('hex')
+            };
+
+            const tokenKey = `game:token:${token}`;
+            const expiresIn = config.redis.ttl;
+
+            // Use Redis SETNX to ensure the key doesn't already exist
+            const success = await this.redisService.getClient().setNX(tokenKey, JSON.stringify(data));
+
+            if (success) {
+                // Set the expiration time separately if the key was set
+                await this.redisService.getClient().expire(tokenKey, expiresIn);
+                return token;
+            }
+
+            // If the key already exists, try again with a new token
+            return this.generateShortToken(gameId, platformToken);
+        } catch (error) {
+            console.error('Token generation error:', error);
+            throw error;
+        }
+    }
+
+
+    async validateGameToken(shortToken: string): Promise<{ gameId: string, platform: string, createdAt: string } | null> {
+        try {
+            // Get the token data from redis
+            const tokenKey = `game:token:${shortToken}`;
+            const tokenData = await this.redisService.getJSON<{ gameId: string; platform: string; createdAt: string; }>(tokenKey);
+
+            // If no token data found, return null
+            if (!tokenData) {
+                return null;
+            }
+
+            return tokenData;
+        } catch (error) {
+            console.error('Error validating game token:', error);
+            throw error;
+        }
     }
 }

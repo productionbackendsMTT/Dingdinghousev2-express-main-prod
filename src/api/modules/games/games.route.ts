@@ -19,7 +19,6 @@ gamesRoutes.get('/download', authHandler, checkPermission(resource, 'r'), gamesC
 gamesRoutes.put('/reorder', authHandler, checkPermission(resource, 'w'), gamesController.reorderGames);
 
 gamesRoutes.get('/:id', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
-gamesRoutes.get('/:slug/play', authHandler, checkPermission(resource, 'r'), gamesController.playGame);
 gamesRoutes.get('/:id/payouts', authHandler, checkPermission(resource, 'r'), gamesController.getGamePayouts);
 gamesRoutes.patch('/:id/payouts/:payoutId', authHandler, checkPermission(resource, 'w'), gamesController.activateGamePayout);
 gamesRoutes.delete('/:id/payouts/:payoutId', authHandler, checkPermission(resource, 'x'), gamesController.deleteGamePayout);
@@ -28,6 +27,7 @@ gamesRoutes.delete('/:id', authHandler, checkPermission(resource, 'x'), gamesCon
 
 gamesRoutes.get('/tag/:tag', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
 gamesRoutes.get('/slug/:slug', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
+gamesRoutes.get('/slug/:slug/play', authHandler, checkPermission(resource, 'r'), gamesController.playGame);
 gamesRoutes.get('/name/:name', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
 
 

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Socket.IO Playground Test</title>
+    <script src="https://cdn.socket.io/4.1.3/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #jsonData {
+            margin-top: 20px;
+            white-space: pre-wrap;
+            /* Important: keeps formatting */
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ccc;
+            max-height: 400px;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Socket.IO Playground Test</h1>
+
+    <button id="connectButton">Connect to Playground</button>
+
+    <div id="status"></div>
+    <div id="payoutInfo"></div>
+    <h2>Payout JSON:</h2>
+    <div id="jsonData"></div>
+
+    <script>
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        const connectButton = document.getElementById('connectButton');
+        const statusDiv = document.getElementById('status');
+        const payoutDiv = document.getElementById('payoutInfo');
+        const jsonDataDiv = document.getElementById('jsonData');
+
+        connectButton.addEventListener('click', () => {
+            const token = getQueryParam('token');
+
+            if (!token) {
+                statusDiv.innerHTML = 'No token found in URL!';
+                return;
+            }
+
+            const socket = io('http://localhost:5000/playground', {
+                transports: ['websocket', 'polling'],
+                auth: { token: token }
+            });
+
+            socket.on('connect', () => {
+                console.log('Connected to playground');
+                statusDiv.innerHTML = 'Connected to playground!';
+            });
+
+            socket.on('payoutInfo', (data) => {
+                console.log('Received payout info:', data);
+
+                if (data.payoutName) {
+                    payoutDiv.innerHTML = `Payout Name: <strong>${data.payoutName}</strong>`;
+                } else {
+                    payoutDiv.innerHTML = data.message;
+                }
+
+                // ✅ Show the whole payload as formatted JSON
+                jsonDataDiv.textContent = JSON.stringify(data, null, 2);
+            });
+
+            socket.on('error', (data) => {
+                console.error('Error:', data);
+                statusDiv.innerHTML = `Error: ${data.message || data}`;
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from playground');
+                statusDiv.innerHTML = 'Disconnected from playground';
+            });
+        });
+    </script>
+</body>
+
+</html>

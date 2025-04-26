@@ -4,17 +4,24 @@ import { setupControl } from './gateways/control/control.gateway';
 import { setupPlayground } from './gateways/playground/playground.gateway';
 import { controlAuthMiddleware } from './middleware/control.middleware';
 import { playgroundAuthMiddleware } from './middleware/playground.middleware';
+import { createAdapter } from '@socket.io/redis-adapter';
+import RedisService from '../common/config/redis';
 
-
-export default function realtime(httpServer: HttpServer) {
+export default function realtime(httpServer: HttpServer, redisService: RedisService) {
     const io = new Server(httpServer, {
         cors: {
             origin: "*",
-            methods: ['GET', 'POST']
-        }
+            methods: ['GET', 'POST'],
+            credentials: true
+        },
+        transports: ['websocket', 'polling'],
+        adapter: createAdapter(redisService.getPublisher(), redisService.getSubscriber())
     });
 
-    // Apply global middleware
+    // Health check endpoint
+    io.of('/').adapter.on('error', (err) => {
+        console.error('Socket.IO adapter error:', err);
+    });
 
     // Set up control namespace with authentication
     const controlNamespace = io.of('/control');
@@ -28,6 +35,5 @@ export default function realtime(httpServer: HttpServer) {
     setupPlayground(playgroundNamespace)
 
     console.log('Socket service initialized');
-
     return io;
 }
