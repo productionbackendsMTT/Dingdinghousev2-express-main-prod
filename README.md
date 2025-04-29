@@ -1,6 +1,7 @@
-
 # Dingdinghousev2-express
+
 dingding backend in express
+
 # node-server-project/node-server-project/README.md
 
 # Project Structure
@@ -14,6 +15,7 @@ project/
 │   │   │   ├── cloudinary.ts
 │   │   │   ├── config.ts
 │   │   │   └── db.ts
+│   │   │   └── redis.ts
 │   │   ├── lib/
 │   │   │   ├── default-permissions.ts
 │   │   │   ├── default-role-hierarchy.ts
@@ -62,7 +64,7 @@ project/
 |   │   |   ├── sessions/
 |   │   |   ├── transactions/
 |   │   |   └── users/
-│   └── socket/
+│   └── realtime/
 |   |   └── index.ts
 │   │   ├── middleware/
 │   │   │   ├── auth.middleware.ts
@@ -78,6 +80,26 @@ project/
 |   │   |   │   ├── playground.service.ts
 |   │   |   │   ├── playground.events.ts
 |   │   |   │   ├── playground.types.ts
+|   │   └── games/
+│   │   │   ├── game.engine.ts
+│   │   │   ├── game.manager.ts
+│   │   │   ├── game.type.ts
+|   │   |   ├── slots/
+|   │   |   │   ├── base.slots.engine.ts
+|   │   |   │   ├── base.slots.type.ts
+|   │   |   │   ├── variants/
+|   │   |   │   |   ├── SL-PM.slots.engine.ts
+|   │   |   ├── keno/
+|   │   |   │   ├── base.keno.engine.ts
+|   │   |   │   ├── base.keno.type.ts
+|   │   |   │   ├── variants/
+|   │   |   │   |   ├── vikings.keno.engine.ts
+
+
+
+
+
+
 
 
 
@@ -92,10 +114,11 @@ Once the server is running, you can access it at `http://localhost:3000`. Adjust
 
 ## Contributing
 
-Feel free to submit issues or pull requests for improvements or bug fixes. 
+Feel free to submit issues or pull requests for improvements or bug fixes.
 
 ## License
 
 This project is licensed under the MIT License.
 
 
+```
