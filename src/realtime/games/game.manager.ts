@@ -1,11 +1,11 @@
 import path from "path";
 import fs from "fs";
 import { BaseKenoEngine } from "./keno/base.keno.engine";
-import { BaseSlotsEngine } from "./slots/base.slots.engine";
 import { GameEngine } from "./game.engine";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
 import { pathToFileURL } from "url";
+import BaseSlotsEngine from "./slots/base.slots.engine";
 
 export class GameManager {
   private static instance: GameManager;

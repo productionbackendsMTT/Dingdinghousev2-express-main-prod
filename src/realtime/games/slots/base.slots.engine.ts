@@ -4,12 +4,13 @@ import { GameEngine } from "../game.engine";
 import { SlotGameConfig } from "../game.type";
 import { SlotConfig } from "./base.slots.type";
 
-export class BaseSlotsEngine extends GameEngine<SlotGameConfig> {
+class BaseSlotsEngine extends GameEngine<SlotGameConfig> {
   protected slotConfig: SlotConfig;
 
   constructor(game: IGame & { payout: IPayout }) {
     super(game);
     this.slotConfig = this.config.content;
+    console.log("BASE GAME ENGINE INITIALIZED");
   }
 
   protected validateConfig(): void {}
@@ -19,3 +20,5 @@ export class BaseSlotsEngine extends GameEngine<SlotGameConfig> {
     // Additional initialization logic here
   }
 }
+
+export default BaseSlotsEngine;
