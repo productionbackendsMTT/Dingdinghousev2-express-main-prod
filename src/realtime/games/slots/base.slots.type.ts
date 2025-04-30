@@ -78,3 +78,10 @@ export interface SlotSettings {
   reelStrips: number[][]; // Base reel strips
   freeSpinReelStrips?: number[][]; // Optional separate reel strips for free spins
 }
+
+
+export interface functionUsedConfig {
+  reels: string[][];
+  resultReelIndex?: string[][];
+  resultSymbolMatrix?: string[][];
+}

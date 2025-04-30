@@ -6,11 +6,6 @@ export interface SlotGameConfig extends IPayout {
   content: SlotConfig;
 }
 
-// export interface FishGameConfig extends IPayout {
-//   content: FishConfig;
-// }
-
-
 export enum GameTypesById {
   SL = "SL",
   KN = "KN",
