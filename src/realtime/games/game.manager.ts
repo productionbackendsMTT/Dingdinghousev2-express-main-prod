@@ -1,19 +1,24 @@
 import path from "path";
 import fs from "fs";
 import { BaseKenoEngine } from "./keno/base.keno.engine";
-import { BaseSlotsEngine } from "./slots/base.slots.engine";
+import { GameEngine } from "./game.engine";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
-import { GameEngine } from "./game.engine";
+import BaseSlotsEngine from "./slots/base.slots.engine";
+import { GamesTypes } from "./game.type";
 
 export class GameManager {
   private static instance: GameManager;
   private gameEngines: Map<string, any> = new Map();
 
   private constructor() {
-    this.gameEngines.set("SL", BaseSlotsEngine);
-    this.gameEngines.set("KN", BaseKenoEngine);
+    this.initializeGameEngines();
     console.log("GameManager instance created.");
+  }
+
+  private initializeGameEngines(): void {
+    this.gameEngines.set(GamesTypes.SLOTS, BaseSlotsEngine);
+    this.gameEngines.set(GamesTypes.KENO, BaseKenoEngine);
   }
 
   public static getInstance(): GameManager {
@@ -23,73 +28,98 @@ export class GameManager {
     return GameManager.instance;
   }
 
-  public async getGameEngine(
-    game: IGame,
-    payout?: IPayout
-  ): Promise<GameEngine> {
-    if (!game.payout) {
-      throw new Error("Payout configuration is required.");
+  public async getGameEngine(game: IGame & { payout: IPayout }): Promise<GameEngine> {
+    const sanitizedGameId = this.sanitizeGameId(game.tag);
+    const gameType = GameManager.resolveGameType(sanitizedGameId);
+
+    if (!gameType) {
+      throw new Error("Game type could not be resolved.");
     }
 
-    const [gameType, variant] = game.tag.split("-");
-    console.log(`Requested game engine for type: ${gameType}, variant: ${variant}`);
+    const specialGamesDir = GameManager.getSpecialGamesDir(gameType);
+    const filePath = GameManager.findGameFile(specialGamesDir, sanitizedGameId, gameType);
 
-    // Try to load variant engine first
-    const variantEngine = await this.loadVariantEngine(gameType, variant);
-    if (variantEngine) {
-      console.log(`Variant engine loaded: ${gameType}-${variant}`);
-      return new variantEngine(game);
+    if (!filePath) {
+      console.warn(`Game file not found for ID "${game.tag}". Using default.`);
+      return GameManager.getDefaultGameEngine(game, gameType);
     }
 
-    // Fallback to base engine
-    const baseEngine = this.gameEngines.get(gameType);
-    if (!baseEngine) {
-      throw new Error(`No engine found for game type ${gameType}`);
+    const GameClass = GameManager.loadGameClass(filePath, sanitizedGameId);
+    if (!GameClass) {
+      throw new Error(`Game class for ID "${game.tag}" could not be loaded.`);
     }
 
-    console.log(`Fallback to base engine for type: ${gameType}`);
-    return new baseEngine(game.payout);
+    return new GameClass(game);
   }
 
-  private async loadVariantEngine(gameType: string, variant: string): Promise<any | null> {
-    try {
-      const enginePath = this.findVariantEnginePath(gameType, variant);
-      if (!enginePath) {
-        console.log(`No variant engine found for ${gameType}-${variant}`);
-        return null;
-      }
 
-      const module = await import(enginePath);
-      console.log(`Variant engine module loaded from path: ${enginePath}`);
-      return module[`${gameType}${variant}Engine`] || module.default;
-    } catch (error) {
-      console.error(`Failed to load variant engine for ${gameType}-${variant}:`, error);
-      return null;
-    }
+  private static resolveGameType(gameId: string): GamesTypes | undefined {
+    const prefix = gameId.split("-")[0].toUpperCase();
+    const gameTypeMapping: Record<string, GamesTypes> = {
+      SL: GamesTypes.SLOTS,
+      KN: GamesTypes.KENO,
+    };
+    return gameTypeMapping[prefix];
   }
 
-  private findVariantEnginePath(gameType: string, variant: string): string | null {
-    const baseDir = path.join(__dirname, "..", "games", "slots", "variants");
+  private static getSpecialGamesDir(gameType: GamesTypes): string {
+    return path.join(__dirname, `../../../src/realtime/games/${gameType}/variants`);
+  }
+
+
+  private static findGameFile(baseDir: string, gameId: string, gameType: GamesTypes): string | null {
+    const sanitizedGameId = gameId.replace(/[^a-zA-Z0-9-_]/g, "");
     const possibleFileNames = [
-      `${variant}.${gameType}.slots.engine`,
-      `${gameType}-${variant}.slots.engine`,
+      `${sanitizedGameId.toLowerCase()}.${gameType}.engine.js`,
+      `${sanitizedGameId.toLowerCase()}.${gameType}.engine.ts`,
     ];
     console.log(possibleFileNames)
-    for (const fileName of possibleFileNames) {
-      const tsPath = path.join(baseDir, `${fileName}.ts`);
-      const jsPath = path.join(baseDir, `${fileName}.js`);
-      console.log(tsPath)
-      if (fs.existsSync(tsPath)) {
-        return tsPath;
-      }
-
-      if (fs.existsSync(jsPath)) {
-        return jsPath;
-      }
+    if (!fs.existsSync(baseDir)) {
+      console.warn(`Directory does not exist: ${baseDir}`);
+      return null;
     }
 
-    console.log(`No engine file found for type: ${gameType}, variant: ${variant}`);
+    for (const fileName of possibleFileNames) {
+      const directories = fs.readdirSync(baseDir, { withFileTypes: true });
+      for (const dir of directories) {
+        if (dir.isDirectory()) {
+          const filePath = path.join(baseDir, dir.name, fileName);
+          if (fs.existsSync(filePath)) {
+            return filePath;
+          }
+        }
+      }
+    }
     return null;
   }
+  private static loadGameClass(filePath: string, gameId: string): any {
+    const sanitizedGameId = gameId.replace(/-/g, "");
+    const module = require(filePath);
+    console.log(`Module loaded from ${filePath}:`, module);
+    return module.default || module[sanitizedGameId];
+  }
 
+
+  private static getDefaultGameEngine(
+    game: IGame & { payout: IPayout },
+    gameType: GamesTypes
+  ): GameEngine<any> {
+    const defaultGames: Record<GamesTypes, () => GameEngine<any>> = {
+      [GamesTypes.SLOTS]: () => new BaseSlotsEngine(game),
+      [GamesTypes.KENO]: () => new BaseKenoEngine(game),
+    };
+
+    const createEngine = defaultGames[gameType];
+    if (!createEngine) {
+      throw new Error(`No default game engine available for game type: ${gameType}`);
+    }
+    return createEngine();
+  }
+
+
+
+
+  private sanitizeGameId(gameId: string): string {
+    return gameId.replace(/[^a-zA-Z0-9-_]/g, "");
+  }
 }
