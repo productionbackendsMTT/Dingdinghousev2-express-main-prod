@@ -21,4 +21,4 @@ export interface FishGameConfig extends GameConfig {
   content: FishConfig;
 }
 
-export type GameWithPayout = IGame & { payout?: IPayout };
+export type GameWithPayout = IGame & { payout: IPayout };

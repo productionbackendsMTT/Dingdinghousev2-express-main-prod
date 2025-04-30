@@ -5,6 +5,7 @@ import { BaseSlotsEngine } from "./slots/base.slots.engine";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
 import { GameEngine } from "./game.engine";
+import { GameWithPayout } from "./game.type";
 
 export class GameManager {
   private static instance: GameManager;
@@ -22,17 +23,14 @@ export class GameManager {
     return GameManager.instance;
   }
 
-  public async getGameEngine(
-    game: IGame,
-    payout?: IPayout
-  ): Promise<GameEngine> {
-    if (!payout) {
+  public async getGameEngine(game: GameWithPayout): Promise<GameEngine> {
+    if (!game.payout) {
       throw new Error("Payout configuration is required");
     }
 
+    console.log("getGameEngine : ", game);
+
     const [gameType, variant] = game.tag.split("-");
-    console.log("TYPE:", gameType);
-    console.log("VARIANT:", variant);
 
     // Try to load variant engine first
     try {
@@ -47,6 +45,8 @@ export class GameManager {
       );
     }
 
+    console.log("VARIANETS FOUND : ", this.loadVariantEngine);
+
     // Fall back to base engine
     const baseEngine = this.gameEngines.get(gameType);
     if (!baseEngine) {
@@ -60,40 +60,45 @@ export class GameManager {
     gameType: string,
     variant: string
   ): Promise<any> {
-    const enginePath = this.getEnginePath(gameType, variant);
-    if (
-      !fs.existsSync(enginePath + ".ts") &&
-      !fs.existsSync(enginePath + ".js")
-    ) {
-      return null;
-    }
+    // Convert to lowercase for consistent path resolution
+    const lowerType = gameType.toLowerCase();
+    const lowerVariant = variant.toLowerCase();
 
-    const module = await import(enginePath);
-    return module[`${gameType}${variant}Engine`] || module.default;
-  }
-
-  private getEnginePath(gameType: string, variant: string): string {
-    const baseDir = path.join(__dirname, gameType.toLowerCase());
+    // Construct possible module paths
     const possiblePaths = [
-      path.join(
-        baseDir,
-        "variants",
-        `${variant}.${gameType.toLowerCase()}.engine`
-      ),
-      path.join(baseDir, "variants", `${gameType}-${variant}.engine`),
-      path.join(baseDir, `${variant}.${gameType.toLowerCase()}.engine`),
-      path.join(baseDir, `${gameType}-${variant}.engine`),
+      // For structure like sl-pm/pm.slots.engine.ts
+      `./${lowerType}/variants/${lowerVariant}/${lowerVariant}.${lowerType}.engine`,
+      // For structure like sl-pm/sl-pm.slots.engine.ts
+      `./${lowerType}/variants/${lowerType}-${lowerVariant}/${lowerType}-${lowerVariant}.${lowerType}.engine`,
     ];
 
-    for (const possiblePath of possiblePaths) {
-      if (
-        fs.existsSync(possiblePath + ".ts") ||
-        fs.existsSync(possiblePath + ".js")
-      ) {
-        return possiblePath;
+    for (const modulePath of possiblePaths) {
+      try {
+        const fullPath = path.join(__dirname, modulePath);
+        if (
+          fs.existsSync(fullPath + ".ts") ||
+          fs.existsSync(fullPath + ".js")
+        ) {
+          const module = await import(fullPath);
+          // Look for class with naming pattern: [GameType][Variant]Engine (e.g., SLPMEngine)
+          const variantClassName = `${gameType}${this.toPascalCase(
+            variant
+          )}Engine`;
+          return module[variantClassName] || module.default;
+        }
+      } catch (error) {
+        console.error(`Error loading module at ${modulePath}:`, error);
+        continue;
       }
     }
 
-    throw new Error(`Engine file not found for ${gameType}-${variant}`);
+    return null;
+  }
+
+  private toPascalCase(str: string): string {
+    return str
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join("");
   }
 }

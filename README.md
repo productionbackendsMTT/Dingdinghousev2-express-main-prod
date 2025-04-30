@@ -88,18 +88,13 @@ project/
 |   │   |   │   ├── base.slots.engine.ts
 |   │   |   │   ├── base.slots.type.ts
 |   │   |   │   ├── variants/
-|   │   |   │   |   ├── SL-PM.slots.engine.ts
+|   │   |   │   |   ├── sl-pm/
+|   │   |   │   |   │   ├── pm.slots.engine.ts
+|   │   |   │   |   │   ├── pm.slots.config.ts
 |   │   |   ├── keno/
 |   │   |   │   ├── base.keno.engine.ts
 |   │   |   │   ├── base.keno.type.ts
 |   │   |   │   ├── variants/
-|   │   |   │   |   ├── vikings.keno.engine.ts
-
-
-
-
-
-
 
 
 
