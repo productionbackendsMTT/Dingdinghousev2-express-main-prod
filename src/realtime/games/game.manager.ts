@@ -2,10 +2,10 @@ import path from "path";
 import fs from "fs";
 import { BaseKenoEngine } from "./keno/base.keno.engine";
 import { BaseSlotsEngine } from "./slots/base.slots.engine";
+import { GameEngine } from "./game.engine";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
-import { GameEngine } from "./game.engine";
-import { GameWithPayout } from "./game.type";
+import { pathToFileURL } from "url";
 
 export class GameManager {
   private static instance: GameManager;
@@ -23,12 +23,12 @@ export class GameManager {
     return GameManager.instance;
   }
 
-  public async getGameEngine(game: GameWithPayout): Promise<GameEngine> {
+  public async getGameEngine(
+    game: IGame & { payout: IPayout }
+  ): Promise<GameEngine> {
     if (!game.payout) {
       throw new Error("Payout configuration is required");
     }
-
-    console.log("getGameEngine : ", game);
 
     const [gameType, variant] = game.tag.split("-");
 
@@ -36,8 +36,10 @@ export class GameManager {
     try {
       const variantEngine = await this.loadVariantEngine(gameType, variant);
       if (variantEngine) {
-        return new variantEngine(game);
+        return new variantEngine(game); // Pass full game object
       }
+
+      console.log("VARIANETS FOUND : ", variantEngine);
     } catch (error) {
       console.error(
         `Error loading variant engine ${gameType}-${variant}:`,
@@ -45,51 +47,47 @@ export class GameManager {
       );
     }
 
-    console.log("VARIANETS FOUND : ", this.loadVariantEngine);
-
     // Fall back to base engine
     const baseEngine = this.gameEngines.get(gameType);
     if (!baseEngine) {
       throw new Error(`No engine found for game type ${gameType}`);
     }
 
-    return new baseEngine(game.payout);
+    return new baseEngine(game); // Pass full game object
   }
 
   private async loadVariantEngine(
     gameType: string,
     variant: string
   ): Promise<any> {
-    // Convert to lowercase for consistent path resolution
     const lowerType = gameType.toLowerCase();
     const lowerVariant = variant.toLowerCase();
 
-    // Construct possible module paths
-    const possiblePaths = [
-      // For structure like sl-pm/pm.slots.engine.ts
-      `./${lowerType}/variants/${lowerVariant}/${lowerVariant}.${lowerType}.engine`,
-      // For structure like sl-pm/sl-pm.slots.engine.ts
-      `./${lowerType}/variants/${lowerType}-${lowerVariant}/${lowerType}-${lowerVariant}.${lowerType}.engine`,
-    ];
+    const basePath = path.resolve(
+      __dirname,
+      `./slots/variants/${lowerType}-${lowerVariant}/${lowerType}-${lowerVariant}.slots.engine`
+    );
 
-    for (const modulePath of possiblePaths) {
-      try {
-        const fullPath = path.join(__dirname, modulePath);
-        if (
-          fs.existsSync(fullPath + ".ts") ||
-          fs.existsSync(fullPath + ".js")
-        ) {
-          const module = await import(fullPath);
-          // Look for class with naming pattern: [GameType][Variant]Engine (e.g., SLPMEngine)
-          const variantClassName = `${gameType}${this.toPascalCase(
-            variant
-          )}Engine`;
-          return module[variantClassName] || module.default;
-        }
-      } catch (error) {
-        console.error(`Error loading module at ${modulePath}:`, error);
-        continue;
+    const possibleExtensions = [".js", ".ts"];
+    const existingPath = possibleExtensions
+      .map((ext) => `${basePath}${ext}`)
+      .find((filePath) => fs.existsSync(filePath));
+
+    if (!existingPath) {
+      console.warn(`No engine file found for: ${basePath}`);
+      return null;
+    }
+
+    try {
+      const module = require(existingPath); // ✅ Use require, not dynamic import
+      if (module?.default) {
+        console.log(`Loaded default export: ${module.default.name}`);
+        return module.default;
+      } else {
+        console.warn(`No default export in ${existingPath}`);
       }
+    } catch (error) {
+      console.error(`Failed to require engine from ${existingPath}:`, error);
     }
 
     return null;

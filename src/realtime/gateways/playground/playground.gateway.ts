@@ -33,7 +33,6 @@ export function setupPlayground(namespace: Namespace) {
       // socket.data.engine = engine;
 
       if (game.payout) {
-        console.log("Payout Available:", game.payout.name);
         socket.emit("payoutInfo", {
           payoutName: game.payout.name,
           payoutDetails: game.payout, // send full payout object if needed
