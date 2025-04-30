@@ -78,3 +78,10 @@ export interface SlotSettings {
   reelStrips: number[][]; // Base reel strips
   freeSpinReelStrips?: number[][]; // Optional separate reel strips for free spins
 }
+
+// SPIN
+export interface settings {
+  currentLines: number;
+  betPerLine: number;
+  // currentBet:
+}

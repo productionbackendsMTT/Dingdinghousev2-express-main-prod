@@ -1,16 +1,21 @@
 import { Socket } from "socket.io";
 
 export interface PlatformPayload {
-    userId: string;
+  userId: string;
 }
 
 export interface GameSessionData {
-    user: PlatformPayload;
-    game: {
-        id: string;
-    };
+  user: PlatformPayload;
+  game: {
+    id: string;
+  };
 }
 
 export interface PlaygroundSocket extends Socket {
-    data: GameSessionData;
+  data: GameSessionData;
+}
+
+// Event-specific payloads
+export interface PlaygroundEventPayloads {
+  // Client → Server
 }

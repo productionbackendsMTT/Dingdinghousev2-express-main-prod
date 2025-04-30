@@ -3,6 +3,7 @@ import { PlaygroundService } from "./playground.service";
 import RedisService from "../../../common/config/redis";
 import { PlaygroundSocket } from "./playground.types";
 import { GameManager } from "../../games/game.manager";
+import { Events } from "./playground.events";
 
 export function setupPlayground(namespace: Namespace) {
   const playgroundService = new PlaygroundService();
@@ -43,6 +44,33 @@ export function setupPlayground(namespace: Namespace) {
           message: "No payout available for this game.",
         });
       }
+
+      // Spin request handler
+      socket.on(
+        Events.CLIENT.SPIN_REQUEST.name,
+        (payload: typeof Events.CLIENT.SPIN_REQUEST.payload) => {
+          try {
+            console.log(`Spin requested with bet ${payload.currentBet}`);
+
+            // Process spin (example)
+            const spinResult = {
+              winAmount: 100,
+              newBalance: 1000,
+              symbols: [["7", "7", "7"]],
+            };
+
+            socket.emit(
+              Events.SERVER.SPIN_RESULT.name,
+              spinResult satisfies typeof Events.SERVER.SPIN_RESULT.payload
+            );
+          } catch (error) {
+            socket.emit(Events.SERVER.ERROR.name, {
+              message: "Spin processing failed",
+              code: "SPIN_ERROR",
+            });
+          }
+        }
+      );
 
       socket.on("disconnect", () => {
         console.log(`Player disconnected from game ${game.name}`);
