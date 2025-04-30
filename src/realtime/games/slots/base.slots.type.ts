@@ -1,40 +1,44 @@
+export type BonusType = "spin" | "tap" | "mini-slot";
+
+export interface BonusFeature {
+  type: BonusType;
+  enabled: boolean;
+  payout: Array<{
+    [key: string]: number;
+  }>;
+}
+
+export interface GambleFeature {
+  type: "card";
+  enabled: boolean;
+}
+
+export interface SymbolConfig {
+  id: number;
+  name: string;
+  reelsInstance: {
+    [key: string]: number;
+  };
+  useWildSub: boolean;
+  multiplier: number[];
+  description: string;
+  count?: number;
+  defaultAmount?: number;
+}
+
 export interface SlotConfig {
-  id: string;
-  isSpecial: boolean;
+  tag: string;
   matrix: {
     x: number;
     y: number;
   };
-  linesCount: number[];
-  WildMultiplier: number[];
-  WildMultiplierProb: number[];
+  lines: number[][];
   bets: number[];
-  Symbols: SlotSymbol[];
-}
-
-export interface SlotSymbol {
-  Name: string;
-  Id: number;
-  useWildSub: boolean;
-  isFreeSpinMultiplier: boolean;
-  reelInstance: Record<string, number>;
-  multiplier: number[][];
-}
-
-export interface SlotSpinResult {
-  symbols: number[][]; // 2D array representing the reel stop positions
-  wins: SlotWin[];
-  freeSpinsAwarded?: number;
-  bonusTriggered?: boolean;
-  totalWin: number;
-}
-
-export interface SlotWin {
-  line: number;
-  symbol: number;
-  count: number;
-  payout: number;
-  positions: number[][]; // [reelIndex][rowIndex]
+  features: {
+    bonus: BonusFeature;
+    gamble: GambleFeature;
+  };
+  symbols: SymbolConfig[];
 }
 
 export interface SlotSettings {

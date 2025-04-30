@@ -1,22 +1,23 @@
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
-import { GameConfig } from "./game.type";
+import { GameConfig, GameWithPayout } from "./game.type";
 
 export abstract class GameEngine<T extends GameConfig = GameConfig> {
   protected config: T;
 
-  constructor(game: IGame, payout: IPayout) {
-    this.config = this.createConfig(game, payout);
+  constructor(payout: IPayout) {
+    this.config = this.createConfig(payout);
     this.validateConfig();
   }
 
   protected abstract validateConfig(): void;
   public abstract init(): Promise<void>;
 
-  protected createConfig(game: IGame, payout: IPayout): T {
-    console.log("GAME ENGINE: ", game, " : ", payout);
+  protected createConfig(payout: IPayout): T {
+    console.log("GAME ENGINE: ", payout);
     return {
-      gameId: game._id.toString(),
+      gameId: payout.tag,
+      name: payout.name,
       version: payout.version,
       isActive: payout.isActive,
       content:

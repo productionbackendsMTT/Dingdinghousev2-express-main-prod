@@ -7,6 +7,7 @@ export interface IPayoutContent extends Record<string, any> {
 export interface IPayout extends Document {
     gameId: Types.ObjectId; // Reference to the game
     name: string; // Name of the payout
+    tag: string; // Tag name for the payout
     version: number; // Version number of the payout
     isActive: boolean; // Indicates if this payout is currently active
     content: IPayoutContent; // Dynamic content of the payout

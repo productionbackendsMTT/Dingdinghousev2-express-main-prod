@@ -26,7 +26,7 @@ export function setupPlayground(namespace: Namespace) {
       }
 
       // Initialize game engine with payout
-      const engine = await gameManager.getGameEngine(game, game.payout);
+      const engine = await gameManager.getGameEngine(game);
       await engine.init();
 
       // Store engine reference

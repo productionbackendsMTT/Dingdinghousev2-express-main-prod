@@ -27,7 +27,7 @@ export class GameManager {
     game: IGame,
     payout?: IPayout
   ): Promise<GameEngine> {
-    if (!payout) {
+    if (!game.payout) {
       throw new Error("Payout configuration is required.");
     }
 
