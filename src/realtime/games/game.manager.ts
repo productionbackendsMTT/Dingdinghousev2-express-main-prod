@@ -13,7 +13,7 @@ export class GameManager {
 
   private constructor() {
     this.initializeGameEngines();
-    console.log("GameManager instance created.");
+
   }
 
   private initializeGameEngines(): void {
@@ -73,7 +73,7 @@ export class GameManager {
       `${sanitizedGameId.toLowerCase()}.${gameType}.engine.js`,
       `${sanitizedGameId.toLowerCase()}.${gameType}.engine.ts`,
     ];
-    console.log(possibleFileNames)
+
     if (!fs.existsSync(baseDir)) {
       console.warn(`Directory does not exist: ${baseDir}`);
       return null;
@@ -95,7 +95,6 @@ export class GameManager {
   private static loadGameClass(filePath: string, gameId: string): any {
     const sanitizedGameId = gameId.replace(/-/g, "");
     const module = require(filePath);
-    console.log(`Module loaded from ${filePath}:`, module);
     return module.default || module[sanitizedGameId];
   }
 

@@ -30,7 +30,6 @@ export class RandomResultGenerator {
 
     }
 
-
     private logMatrix(matrix: string[][]): void {
         console.log("Generated Symbol Matrix:");
         matrix.forEach(row => console.log(row.join(" ")));

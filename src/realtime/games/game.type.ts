@@ -16,3 +16,12 @@ export enum GamesTypes {
   SLOTS = "slots",
   KENO = "keno",
 }
+
+export enum specialIcons {
+  bonus = "Bonus",
+  scatter = "Scatter",
+  jackpot = "Jackpot",
+  wild = "Wild",
+  any = "any",
+  FreeSpin = "FreeSpin"
+}
