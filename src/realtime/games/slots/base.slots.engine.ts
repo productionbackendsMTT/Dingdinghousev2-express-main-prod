@@ -1,3 +1,4 @@
+import { log } from "node:console";
 import { GameEngine } from "../game.engine";
 import { SlotAction, SlotConfig, SlotResponse } from "./base.slots.type";
 
@@ -18,6 +19,7 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
 
   protected async handleSpin(action: SlotAction): Promise<SlotResponse> {
     const { userId, payload } = action;
+    this.getRandomMatrix();
 
     return this.state.withLock(
       `spin:${userId}:${this.config.gameId}`,
@@ -100,6 +102,55 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
   protected checkFeatures(reels: string[][]) {
     // Base implementation - override in variants
     return [];
+  }
+
+  protected shuffleArray<T>(array: T[]): T[] {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  protected getRandomMatrix(): string[][] {
+    const matrix: string[][] = [];
+    const resultMatrix: string[][] = [];
+
+    // First create and shuffle the full reels
+    for (let i = 0; i < this.config.content.matrix.x; i++) {
+      const row: string[] = [];
+
+      // Fill row with symbols based on reelsInstance
+      this.config.content.symbols.forEach((symbol) => {
+        for (let j = 0; j < symbol.reelsInstance[i]; j++) {
+          row.push(symbol.id.toString());
+        }
+      });
+
+      // Shuffle the row before adding to matrix
+      const shuffledRow = this.shuffleArray([...row]);
+      matrix.push(shuffledRow);
+    }
+
+    // Now get random visible segments from each reel
+    for (let i = 0; i < matrix.length; i++) {
+      const reel = matrix[i];
+      const visibleSymbols: string[] = [];
+
+      // Get random starting index
+      const startIdx = Math.floor(
+        Math.random() * (reel.length - this.config.content.matrix.y)
+      );
+
+      // Get Y consecutive symbols from the random starting point
+      for (let j = 0; j < this.config.content.matrix.y; j++) {
+        visibleSymbols.push(reel[(startIdx + j) % reel.length]);
+      }
+
+      resultMatrix.push(visibleSymbols);
+    }
+
+    return resultMatrix;
   }
 }
 
