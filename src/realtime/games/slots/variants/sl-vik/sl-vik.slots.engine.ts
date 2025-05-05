@@ -1,3 +1,6 @@
 import BaseSlotsEngine from "../../base.slots.engine";
+import { SlotAction, SlotResponse } from "../../base.slots.type";
 
-export class SLVIKEngine extends BaseSlotsEngine {}
+class SLVIKEngine extends BaseSlotsEngine {}
+
+export default SLVIKEngine;

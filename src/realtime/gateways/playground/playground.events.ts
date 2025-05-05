@@ -8,27 +8,46 @@ export const Events = {
         spins: number;
       },
     },
+    // Add other client events
   },
   SERVER: {
     SPIN_RESULT: {
       name: "spin:result",
       payload: {} as {
+        success: boolean;
+        balance: number;
+        reels: string[][];
         winAmount: number;
-        newBalance: number;
-        symbols: string[][];
+        wins: Array<{
+          line: number;
+          symbols: string[];
+          amount: number;
+        }>;
+        features?: Array<{
+          type: string;
+          data: any;
+        }>;
       },
     },
     ERROR: {
       name: "error",
       payload: {} as {
         message: string;
-        code?: string;
+        code: string;
+      },
+    },
+    CONFIG: {
+      name: "game:config",
+      payload: {} as {
+        gameId: string;
+        name: string;
+        content: any;
+        version: number;
+        tag: string;
       },
     },
   },
 } as const;
 
-// Helper types
-type EventMap = typeof Events;
-export type ClientEvent = keyof EventMap["CLIENT"];
-export type ServerEvent = keyof EventMap["SERVER"];
+export type ClientEventType = keyof typeof Events.CLIENT;
+export type ServerEventType = keyof typeof Events.SERVER;

@@ -1,3 +1,26 @@
+import { GameAction, GameResponse } from "../game.type";
+
+export interface SlotAction extends GameAction {
+  type: "spin";
+  payload: {
+    betAmount: number;
+    lines: number;
+  };
+}
+
+export interface SlotResponse extends GameResponse {
+  reels: string[][];
+  winAmount: number;
+  wins: Array<{
+    line: number;
+    symbols: string[];
+    amount: number;
+  }>;
+  features?: Array<{
+    type: string;
+    data: any;
+  }>;
+}
 export type BonusType = "spin" | "tap" | "mini-slot";
 
 export interface BonusFeature {

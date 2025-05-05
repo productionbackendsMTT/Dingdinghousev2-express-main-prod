@@ -26,6 +26,8 @@ export class GameManager {
   public async getGameEngine(
     game: IGame & { payout: IPayout }
   ): Promise<GameEngine> {
+    console.log("GAME MANAGER : ", game);
+
     if (!game.payout) {
       throw new Error("Payout configuration is required");
     }
