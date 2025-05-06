@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { BaseKenoEngine } from "./keno/base.keno.engine";
+// import { BaseKenoEngine } from "./keno/base.keno.engine";
 import { GameEngine } from "./game.engine";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
@@ -18,7 +18,7 @@ export class GameManager {
 
   private initializeGameEngines(): void {
     this.gameEngines.set(GamesTypes.SLOTS, BaseSlotsEngine);
-    this.gameEngines.set(GamesTypes.KENO, BaseKenoEngine);
+    // this.gameEngines.set(GamesTypes.KENO, BaseKenoEngine);
   }
 
   public static getInstance(): GameManager {
@@ -105,7 +105,7 @@ export class GameManager {
   ): GameEngine<any> {
     const defaultGames: Record<GamesTypes, () => GameEngine<any>> = {
       [GamesTypes.SLOTS]: () => new BaseSlotsEngine(game),
-      [GamesTypes.KENO]: () => new BaseKenoEngine(game),
+      [GamesTypes.KENO]: () => new BaseSlotsEngine(game),
     };
 
     const createEngine = defaultGames[gameType];
