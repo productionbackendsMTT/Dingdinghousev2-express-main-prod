@@ -1,4 +1,3 @@
-import { log } from "node:console";
 import { GameEngine } from "../game.engine";
 import { SlotAction, SlotConfig, SlotResponse } from "./base.slots.type";
 
@@ -19,7 +18,12 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
 
   protected async handleSpin(action: SlotAction): Promise<SlotResponse> {
     const { userId, payload } = action;
-    this.getRandomMatrix();
+
+    const matrix = this.getRandomMatrix();
+    console.log("Generated matrix:", matrix);
+
+    const lines = this.checkLines(matrix);
+    console.log("Lines:", lines);
 
     return this.state.withLock(
       `spin:${userId}:${this.config.gameId}`,
@@ -150,7 +154,34 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
       resultMatrix.push(visibleSymbols);
     }
 
-    return resultMatrix;
+    return resultMatrix[0].map((_, colIndex) =>
+      matrix.map((row) => row[colIndex])
+    );
+  }
+
+  protected checkLines(matrix: string[][]) {
+    const lines = this.config.content.lines;
+
+    for (const line of lines) {
+      const values = line.map(
+        (rowIndex, colIndex) => matrix[rowIndex][colIndex]
+      );
+      let count = 1;
+
+      for (let i = 1; i < values.length; i++) {
+        if (values[i] === values[0]) {
+          count++;
+        } else {
+          break;
+        }
+      }
+
+      if (count >= 3) {
+        console.log(
+          `Line ${line} starts with ${values[0]} repeated ${count} times.`
+        );
+      }
+    }
   }
 }
 
