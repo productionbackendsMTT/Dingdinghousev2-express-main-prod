@@ -163,9 +163,13 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
     const lines = this.config.content.lines;
 
     for (const line of lines) {
+      // Extracting values
       const values = line.map(
         (rowIndex, colIndex) => matrix[rowIndex][colIndex]
       );
+
+      this.checkLinesSymbols(values);
+
       let count = 1;
 
       for (let i = 1; i < values.length; i++) {
@@ -183,6 +187,59 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
       }
     }
   }
+
+  protected checkLinesSymbols(matched: string[]) {
+    let firstSymbol: string | null = null;
+    let count = 0;
+
+    for (const symbolId of matched) {
+      const symbol = this.config.content.symbols.find(
+        (s) => s.id.toString() === symbolId
+      );
+
+      if (!symbol) break;
+
+      if (!symbol.useWildSub) {
+        break;
+      }
+
+      if (symbol.name === "Wild") {
+        count++;
+      } else if (firstSymbol === null) {
+        firstSymbol = symbolId;
+        count++;
+      } else if (symbolId === firstSymbol) {
+        count++;
+      } else {
+        break;
+      }
+    }
+
+    console.log("COUNT : ", count);
+  }
 }
 
 export default BaseSlotsEngine;
+
+// def evaluate_lines(result_matrix, lines_api_data, symbols, total_bet):
+//     total_payout = 0
+//     winning_paylines = []
+
+//     for line in lines_api_data:
+//         matched_symbols = [result_matrix[line[i]][i] for i in range(5)]
+
+//         first_symbol = None
+//         count = 0
+
+//         for symbol in matched_symbols:
+//             if symbols[symbol]['useWildSub'] == 'False':
+//                 break
+//             if symbols[symbol]['Name'] == 'Wild':
+//                 count += 1
+//             elif first_symbol is None:
+//                 first_symbol = symbol
+//                 count += 1
+//             elif symbol == first_symbol:
+//                 count += 1
+//             else:
+//                 break
