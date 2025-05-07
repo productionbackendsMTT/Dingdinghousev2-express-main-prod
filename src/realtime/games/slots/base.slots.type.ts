@@ -64,43 +64,43 @@ export interface SlotConfig {
   symbols: SymbolConfig[];
 }
 
-export interface SlotSettings {
-  paylines: any[];
-  symbols: {
-    freeSpin: {
-      id: number;
-      multiplier: number[];
-      use: boolean;
-    };
-    jackpot: {
-      id: number;
-      name: string;
-      count: number;
-      defaultAmount: number;
-      increaseValue: number;
-      use: boolean;
-    };
-    wild: {
-      id: number;
-      name: string;
-      use: boolean;
-      substitutesFor?: number[]; // Symbol IDs this wild substitutes for
-    };
-    scatter: {
-      id: number;
-      multiplier: number[];
-      use: boolean;
-    };
-    bonus: {
-      id: number;
-      count: number;
-      pay: number;
-      use: boolean;
-    };
-  };
-  reelStrips: number[][]; // Base reel strips
-  freeSpinReelStrips?: number[][]; // Optional separate reel strips for free spins
-}
+
+//   paylines: any[];
+//   symbols: {
+//     freeSpin: {
+//       id: number;
+//       multiplier: number[];
+//       use: boolean;
+//     };
+//     jackpot: {
+//       id: number;
+//       name: string;
+//       count: number;
+//       defaultAmount: number;
+//       increaseValue: number;
+//       use: boolean;
+//     };
+//     wild: {
+//       id: number;
+//       name: string;
+//       use: boolean;
+//       substitutesFor?: number[]; // Symbol IDs this wild substitutes for
+//     };
+//     scatter: {
+//       id: number;
+//       multiplier: number[];
+//       use: boolean;
+//     };
+//     bonus: {
+//       id: number;
+//       count: number;
+//       pay: number;
+//       use: boolean;
+//     };
+//   };
+//   reelStrips: number[][]; // Base reel strips
+//   freeSpinReelStrips?: number[][]; // Optional separate reel strips for free spins
+// }
 
 // SPIN
 export interface settings {

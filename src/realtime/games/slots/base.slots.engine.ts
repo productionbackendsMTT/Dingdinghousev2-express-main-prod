@@ -159,64 +159,83 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
     );
   }
 
-  protected checkLines(matrix: string[][]) {
+  protected checkLines(matrix: string[][]): Array<{
+    line: number[];
+    symbols: string[];
+    count: number;
+    win: number;
+  }> {
     const lines = this.config.content.lines;
+    const results = [];
 
     for (const line of lines) {
-      // Extracting values
+      // Extract symbols for this line
       const values = line.map(
         (rowIndex, colIndex) => matrix[rowIndex][colIndex]
       );
 
-      this.checkLinesSymbols(values);
-
-      let count = 1;
-
-      for (let i = 1; i < values.length; i++) {
-        if (values[i] === values[0]) {
-          count++;
-        } else {
-          break;
-        }
-      }
-
-      if (count >= 3) {
-        console.log(
-          `Line ${line} starts with ${values[0]} repeated ${count} times.`
-        );
+      const lineResult = this.checkLineSymbols(values, line);
+      if (lineResult.count >= 3) {
+        results.push(lineResult);
       }
     }
+
+    return results;
   }
 
-  protected checkLinesSymbols(matched: string[]) {
-    let firstSymbol: string | null = null;
-    let count = 0;
+  private checkLineSymbols(values: string[], line: number[]): {
+    line: number[];
+    symbols: string[];
+    count: number;
+    win: number;
+  } {
+    let count = 1;
+    let paySymbol: string | undefined = undefined;
+    const wildSymbol = this.config.content.symbols.find(
+      (symbol) => symbol.name === "Wild"
+    )?.id.toString();
 
-    for (const symbolId of matched) {
-      const symbol = this.config.content.symbols.find(
-        (s) => s.id.toString() === symbolId
-      );
-
-      if (!symbol) break;
-
-      if (!symbol.useWildSub) {
-        break;
+    // Handle first position
+    if (values[0] === wildSymbol) {
+      // If first is wild, look for next non-wild symbol
+      for (let i = 1; i < values.length; i++) {
+        if (values[i] !== wildSymbol) {
+          paySymbol = values[i];
+          count = i + 1; 
+          break;
+        }
+        count++;
       }
+      // If all symbols are wild
+      if (!paySymbol) {
+        paySymbol = wildSymbol;
+      }
+    } else {
+      paySymbol = values[0];
+    }
 
-      if (symbol.name === "Wild") {
-        count++;
-      } else if (firstSymbol === null) {
-        firstSymbol = symbolId;
-        count++;
-      } else if (symbolId === firstSymbol) {
+    // Check remaining positions
+    for (let i = count; i < values.length; i++) {
+      if (values[i] === paySymbol || values[i] === wildSymbol) {
         count++;
       } else {
         break;
       }
     }
 
-    console.log("COUNT : ", count);
+    // Calculate win amount based on symbol multiplier
+    const symbol = this.config.content.symbols.find(s => s.id.toString() === paySymbol);
+    const winAmount = symbol && count >= 3 ? (symbol.multiplier[count - 3] || 0) : 0;
+
+    return {
+      line,
+      symbols: values,
+      count,
+      win: winAmount
+    };
   }
+
+
 }
 
 export default BaseSlotsEngine;
