@@ -18,64 +18,69 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
 
   protected async handleSpin(action: SlotAction): Promise<SlotResponse> {
     const { userId, payload } = action;
+    const lockKey = `lock:player:${userId}:game:${this.config.gameId}:spin`;
 
     const matrix = this.getRandomMatrix();
-    console.log("Generated matrix:", matrix);
-
     const lines = this.checkLines(matrix);
-    console.log("Lines:", lines);
 
-    return this.state.withLock(
-      `spin:${userId}:${this.config.gameId}`,
-      async () => {
-        // Validate balance and deduct bet
-        const balance = await this.state.getBalance(userId, this.config.gameId);
-        const totalBet = payload.betAmount * payload.lines;
+    console.log(`Attempting to acquire spin lock for ${lockKey}`);
 
-        if (balance < totalBet) {
-          return {
-            success: false,
-            balance,
-            error: "Insufficient balance",
-            // Add required properties even for error case
-            reels: [],
-            winAmount: 0,
-            wins: [],
-          };
-        }
+    // Remove the withLock wrapper since StateService will handle its own locking
+    try {
+      // Validate balance and deduct bet
+      const balance = await this.state.getBalance(userId, this.config.gameId);
+      const totalBet = payload.betAmount * payload.lines;
 
-        // Deduct bet amount
-        await this.state.deductBalance(userId, this.config.gameId, totalBet);
-
-        // Generate spin result
-        const result = await this.generateSpinResult(payload);
-
-        // Credit wins if any
-        if (result.winAmount && result.winAmount > 0) {
-          await this.state.creditBalance(
-            userId,
-            this.config.gameId,
-            result.winAmount
-          );
-        }
-
-        // Get final balance
-        const finalBalance = await this.state.getBalance(
-          userId,
-          this.config.gameId
+      if (balance < totalBet) {
+        console.log(
+          `Insufficient balance for user ${userId}. Balance: ${balance}, Bet: ${totalBet}`
         );
-
-        // Ensure all required properties are included
         return {
-          success: true,
-          balance: finalBalance,
-          reels: result.reels || [],
-          winAmount: result.winAmount || 0,
-          wins: result.wins || [],
-          features: result.features,
+          success: false,
+          balance,
+          error: "Insufficient balance",
+          reels: [],
+          winAmount: 0,
+          wins: [],
         };
       }
-    );
+
+      // Deduct bet amount
+      await this.state.deductBalance(userId, this.config.gameId, totalBet);
+      console.log(`Deducted ${totalBet} from user ${userId}'s balance`);
+
+      // Generate spin result
+      const result = await this.generateSpinResult(payload);
+      console.log(`Spin result generated for user ${userId}`);
+
+      // Credit wins if any
+      if (result.winAmount && result.winAmount > 0) {
+        await this.state.creditBalance(
+          userId,
+          this.config.gameId,
+          result.winAmount
+        );
+        console.log(`Credited ${result.winAmount} to user ${userId}'s balance`);
+      }
+
+      // Get final balance
+      const finalBalance = await this.state.getBalance(
+        userId,
+        this.config.gameId
+      );
+
+      return {
+        success: true,
+        balance: finalBalance,
+        reels: result.reels || [],
+        winAmount: result.winAmount || 0,
+        wins: result.wins || [],
+        features: result.features,
+      };
+    } catch (error) {
+      console.error(`Error processing spin for user ${userId}:`, error);
+      throw error;
+    }
   }
 
   protected async generateSpinResult(

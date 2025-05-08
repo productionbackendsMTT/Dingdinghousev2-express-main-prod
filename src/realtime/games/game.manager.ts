@@ -10,6 +10,7 @@ import BaseSlotsEngine from "./slots/base.slots.engine";
 export class GameManager {
   private static instance: GameManager;
   private gameEngines: Map<string, any> = new Map();
+  private gameInstances: Map<string, GameEngine> = new Map(); // Cache for instantiated engines
 
   private constructor() {
     this.gameEngines.set("SL", BaseSlotsEngine);
@@ -26,36 +27,46 @@ export class GameManager {
   public async getGameEngine(
     game: IGame & { payout: IPayout }
   ): Promise<GameEngine> {
-    console.log("GAME MANAGER : ", game);
+    const gameId = game.payout.gameId.toString();
 
+    // Return existing instance if we already created one for this game
+    if (this.gameInstances.has(gameId)) {
+      const existingEngine = this.gameInstances.get(gameId);
+      if (existingEngine) {
+        console.log("EXISTING GAME ; ", existingEngine.getConfig().gameId);
+        return existingEngine;
+      }
+    }
+
+    // Create new instance when needed
     if (!game.payout) {
       throw new Error("Payout configuration is required");
     }
 
     const [gameType, variant] = game.tag.split("-");
+    let engineInstance: GameEngine;
 
     // Try to load variant engine first
     try {
       const variantEngine = await this.loadVariantEngine(gameType, variant);
       if (variantEngine) {
-        return new variantEngine(game); // Pass full game object
+        engineInstance = new variantEngine(game);
+      } else {
+        // Fall back to base engine
+        const baseEngine = this.gameEngines.get(gameType);
+        if (!baseEngine) {
+          throw new Error(`No engine found for game type ${gameType}`);
+        }
+        engineInstance = new baseEngine(game);
       }
 
-      console.log("VARIANETS FOUND : ", variantEngine);
+      // Cache the instance
+      this.gameInstances.set(gameId, engineInstance);
+      return engineInstance;
     } catch (error) {
-      console.error(
-        `Error loading variant engine ${gameType}-${variant}:`,
-        error
-      );
+      console.error(`Error loading engine for ${gameType}-${variant}:`, error);
+      throw error; // Re-throw to indicate failure
     }
-
-    // Fall back to base engine
-    const baseEngine = this.gameEngines.get(gameType);
-    if (!baseEngine) {
-      throw new Error(`No engine found for game type ${gameType}`);
-    }
-
-    return new baseEngine(game); // Pass full game object
   }
 
   private async loadVariantEngine(

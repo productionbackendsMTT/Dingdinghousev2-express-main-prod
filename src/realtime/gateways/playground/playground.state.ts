@@ -25,19 +25,22 @@ export class StateService {
   }
 
   private getLockKey(userId: string, gameId: string | Types.ObjectId): string {
-    return `lock:${this.getStateKey(userId, gameId)}`;
+    return `player:${userId}:game:${gameId}:state:lock`;
   }
 
   /**
    * Public method to use Redis lock with a custom key - makes locks available for other services
+   * Fixed to use more consistent lock naming and avoid double prefixing
    */
   public async withLock<T>(
     key: string,
     callback: () => Promise<T>,
-    ttl = 10,
-    retries = 3
+    ttl = 60 // Increased from 30 to 60 seconds
   ): Promise<T> {
-    return this.redisService.withLock(key, callback, ttl, retries);
+    // Make sure we don't double-prefix lock keys
+    const lockKey = key.startsWith("lock:") ? key : `lock:${key}`;
+    const redis = RedisService.getInstance();
+    return redis.withLock(lockKey, callback, ttl);
   }
 
   async initialize(
@@ -49,32 +52,39 @@ export class StateService {
 
     if (existing) return existing;
 
-    const user = await User.findById(userId)
-      .select("username balance role status createdBy path")
-      .lean();
-    if (!user) {
-      throw new Error("User not found");
-    }
+    // Use a lock when initializing state to prevent duplicate creation
+    return this.withLock(`initialize:${userId}:${gameId}`, async () => {
+      // Check again inside the lock to ensure no race condition
+      const checkAgain = await this.getState(userId, gameId);
+      if (checkAgain) return checkAgain;
 
-    const initialState: PlayerState = {
-      balance: user.balance,
-      lastUpdated: new Date(),
-      sessionStart: new Date(),
-      gameSpecific: {},
-      userInfo: {
-        username: user.username,
-        role:
-          user.role instanceof Types.ObjectId
-            ? user.role
-            : user.role?.toString(),
-        status: user.status,
-        createdBy: user.createdBy,
-        path: user.path?.toString(),
-      },
-    };
+      const user = await User.findById(userId)
+        .select("username balance role status createdBy path")
+        .lean();
+      if (!user) {
+        throw new Error("User not found");
+      }
 
-    await this.redisService.setJSON(key, initialState, this.STATE_TTL);
-    return initialState;
+      const initialState: PlayerState = {
+        balance: user.balance,
+        lastUpdated: new Date(),
+        sessionStart: new Date(),
+        gameSpecific: {},
+        userInfo: {
+          username: user.username,
+          role:
+            user.role instanceof Types.ObjectId
+              ? user.role
+              : user.role?.toString(),
+          status: user.status,
+          createdBy: user.createdBy,
+          path: user.path?.toString(),
+        },
+      };
+
+      await this.redisService.setJSON(key, initialState, this.STATE_TTL);
+      return initialState;
+    });
   }
 
   async getUserInfo(
@@ -92,6 +102,7 @@ export class StateService {
     const state = await this.getState(userId, gameId);
     if (!state) return;
 
+    // No need to lock for DB sync, we're just reading current state
     await User.findByIdAndUpdate(userId, {
       balance: state.balance,
     });
@@ -102,11 +113,16 @@ export class StateService {
     gameId: string | Types.ObjectId,
     amount: number
   ): Promise<{ success: boolean; newBalance: number }> {
-    const result = await this.deductBalance(userId, gameId, amount);
-    if (result.success) {
-      await this.syncBalanceToDatabase(userId, gameId);
-    }
-    return result;
+    // Use a single lock for the entire operation
+    return this.withLock(this.getLockKey(userId, gameId), async () => {
+      const result = await this.deductBalance(userId, gameId, amount, false);
+      if (result.success) {
+        await User.findByIdAndUpdate(userId, {
+          balance: result.newBalance,
+        });
+      }
+      return result;
+    });
   }
 
   async creditBalanceWithDbSync(
@@ -114,9 +130,19 @@ export class StateService {
     gameId: string | Types.ObjectId,
     amount: number
   ): Promise<number> {
-    const newBalance = await this.creditBalance(userId, gameId, amount);
-    await this.syncBalanceToDatabase(userId, gameId);
-    return newBalance;
+    // Use a single lock for the entire operation
+    return this.withLock(this.getLockKey(userId, gameId), async () => {
+      const newBalance = await this.creditBalance(
+        userId,
+        gameId,
+        amount,
+        false
+      );
+      await User.findByIdAndUpdate(userId, {
+        balance: newBalance,
+      });
+      return newBalance;
+    });
   }
 
   async getState(
@@ -130,11 +156,12 @@ export class StateService {
   async updatePlayerState(
     userId: string,
     gameId: string | Types.ObjectId,
-    updates: Partial<PlayerState>
+    updates: Partial<PlayerState>,
+    useLock = true
   ): Promise<PlayerState> {
     const key = this.getStateKey(userId, gameId);
 
-    return this.withLock(this.getLockKey(userId, gameId), async () => {
+    const updateFunc = async () => {
       const currentState =
         (await this.getState(userId, gameId)) ||
         (await this.initialize(userId, gameId));
@@ -147,7 +174,13 @@ export class StateService {
 
       await this.redisService.setJSON(key, updatedState, this.STATE_TTL);
       return updatedState;
-    });
+    };
+
+    if (useLock) {
+      return this.withLock(this.getLockKey(userId, gameId), updateFunc);
+    } else {
+      return updateFunc();
+    }
   }
 
   // ================= Balance Operations =================
@@ -162,13 +195,14 @@ export class StateService {
   async deductBalance(
     userId: string,
     gameId: string | Types.ObjectId,
-    amount: number
+    amount: number,
+    useLock = true
   ): Promise<{ success: boolean; newBalance: number }> {
     if (amount <= 0) {
       throw new Error("Deduction amount must be positive");
     }
 
-    return this.withLock(this.getLockKey(userId, gameId), async () => {
+    const deductFunc = async () => {
       const state =
         (await this.getState(userId, gameId)) ||
         (await this.initialize(userId, gameId));
@@ -178,33 +212,56 @@ export class StateService {
       }
 
       const newBalance = state.balance - amount;
-      await this.updatePlayerState(userId, gameId, {
-        balance: newBalance,
-        currentBet: amount, // Optionally track last bet
-      });
+      await this.updatePlayerState(
+        userId,
+        gameId,
+        {
+          balance: newBalance,
+          currentBet: amount, // Optionally track last bet
+        },
+        false // Don't use another lock since we're already in one
+      );
 
       return { success: true, newBalance };
-    });
+    };
+
+    if (useLock) {
+      return this.withLock(this.getLockKey(userId, gameId), deductFunc);
+    } else {
+      return deductFunc();
+    }
   }
 
   async creditBalance(
     userId: string,
     gameId: string | Types.ObjectId,
-    amount: number
+    amount: number,
+    useLock = true
   ): Promise<number> {
     if (amount <= 0) {
       throw new Error("Credit amount must be positive");
     }
 
-    return this.withLock(this.getLockKey(userId, gameId), async () => {
+    const creditFunc = async () => {
       const state =
         (await this.getState(userId, gameId)) ||
         (await this.initialize(userId, gameId));
 
       const newBalance = state.balance + amount;
-      await this.updatePlayerState(userId, gameId, { balance: newBalance });
+      await this.updatePlayerState(
+        userId,
+        gameId,
+        { balance: newBalance },
+        false // Don't use another lock since we're already in one
+      );
       return newBalance;
-    });
+    };
+
+    if (useLock) {
+      return this.withLock(this.getLockKey(userId, gameId), creditFunc);
+    } else {
+      return creditFunc();
+    }
   }
 
   // ================= Game-Specific State =================
@@ -233,9 +290,14 @@ export class StateService {
         [key]: value,
       };
 
-      await this.updatePlayerState(userId, gameId, {
-        gameSpecific: updatedGameSpecific,
-      });
+      await this.updatePlayerState(
+        userId,
+        gameId,
+        {
+          gameSpecific: updatedGameSpecific,
+        },
+        false // Don't use another lock since we're already in one
+      );
     });
   }
 
