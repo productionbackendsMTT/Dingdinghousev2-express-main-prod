@@ -1,8 +1,8 @@
 import { GameConfig, GameAction, GameResponse } from "./game.type";
-import { StateService } from "../gateways/playground/playground.state";
+import { StateService } from "../../realtime/gateways/playground/playground.state";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
-import { PlayerState } from "../gateways/playground/playground.types";
+import { PlayerState } from "../../realtime/gateways/playground/playground.types";
 
 export abstract class GameEngine<
   TConfig = any,

@@ -158,63 +158,70 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
       matrix.map((row) => row[colIndex])
     );
   }
-
   protected checkLines(matrix: string[][]): Array<{
     line: number[];
     symbols: string[];
-    count: number;
-    win: number;
+    amount: number;
   }> {
-    const lines = this.config.content.lines;
-    const results = [];
+    const results: Array<{
+      line: number[];
+      symbols: string[];
+      amount: number;
+    }> = [];
 
-    for (const line of lines) {
-      // Extract symbols for this line
-      const values = line.map(
-        (rowIndex, colIndex) => matrix[rowIndex][colIndex]
-      );
+    this.config.content.lines.forEach((line, lineIndex) => {
+      const values = line.map((rowIndex, colIndex) => matrix[rowIndex][colIndex]);
 
       const lineResult = this.checkLineSymbols(values, line);
       if (lineResult.count >= 3) {
-        results.push(lineResult);
+        results.push({
+          line: [lineIndex + 1],
+          symbols: values,
+          amount: lineResult.win
+        });
       }
-    }
+    });
 
     return results;
   }
 
-  private checkLineSymbols(values: string[], line: number[]): {
-    line: number[];
-    symbols: string[];
+  protected checkLineSymbols(values: string[], line: number[]): {
     count: number;
     win: number;
   } {
     let count = 1;
-    let paySymbol: string | undefined = undefined;
-    const wildSymbol = this.config.content.symbols.find(
-      (symbol) => symbol.name === "Wild"
-    )?.id.toString();
+    let paySymbol: string | null = null;
 
-    // Handle first position
+    const wildSymbol = this.config.content.symbols.find(s => s.name === "Wild")?.id.toString();
+
     if (values[0] === wildSymbol) {
-      // If first is wild, look for next non-wild symbol
       for (let i = 1; i < values.length; i++) {
         if (values[i] !== wildSymbol) {
-          paySymbol = values[i];
-          count = i + 1; 
-          break;
+          const symbol = this.config.content.symbols.find(s =>
+            s.id.toString() === values[i] && s.useWildSub
+          );
+          if (symbol) {
+            paySymbol = values[i];
+            count = i + 1;
+            break;
+          }
         }
         count++;
       }
-      // If all symbols are wild
-      if (!paySymbol) {
-        paySymbol = wildSymbol;
-      }
     } else {
-      paySymbol = values[0];
+      const firstSymbol = this.config.content.symbols.find(s =>
+        s.id.toString() === values[0]
+      );
+      if (!firstSymbol?.useWildSub) {
+        return { count: 0, win: 0 };
+      }
+    }
+    paySymbol = paySymbol || values[0];
+
+    if (!paySymbol) {
+      return { count: 0, win: 0 };
     }
 
-    // Check remaining positions
     for (let i = count; i < values.length; i++) {
       if (values[i] === paySymbol || values[i] === wildSymbol) {
         count++;
@@ -222,43 +229,16 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
         break;
       }
     }
-
-    // Calculate win amount based on symbol multiplier
     const symbol = this.config.content.symbols.find(s => s.id.toString() === paySymbol);
-    const winAmount = symbol && count >= 3 ? (symbol.multiplier[count - 3] || 0) : 0;
+    const winAmount = symbol && count >= 3 ? (symbol.multiplier[this.config.content.matrix.x - count] || 0) : 0;
 
     return {
-      line,
-      symbols: values,
       count,
       win: winAmount
     };
   }
 
-
 }
 
 export default BaseSlotsEngine;
 
-// def evaluate_lines(result_matrix, lines_api_data, symbols, total_bet):
-//     total_payout = 0
-//     winning_paylines = []
-
-//     for line in lines_api_data:
-//         matched_symbols = [result_matrix[line[i]][i] for i in range(5)]
-
-//         first_symbol = None
-//         count = 0
-
-//         for symbol in matched_symbols:
-//             if symbols[symbol]['useWildSub'] == 'False':
-//                 break
-//             if symbols[symbol]['Name'] == 'Wild':
-//                 count += 1
-//             elif first_symbol is None:
-//                 first_symbol = symbol
-//                 count += 1
-//             elif symbol == first_symbol:
-//                 count += 1
-//             else:
-//                 break

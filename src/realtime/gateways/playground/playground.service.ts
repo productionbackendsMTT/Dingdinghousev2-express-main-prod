@@ -4,7 +4,7 @@ import { GameStatus, IGame } from "../../../common/types/game.type";
 import { IPayout } from "../../../common/types/payout.type";
 import RedisService from "../../../common/config/redis";
 import { StateService } from "./playground.state";
-import { GameManager } from "../../games/game.manager";
+import { GameManager } from "../../../api/games/game.manager";
 
 class PlaygroundService {
   private static instance: PlaygroundService;
