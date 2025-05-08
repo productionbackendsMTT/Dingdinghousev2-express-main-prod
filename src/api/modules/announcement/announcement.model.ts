@@ -1,22 +1,24 @@
-import mongoose, { Schema, Document, ObjectId } from "mongoose";
+import mongoose, { Schema, Document, Types } from "mongoose";
 
 export type AnnouncementType = 'persistent' | 'ephemeral';
 export type AnnouncementTarget = 'all' | 'user';
 
 export interface IAnnouncement extends Document {
+  _id: Types.ObjectId;
   content: string;
   type: AnnouncementType;
   target: AnnouncementTarget;
-  targetUserIds?: mongoose.Types.ObjectId[];
-  createdBy: ObjectId;
+  targetUserIds?: Types.ObjectId[];
+  createdBy: Types.ObjectId;
   deleted: boolean;
   scheduledAt?: Date;
   dispatchedAt?: Date;
+  seenBy: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-const AnnouncementSchema: Schema = new Schema<IAnnouncement>({
+const AnnouncementSchema: Schema<IAnnouncement> = new Schema({
   content: { type: String, required: true },
   type: {
     type: String,
@@ -29,12 +31,12 @@ const AnnouncementSchema: Schema = new Schema<IAnnouncement>({
     required: true
   },
   targetUserIds: {
-    type: [mongoose.Types.ObjectId],
+    type: [Schema.Types.ObjectId],
     ref: 'User',
     default: []
   },
   createdBy: {
-    type: mongoose.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
@@ -49,6 +51,11 @@ const AnnouncementSchema: Schema = new Schema<IAnnouncement>({
   dispatchedAt: {
     type: Date,
     default: null
+  },
+  seenBy: {
+    type: [Schema.Types.ObjectId],
+    ref: 'User',
+    default: []
   }
 }, { timestamps: true });
 
