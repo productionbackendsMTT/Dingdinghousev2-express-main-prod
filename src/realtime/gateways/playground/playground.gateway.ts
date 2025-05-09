@@ -15,7 +15,6 @@ export function setupPlayground(namespace: Namespace) {
         gameId,
         userId
       );
-
       // Send game configuration to client using the public getter
       socket.emit(Events.SERVER.CONFIG.name, engine.getConfig());
 

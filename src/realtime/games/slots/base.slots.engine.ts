@@ -223,11 +223,20 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
     }
 
     for (let i = count; i < values.length; i++) {
-      if (values[i] === paySymbol || values[i] === wildSymbol) {
+      if (values[i] === paySymbol) {
+        count++;
+      } else if (values[i] === wildSymbol) {
         count++;
       } else {
+        const symbol = this.config.content.symbols.find(s =>
+          s.id.toString() === values[i]
+        );
+        if (!symbol?.useWildSub) {
+          break;
+        }
         break;
       }
+
     }
     const symbol = this.config.content.symbols.find(s => s.id.toString() === paySymbol);
     const winAmount = symbol && count >= 3 ? (symbol.multiplier[this.config.content.matrix.x - count] || 0) : 0;

@@ -10,6 +10,7 @@ import { GamesTypes } from "./game.type";
 export class GameManager {
   private static instance: GameManager;
   private gameEngines: Map<string, any> = new Map();
+  private gameEngineInstances: Map<string, GameEngine> = new Map();
 
   private constructor() {
     this.initializeGameEngines();
@@ -29,6 +30,14 @@ export class GameManager {
   }
 
   public async getGameEngine(game: IGame & { payout: IPayout }): Promise<GameEngine> {
+    const gameId = game.payout.gameId.toString();
+
+    if (this.gameEngineInstances.has(gameId)) {
+      const existingEngine = this.gameEngineInstances.get(gameId);
+      if (existingEngine) {
+        return existingEngine;
+      }
+    }
     const sanitizedGameId = this.sanitizeGameId(game.tag);
     const gameType = GameManager.resolveGameType(sanitizedGameId);
 
@@ -41,14 +50,16 @@ export class GameManager {
 
     if (!filePath) {
       console.warn(`Game file not found for ID "${game.tag}". Using default.`);
-      return GameManager.getDefaultGameEngine(game, gameType);
+      return this.getDefaultGameEngine(game, gameType);
     }
 
     const GameClass = GameManager.loadGameClass(filePath, sanitizedGameId);
     if (!GameClass) {
       throw new Error(`Game class for ID "${game.tag}" could not be loaded.`);
     }
+    console.log("Creating special game engine for game type:", sanitizedGameId);
 
+    this.gameEngineInstances.set(gameId, GameClass);
     return new GameClass(game);
   }
 
@@ -99,7 +110,7 @@ export class GameManager {
   }
 
 
-  private static getDefaultGameEngine(
+  private getDefaultGameEngine(
     game: IGame & { payout: IPayout },
     gameType: GamesTypes
   ): GameEngine<any> {
@@ -112,7 +123,11 @@ export class GameManager {
     if (!createEngine) {
       throw new Error(`No default game engine available for game type: ${gameType}`);
     }
-    return createEngine();
+
+    console.log("Creating default game engine for game type:", gameType);
+    const engine = createEngine();
+    this.gameEngineInstances.set(game.payout.gameId.toString(), engine);
+    return engine;
   }
 
 
