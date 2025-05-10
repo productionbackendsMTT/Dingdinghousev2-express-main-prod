@@ -1,3 +1,4 @@
+import { symbol } from "zod";
 import { GameAction, GameResponse } from "../game.type";
 
 export interface SlotAction extends GameAction {
@@ -29,7 +30,18 @@ export interface BonusFeature {
   payout: Array<{
     [key: string]: number;
   }>;
+  minSymbolCount: number;
 }
+export interface JackpotFeature {
+  enabled: boolean;
+  minSymbolCount: number;
+}
+
+export interface FreeSpinFeature {
+  enabled: boolean;
+  minSymbolCount: number;
+}
+
 
 export interface GambleFeature {
   type: "card";
@@ -60,46 +72,55 @@ export interface SlotConfig {
   features: {
     bonus: BonusFeature;
     gamble: GambleFeature;
+    jackpot: JackpotFeature;
+    freeSpin: FreeSpinFeature;
   };
   symbols: SymbolConfig[];
 }
 
-export interface SlotSettings {
-  paylines: any[];
-  symbols: {
-    freeSpin: {
-      id: number;
-      multiplier: number[];
-      use: boolean;
-    };
-    jackpot: {
-      id: number;
-      name: string;
-      count: number;
-      defaultAmount: number;
-      increaseValue: number;
-      use: boolean;
-    };
-    wild: {
-      id: number;
-      name: string;
-      use: boolean;
-      substitutesFor?: number[]; // Symbol IDs this wild substitutes for
-    };
-    scatter: {
-      id: number;
-      multiplier: number[];
-      use: boolean;
-    };
-    bonus: {
-      id: number;
-      count: number;
-      pay: number;
-      use: boolean;
-    };
-  };
-  reelStrips: number[][]; // Base reel strips
-  freeSpinReelStrips?: number[][]; // Optional separate reel strips for free spins
+
+//   paylines: any[];
+//   symbols: {
+//     freeSpin: {
+//       id: number;
+//       multiplier: number[];
+//       use: boolean;
+//     };
+//     jackpot: {
+//       id: number;
+//       name: string;
+//       count: number;
+//       defaultAmount: number;
+//       increaseValue: number;
+//       use: boolean;
+//     };
+//     wild: {
+//       id: number;
+//       name: string;
+//       use: boolean;
+//       substitutesFor?: number[]; // Symbol IDs this wild substitutes for
+//     };
+//     scatter: {
+//       id: number;
+//       multiplier: number[];
+//       use: boolean;
+//     };
+//     bonus: {
+//       id: number;
+//       count: number;
+//       pay: number;
+//       use: boolean;
+//     };
+//   };
+//   reelStrips: number[][]; // Base reel strips
+//   freeSpinReelStrips?: number[][]; // Optional separate reel strips for free spins
+// }
+
+// SPIN
+export interface settings {
+  currentLines: number;
+  betPerLine: number;
+  // currentBet:
 }
 
 // SPIN

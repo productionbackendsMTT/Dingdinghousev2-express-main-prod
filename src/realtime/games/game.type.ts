@@ -1,5 +1,4 @@
 import { IPayout } from "../../common/types/payout.type";
-import { FishConfig } from "./keno/base.keno.type";
 import { SlotConfig } from "./slots/base.slots.type";
 
 export interface GameConfig<T = any> {
@@ -25,8 +24,25 @@ export interface SlotGameConfig extends IPayout {
   content: SlotConfig;
 }
 
-export interface FishGameConfig extends IPayout {
-  content: FishConfig;
+export enum GameTypesById {
+  SL = "SL",
+  KN = "KN",
+  BJ = "BJ",
+}
+
+
+export enum GamesTypes {
+  SLOTS = "slots",
+  KENO = "keno",
+}
+
+export enum specialIcons {
+  bonus = "Bonus",
+  scatter = "Scatter",
+  jackpot = "Jackpot",
+  wild = "Wild",
+  any = "any",
+  FreeSpin = "FreeSpin"
 }
 
 export interface SpinResult {
@@ -35,3 +51,4 @@ export interface SpinResult {
   winAmount?: number;
   [key: string]: any; // Allow game-specific properties
 }
+

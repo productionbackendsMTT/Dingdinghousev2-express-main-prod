@@ -163,88 +163,96 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
       matrix.map((row) => row[colIndex])
     );
   }
+  protected checkLines(matrix: string[][]): Array<{
+    line: number[];
+    symbols: string[];
+    amount: number;
+  }> {
+    const results: Array<{
+      line: number[];
+      symbols: string[];
+      amount: number;
+    }> = [];
 
-  protected checkLines(matrix: string[][]) {
-    const lines = this.config.content.lines;
+    this.config.content.lines.forEach((line, lineIndex) => {
+      const values = line.map((rowIndex, colIndex) => matrix[rowIndex][colIndex]);
 
-    for (const line of lines) {
-      // Extracting values
-      const values = line.map(
-        (rowIndex, colIndex) => matrix[rowIndex][colIndex]
-      );
-
-      this.checkLinesSymbols(values);
-
-      let count = 1;
-
-      for (let i = 1; i < values.length; i++) {
-        if (values[i] === values[0]) {
-          count++;
-        } else {
-          break;
-        }
+      const lineResult = this.checkLineSymbols(values, line);
+      if (lineResult.count >= 3) {
+        results.push({
+          line: [lineIndex + 1],
+          symbols: values,
+          amount: lineResult.win
+        });
       }
+    });
 
-      if (count >= 3) {
-        console.log(
-          `Line ${line} starts with ${values[0]} repeated ${count} times.`
-        );
-      }
-    }
+    return results;
   }
 
-  protected checkLinesSymbols(matched: string[]) {
-    let firstSymbol: string | null = null;
-    let count = 0;
+  protected checkLineSymbols(values: string[], line: number[]): {
+    count: number;
+    win: number;
+  } {
+    let count = 1;
+    let paySymbol: string | null = null;
 
-    for (const symbolId of matched) {
-      const symbol = this.config.content.symbols.find(
-        (s) => s.id.toString() === symbolId
-      );
+    const wildSymbol = this.config.content.symbols.find(s => s.name === "Wild")?.id.toString();
 
-      if (!symbol) break;
-
-      if (!symbol.useWildSub) {
-        break;
+    if (values[0] === wildSymbol) {
+      for (let i = 1; i < values.length; i++) {
+        if (values[i] !== wildSymbol) {
+          const symbol = this.config.content.symbols.find(s =>
+            s.id.toString() === values[i] && s.useWildSub
+          );
+          if (symbol) {
+            paySymbol = values[i];
+            count = i + 1;
+            break;
+          }
+        }
+        count++;
       }
+    } else {
+      const firstSymbol = this.config.content.symbols.find(s =>
+        s.id.toString() === values[0]
+      );
+      if (!firstSymbol?.useWildSub) {
+        return { count: 0, win: 0 };
+      }
+    }
+    paySymbol = paySymbol || values[0];
 
-      if (symbol.name === "Wild") {
+    if (!paySymbol) {
+      return { count: 0, win: 0 };
+    }
+
+    for (let i = count; i < values.length; i++) {
+      if (values[i] === paySymbol) {
         count++;
-      } else if (firstSymbol === null) {
-        firstSymbol = symbolId;
-        count++;
-      } else if (symbolId === firstSymbol) {
+      } else if (values[i] === wildSymbol) {
         count++;
       } else {
+        const symbol = this.config.content.symbols.find(s =>
+          s.id.toString() === values[i]
+        );
+        if (!symbol?.useWildSub) {
+          break;
+        }
         break;
       }
-    }
 
-    console.log("COUNT : ", count);
+    }
+    const symbol = this.config.content.symbols.find(s => s.id.toString() === paySymbol);
+    const winAmount = symbol && count >= 3 ? (symbol.multiplier[this.config.content.matrix.x - count] || 0) : 0;
+
+    return {
+      count,
+      win: winAmount
+    };
   }
+
 }
 
 export default BaseSlotsEngine;
 
-// def evaluate_lines(result_matrix, lines_api_data, symbols, total_bet):
-//     total_payout = 0
-//     winning_paylines = []
-
-//     for line in lines_api_data:
-//         matched_symbols = [result_matrix[line[i]][i] for i in range(5)]
-
-//         first_symbol = None
-//         count = 0
-
-//         for symbol in matched_symbols:
-//             if symbols[symbol]['useWildSub'] == 'False':
-//                 break
-//             if symbols[symbol]['Name'] == 'Wild':
-//                 count += 1
-//             elif first_symbol is None:
-//                 first_symbol = symbol
-//                 count += 1
-//             elif symbol == first_symbol:
-//                 count += 1
-//             else:
-//                 break

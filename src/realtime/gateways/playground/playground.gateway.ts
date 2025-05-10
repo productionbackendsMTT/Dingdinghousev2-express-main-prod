@@ -15,9 +15,32 @@ export function setupPlayground(namespace: Namespace) {
         gameId,
         userId
       );
-
       // Send game configuration to client using the public getter
       socket.emit(Events.SERVER.CONFIG.name, engine.getConfig());
+
+      // Handle config update request
+      socket.on(
+        Events.CLIENT.CONFIG_UPDATE.name,
+        async (payload: typeof Events.CLIENT.CONFIG_UPDATE.payload) => {
+          try {
+            const updatedEngine = await playgroundService.reinitialize(
+              gameId,
+              payload.content
+            );
+
+            // Send the updated config back to the client
+            socket.emit(Events.SERVER.CONFIG.name, updatedEngine.getConfig());
+          } catch (error) {
+            socket.emit(Events.SERVER.ERROR.name, {
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to update game configuration",
+              code: "CONFIG_UPDATE_ERROR",
+            });
+          }
+        }
+      );
 
       // Handle spin requests
       socket.on(Events.CLIENT.SPIN_REQUEST.name, async (payload) => {
