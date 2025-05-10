@@ -1,5 +1,7 @@
+import { symbol } from "zod";
 import { GameEngine } from "../game.engine";
 import { SlotAction, SlotConfig, SlotResponse } from "./base.slots.type";
+
 
 class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
   validateConfig(): void {
@@ -24,6 +26,7 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
 
     const lines = this.checkLines(matrix);
     console.log("Lines:", lines);
+    this.checkForSpecialSymbols(matrix);
 
     return this.state.withLock(
       `spin:${userId}:${this.config.gameId}`,
@@ -191,7 +194,7 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
   } {
     let count = 1;
     let paySymbol: string | null = null;
-
+    const wins: Array<{ line: number[]; symbols: string[]; amount: number }> = [];
     const wildSymbol = this.config.content.symbols.find(s => s.name === "Wild")?.id.toString();
 
     if (values[0] === wildSymbol) {
@@ -240,14 +243,57 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
     }
     const symbol = this.config.content.symbols.find(s => s.id.toString() === paySymbol);
     const winAmount = symbol && count >= 3 ? (symbol.multiplier[this.config.content.matrix.x - count] || 0) : 0;
-
+    if (winAmount > 0) {
+      wins.push({
+        line: [line[0]],
+        symbols: values.slice(0, count),
+        amount: winAmount
+      });
+    }
+    const result = this.accumulateWins(wins);
     return {
       count,
-      win: winAmount
+      win: result,
     };
   }
 
+
+  protected checkForSpecialSymbols(matrix: string[][]): Array<{ symbol: string; count: number }> {
+    const specialSymbols: Array<{ symbol: string; symbolName: string; count: number }> = [];
+    const specialSymbolsData = this.config.content.symbols
+      .filter((symbol) => symbol.useWildSub === false)
+      .map((symbol) => ({
+        id: symbol.id.toString(),
+        name: symbol.name
+      }));
+
+    matrix.flat().forEach((symbolId) => {
+      const symbolData = specialSymbolsData.find(s => s.id === symbolId);
+      if (symbolData) {
+        const existing = specialSymbols.find((s) => s.symbol === symbolId);
+        if (existing) {
+          existing.count++;
+        } else {
+          specialSymbols.push({
+            symbol: symbolId,
+            symbolName: symbolData.name,
+            count: 1
+          });
+        }
+      }
+    });
+
+    return specialSymbols;
+  }
+
+  protected accumulateWins(wins: Array<{ line: number[]; symbols: string[]; amount: number }>) {
+    const totalWin = wins.reduce((acc, win) => acc + win.amount, 0);
+    return totalWin
+  }
+
+
 }
+
 
 export default BaseSlotsEngine;
 

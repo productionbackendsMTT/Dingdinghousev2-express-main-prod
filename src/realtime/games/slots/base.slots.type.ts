@@ -32,15 +32,7 @@ export interface BonusFeature {
   }>;
   minSymbolCount: number;
 }
-export interface JackpotFeature {
-  enabled: boolean;
-  minSymbolCount: number;
-}
 
-export interface FreeSpinFeature {
-  enabled: boolean;
-  minSymbolCount: number;
-}
 
 
 export interface GambleFeature {
@@ -50,6 +42,7 @@ export interface GambleFeature {
 
 export interface SymbolConfig {
   id: number;
+  enabled: boolean;
   name: string;
   reelsInstance: {
     [key: string]: number;
@@ -72,8 +65,6 @@ export interface SlotConfig {
   features: {
     bonus: BonusFeature;
     gamble: GambleFeature;
-    jackpot: JackpotFeature;
-    freeSpin: FreeSpinFeature;
   };
   symbols: SymbolConfig[];
 }
@@ -129,3 +120,11 @@ export interface settings {
   betPerLine: number;
   // currentBet:
 }
+
+
+export const specialIcons: { [key: string]: string } = {
+  bonus: "Bonus",
+  scatter: "Scatter",
+  jackpot: "Jackpot",
+  FreeSpin: "FreeSpin"
+};

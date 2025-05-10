@@ -98,3 +98,4 @@ export function generatetrueRandomNumber(max: number) {
 function generateUniqueSeed(): number {
     return Math.floor(Date.now() * Math.random() + performance.now());
 }
+
