@@ -1,3 +1,4 @@
+import { symbol } from "zod";
 import { GameEngine } from "../game.engine";
 import { SlotAction, SlotConfig, SlotResponse } from "./base.slots.type";
 
@@ -18,12 +19,11 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
 
   protected async handleSpin(action: SlotAction): Promise<SlotResponse> {
     const { userId, payload } = action;
-    const lockKey = `lock:player:${userId}:game:${this.config.gameId}:spin`;
 
     const matrix = this.getRandomMatrix();
     const lines = this.checkLines(matrix);
-
-    console.log(`Attempting to acquire spin lock for ${lockKey}`);
+    console.log("Lines:", lines);
+    this.checkForSpecialSymbols(matrix);
 
     // Remove the withLock wrapper since StateService will handle its own locking
     try {
@@ -175,14 +175,16 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
     }> = [];
 
     this.config.content.lines.forEach((line, lineIndex) => {
-      const values = line.map((rowIndex, colIndex) => matrix[rowIndex][colIndex]);
+      const values = line.map(
+        (rowIndex, colIndex) => matrix[rowIndex][colIndex]
+      );
 
       const lineResult = this.checkLineSymbols(values, line);
       if (lineResult.count >= 3) {
         results.push({
           line: [lineIndex + 1],
           symbols: values,
-          amount: lineResult.win
+          amount: lineResult.win,
         });
       }
     });
@@ -190,20 +192,26 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
     return results;
   }
 
-  protected checkLineSymbols(values: string[], line: number[]): {
+  protected checkLineSymbols(
+    values: string[],
+    line: number[]
+  ): {
     count: number;
     win: number;
   } {
     let count = 1;
     let paySymbol: string | null = null;
-
-    const wildSymbol = this.config.content.symbols.find(s => s.name === "Wild")?.id.toString();
+    const wins: Array<{ line: number[]; symbols: string[]; amount: number }> =
+      [];
+    const wildSymbol = this.config.content.symbols
+      .find((s) => s.name === "Wild")
+      ?.id.toString();
 
     if (values[0] === wildSymbol) {
       for (let i = 1; i < values.length; i++) {
         if (values[i] !== wildSymbol) {
-          const symbol = this.config.content.symbols.find(s =>
-            s.id.toString() === values[i] && s.useWildSub
+          const symbol = this.config.content.symbols.find(
+            (s) => s.id.toString() === values[i] && s.useWildSub
           );
           if (symbol) {
             paySymbol = values[i];
@@ -214,8 +222,8 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
         count++;
       }
     } else {
-      const firstSymbol = this.config.content.symbols.find(s =>
-        s.id.toString() === values[0]
+      const firstSymbol = this.config.content.symbols.find(
+        (s) => s.id.toString() === values[0]
       );
       if (!firstSymbol?.useWildSub) {
         return { count: 0, win: 0 };
@@ -233,26 +241,76 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
       } else if (values[i] === wildSymbol) {
         count++;
       } else {
-        const symbol = this.config.content.symbols.find(s =>
-          s.id.toString() === values[i]
+        const symbol = this.config.content.symbols.find(
+          (s) => s.id.toString() === values[i]
         );
         if (!symbol?.useWildSub) {
           break;
         }
         break;
       }
-
     }
-    const symbol = this.config.content.symbols.find(s => s.id.toString() === paySymbol);
-    const winAmount = symbol && count >= 3 ? (symbol.multiplier[this.config.content.matrix.x - count] || 0) : 0;
-
+    const symbol = this.config.content.symbols.find(
+      (s) => s.id.toString() === paySymbol
+    );
+    const winAmount =
+      symbol && count >= 3
+        ? symbol.multiplier[this.config.content.matrix.x - count] || 0
+        : 0;
+    if (winAmount > 0) {
+      wins.push({
+        line: [line[0]],
+        symbols: values.slice(0, count),
+        amount: winAmount,
+      });
+    }
+    const result = this.accumulateWins(wins);
     return {
       count,
-      win: winAmount
+      win: result,
     };
   }
 
+  protected checkForSpecialSymbols(
+    matrix: string[][]
+  ): Array<{ symbol: string; count: number }> {
+    const specialSymbols: Array<{
+      symbol: string;
+      symbolName: string;
+      count: number;
+    }> = [];
+    const specialSymbolsData = this.config.content.symbols
+      .filter((symbol) => symbol.useWildSub === false)
+      .map((symbol) => ({
+        id: symbol.id.toString(),
+        name: symbol.name,
+      }));
+
+    matrix.flat().forEach((symbolId) => {
+      const symbolData = specialSymbolsData.find((s) => s.id === symbolId);
+      if (symbolData) {
+        const existing = specialSymbols.find((s) => s.symbol === symbolId);
+        if (existing) {
+          existing.count++;
+        } else {
+          specialSymbols.push({
+            symbol: symbolId,
+            symbolName: symbolData.name,
+            count: 1,
+          });
+        }
+      }
+    });
+
+    return specialSymbols;
+  }
+
+  protected accumulateWins(
+    wins: Array<{ line: number[]; symbols: string[]; amount: number }>
+  ) {
+    const totalWin = wins.reduce((acc, win) => acc + win.amount, 0);
+    return totalWin;
+  }
 }
 
 export default BaseSlotsEngine;
-

@@ -207,12 +207,14 @@
              "amount": 10,
              "probability": 39.4
            }
-         ]
+         ],
+         "minSymbolCount":3
        },
        "gamble": {
          "type": "card",
          "enabled": false
        }
+       
      },
      "symbols": [
        {
@@ -370,6 +372,7 @@
        },
        {
          "id": 9,
+         "enabled": true,
          "name": "FreeSpin",
          "reelsInstance": {
            "0": 3,
@@ -384,10 +387,12 @@
            5,
            3
          ],
+         "minSymbolCount": 3,
          "description": "Activates 3, 5, or 10 free spins when 3, 4, or 5 symbols appear anywhere on the result matrix."
        },
        {
          "id": 10,
+         "enabled": true,
          "name": "Wild",
          "reelsInstance": {
            "0": 7,
@@ -398,10 +403,12 @@
          },
          "useWildSub": true,
          "multiplier": [],
+
          "description": "Substitutes for all symbols except Jackpot, Free Spin, Bonus, and Scatter."
        },
        {
          "id": 11,
+         "enabled": true,
          "name": "Scatter",
          "reelsInstance": {
            "0": 2,
@@ -416,10 +423,12 @@
            700,
            500
          ],
+         "minSymbolCount": 3,
          "description": "Scatter: Offers higher payouts when 3 or more symbols appear anywhere on the result matrix. Payout: 5x - 1000, 4x - 700, 3x - 500."
        },
        {
          "id": 12,
+         "enabled": true,
          "name": "Jackpot",
          "reelsInstance": {
            "0": 1,
@@ -430,13 +439,14 @@
          },
          "useWildSub": false,
          "multiplier": [],
+         "minSymbolCount": 3,
          "description": "Mega win triggered by 5 Jackpot symbols appearing anywhere on the result matrix. Payout: 5000x.",
-         "defaultAmount": 5000,
-         "symbolsCount": 5,
-         "increaseValue": 5
+         "defaultAmount": 5000
+        
        },
        {
          "id": 13,
+         "enabled": true,
          "name": "Bonus",
          "reelsInstance": {
            "0": 3,
@@ -447,8 +457,9 @@
          },
          "useWildSub": false,
          "multiplier": [],
-         "description": "Starts a spinning wheel game for a payout when 3 or more symbols appear anywhere on the result matrix.",
-         "symbolCount": 3
+         "minSymbolCount": 3,
+         "description": "Starts a spinning wheel game for a payout when 3 or more symbols appear anywhere on the result matrix."
+        
        }
      ]
  }

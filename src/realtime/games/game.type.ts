@@ -36,14 +36,7 @@ export enum GamesTypes {
   KENO = "keno",
 }
 
-export enum specialIcons {
-  bonus = "Bonus",
-  scatter = "Scatter",
-  jackpot = "Jackpot",
-  wild = "Wild",
-  any = "any",
-  FreeSpin = "FreeSpin"
-}
+
 
 export interface SpinResult {
   success: boolean;

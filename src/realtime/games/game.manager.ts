@@ -54,7 +54,8 @@ export class GameManager {
     );
 
     if (!filePath) {
-      console.warn(`Game file not found for ID "${game.tag}". Using default.`);
+      console.warn(`Game file not found for ID "${game.tag}". Using default.`)
+        ;
       return this.getDefaultGameEngine(game, gameType);
     }
 
@@ -63,9 +64,11 @@ export class GameManager {
       throw new Error(`Game class for ID "${game.tag}" could not be loaded.`);
     }
     console.log("Creating special game engine for game type:", sanitizedGameId);
+    const gameEngine = new GameClass(game);
+    this.gameEngineInstances.set(gameId, gameEngine);
 
-    this.gameEngineInstances.set(gameId, GameClass);
-    return new GameClass(game);
+    console.log(this.gameEngineInstances);
+    return gameEngine;
   }
 
   private static resolveGameType(gameId: string): GamesTypes | undefined {
@@ -138,6 +141,8 @@ export class GameManager {
     console.log("Creating default game engine for game type:", gameType);
     const engine = createEngine();
     this.gameEngineInstances.set(game.payout.gameId.toString(), engine);
+
+
     return engine;
   }
 

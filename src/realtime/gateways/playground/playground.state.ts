@@ -58,15 +58,21 @@ export class StateService {
       const checkAgain = await this.getState(userId, gameId);
       if (checkAgain) return checkAgain;
 
+      // Get user with balance information
       const user = await User.findById(userId)
         .select("username balance role status createdBy path")
         .lean();
+
       if (!user) {
         throw new Error("User not found");
       }
 
+      // Ensure balance is a number and properly initialized
+      const balance = typeof user.balance === "number" ? user.balance : 0;
+      console.log("Initializing player state with balance:", balance);
+
       const initialState: PlayerState = {
-        balance: user.balance,
+        balance: balance, // Use the actual user balance
         lastUpdated: new Date(),
         sessionStart: new Date(),
         gameSpecific: {},
@@ -82,7 +88,15 @@ export class StateService {
         },
       };
 
+      // Log the state being saved
+      console.log("Saving initial player state:", initialState);
+
       await this.redisService.setJSON(key, initialState, this.STATE_TTL);
+
+      // Verify the saved state
+      const savedState = await this.getState(userId, gameId);
+      console.log("Verified saved state:", savedState);
+
       return initialState;
     });
   }
