@@ -14,7 +14,6 @@ export class GameManager {
 
   private constructor() {
     this.initializeGameEngines();
-
   }
 
   private initializeGameEngines(): void {
@@ -29,7 +28,9 @@ export class GameManager {
     return GameManager.instance;
   }
 
-  public async getGameEngine(game: IGame & { payout: IPayout }): Promise<GameEngine> {
+  public async getGameEngine(
+    game: IGame & { payout: IPayout }
+  ): Promise<GameEngine> {
     const gameId = game.payout.gameId.toString();
 
     if (this.gameEngineInstances.has(gameId)) {
@@ -46,7 +47,11 @@ export class GameManager {
     }
 
     const specialGamesDir = GameManager.getSpecialGamesDir(gameType);
-    const filePath = GameManager.findGameFile(specialGamesDir, sanitizedGameId, gameType);
+    const filePath = GameManager.findGameFile(
+      specialGamesDir,
+      sanitizedGameId,
+      gameType
+    );
 
     if (!filePath) {
       console.warn(`Game file not found for ID "${game.tag}". Using default.`)
@@ -66,7 +71,6 @@ export class GameManager {
     return gameEngine;
   }
 
-
   private static resolveGameType(gameId: string): GamesTypes | undefined {
     const prefix = gameId.split("-")[0].toUpperCase();
     const gameTypeMapping: Record<string, GamesTypes> = {
@@ -77,11 +81,17 @@ export class GameManager {
   }
 
   private static getSpecialGamesDir(gameType: GamesTypes): string {
-    return path.join(__dirname, `../../../src/realtime/games/${gameType}/variants`);
+    return path.join(
+      __dirname,
+      `../../../src/realtime/games/${gameType}/variants`
+    );
   }
 
-
-  private static findGameFile(baseDir: string, gameId: string, gameType: GamesTypes): string | null {
+  private static findGameFile(
+    baseDir: string,
+    gameId: string,
+    gameType: GamesTypes
+  ): string | null {
     const sanitizedGameId = gameId.replace(/[^a-zA-Z0-9-_]/g, "");
     const possibleFileNames = [
       `${sanitizedGameId.toLowerCase()}.${gameType}.engine.js`,
@@ -112,7 +122,6 @@ export class GameManager {
     return module.default || module[sanitizedGameId];
   }
 
-
   private getDefaultGameEngine(
     game: IGame & { payout: IPayout },
     gameType: GamesTypes
@@ -124,7 +133,9 @@ export class GameManager {
 
     const createEngine = defaultGames[gameType];
     if (!createEngine) {
-      throw new Error(`No default game engine available for game type: ${gameType}`);
+      throw new Error(
+        `No default game engine available for game type: ${gameType}`
+      );
     }
 
     console.log("Creating default game engine for game type:", gameType);
@@ -137,5 +148,19 @@ export class GameManager {
 
   private sanitizeGameId(gameId: string): string {
     return gameId.replace(/[^a-zA-Z0-9-_]/g, "");
+  }
+
+  public updateGameConfig(
+    game: IGame & { payout: IPayout }
+  ): GameEngine | null {
+    const gameId = game.payout.gameId.toString();
+    const existingEngine = this.gameEngineInstances.get(gameId);
+
+    if (existingEngine) {
+      existingEngine.updateConfig(game);
+      return existingEngine;
+    }
+
+    return null;
   }
 }

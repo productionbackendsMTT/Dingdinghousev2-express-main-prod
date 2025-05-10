@@ -117,39 +117,112 @@ class RedisService {
   }
 
   // Lock Management
-  public async acquireLock(key: string, ttl = 10): Promise<boolean> {
-    return (
-      (await this.getClient().set(key, "LOCKED", { NX: true, EX: ttl })) ===
-      "OK"
-    );
+  public async acquireLock(key: string, ttl = 60): Promise<boolean> {
+    try {
+      const client = this.getClient();
+      const lockValue = Date.now().toString(); // Use timestamp as lock value for debugging
+
+      const result = await client.set(key, lockValue, {
+        NX: true,
+        EX: ttl,
+      });
+
+      const success = result === "OK";
+      console.log(
+        `Lock acquisition for ${key}: ${
+          success ? "success" : "failed"
+        }, TTL: ${ttl}s`
+      );
+
+      if (!success) {
+        // Check remaining TTL for debugging
+        const remainingTtl = await client.ttl(key);
+        console.log(`Existing lock ${key} has ${remainingTtl}s remaining`);
+      }
+
+      return success;
+    } catch (error) {
+      console.error(`Error acquiring lock for ${key}:`, error);
+      return false;
+    }
   }
 
   public async releaseLock(key: string): Promise<void> {
-    await this.del(key);
+    try {
+      const exists = await this.exists(key);
+      if (!exists) {
+        console.log(`Lock ${key} already released or expired`);
+        return;
+      }
+
+      const released = await this.del(key);
+      console.log(
+        `Lock release for ${key}: ${
+          released ? "success" : "failed or already released"
+        }`
+      );
+    } catch (error) {
+      console.error(`Error releasing lock for ${key}:`, error);
+    }
   }
 
   public async withLock<T>(
     key: string,
     callback: () => Promise<T>,
-    ttl = 10,
-    retries = 3,
-    delay = 100
+    ttl = 60, // Increased from 30 to 60 seconds for complex operations
+    retries = 8, // Increased from 5 to 8
+    delay = 300 // Increased from 200 to 300ms
   ): Promise<T> {
+    const lockKey = `redis_lock:${key}`;
+    let lastError: Error | null = null;
+
     for (let i = 0; i < retries; i++) {
-      if (await this.acquireLock(key, ttl)) {
-        try {
-          const result = await callback();
-          await this.releaseLock(key);
-          return result;
-        } catch (err) {
-          await this.releaseLock(key);
-          throw err;
+      try {
+        if (await this.acquireLock(lockKey, ttl)) {
+          try {
+            console.log(`Lock acquired for ${lockKey}, executing callback...`);
+            const startTime = Date.now();
+            const result = await callback();
+            const duration = Date.now() - startTime;
+            console.log(`Callback for ${lockKey} completed in ${duration}ms`);
+
+            await this.releaseLock(lockKey);
+            console.log(`Lock released for ${lockKey}`);
+            return result;
+          } catch (err) {
+            console.error(`Error during locked operation for ${lockKey}:`, err);
+            await this.releaseLock(lockKey);
+            throw err;
+          }
+        }
+
+        if (i < retries - 1) {
+          // Add jitter to the delay to prevent synchronized retries
+          const jitteredDelay = delay + Math.floor(Math.random() * 200);
+          console.log(
+            `Retry ${
+              i + 1
+            }/${retries} for lock ${lockKey} after ${jitteredDelay}ms`
+          );
+          await new Promise((resolve) => setTimeout(resolve, jitteredDelay));
+        } else {
+          lastError = new Error(
+            `Failed to acquire lock after ${retries} attempts for key: ${lockKey}`
+          );
+        }
+      } catch (error) {
+        console.error(`Unexpected error in withLock for ${lockKey}:`, error);
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // If this was an error in acquiring/releasing the lock, we should retry
+        if (i < retries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
-      if (i < retries - 1)
-        await new Promise((resolve) => setTimeout(resolve, delay));
     }
-    throw new Error(`Failed to acquire lock after ${retries} attempts`);
+
+    // If we got here, all retries failed
+    throw lastError || new Error(`Failed to acquire lock for key: ${lockKey}`);
   }
 
   // Hash Operations

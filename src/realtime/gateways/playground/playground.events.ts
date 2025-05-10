@@ -8,6 +8,16 @@ export const Events = {
         spins: number;
       },
     },
+    CONFIG_UPDATE: {
+      name: "game:config:update",
+      payload: {} as {
+        gameId: string;
+        name: string;
+        content: any;
+        version: number;
+        tag: string;
+      },
+    },
     // Add other client events
   },
   SERVER: {

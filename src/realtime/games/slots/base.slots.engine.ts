@@ -1,6 +1,7 @@
-import { symbol } from "zod";
+
 import { GameEngine } from "../game.engine";
-import { SlotAction, SlotConfig, SlotResponse } from "./base.slots.type";
+import { SlotAction, SlotConfig, SlotResponse, specialIcons } from "./base.slots.type";
+
 
 
 class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
@@ -20,65 +21,67 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
 
   protected async handleSpin(action: SlotAction): Promise<SlotResponse> {
     const { userId, payload } = action;
-
+    const lockKey = `lock:player:${userId}:game:${this.config.gameId}:spin`;
     const matrix = this.getRandomMatrix();
-    console.log("Generated matrix:", matrix);
-
+    const specialIconsCheck = this.checkForSpecialSymbols(matrix);
     const lines = this.checkLines(matrix);
-    console.log("Lines:", lines);
-    this.checkForSpecialSymbols(matrix);
+    console.log('MATRIX', matrix);
+    console.log('SPECIAL ICONS', specialIconsCheck);
+    console.log('LINES', lines);
+    console.log(`Attempting to acquire spin lock for ${lockKey}`);
+    // Remove the withLock wrapper since StateService will handle its own locking
+    try {
+      // Validate balance and deduct bet
+      const balance = await this.state.getBalance(userId, this.config.gameId);
+      const totalBet = payload.betAmount * payload.lines;
 
-    return this.state.withLock(
-      `spin:${userId}:${this.config.gameId}`,
-      async () => {
-        // Validate balance and deduct bet
-        const balance = await this.state.getBalance(userId, this.config.gameId);
-        const totalBet = payload.betAmount * payload.lines;
-
-        if (balance < totalBet) {
-          return {
-            success: false,
-            balance,
-            error: "Insufficient balance",
-            // Add required properties even for error case
-            reels: [],
-            winAmount: 0,
-            wins: [],
-          };
-        }
-
-        // Deduct bet amount
-        await this.state.deductBalance(userId, this.config.gameId, totalBet);
-
-        // Generate spin result
-        const result = await this.generateSpinResult(payload);
-
-        // Credit wins if any
-        if (result.winAmount && result.winAmount > 0) {
-          await this.state.creditBalance(
-            userId,
-            this.config.gameId,
-            result.winAmount
-          );
-        }
-
-        // Get final balance
-        const finalBalance = await this.state.getBalance(
-          userId,
-          this.config.gameId
-        );
-
-        // Ensure all required properties are included
+      if (balance < totalBet) {
         return {
-          success: true,
-          balance: finalBalance,
-          reels: result.reels || [],
-          winAmount: result.winAmount || 0,
-          wins: result.wins || [],
-          features: result.features,
+          success: false,
+          balance,
+          error: "Insufficient balance",
+          reels: [],
+          winAmount: 0,
+          wins: [],
         };
       }
-    );
+
+      // Deduct bet amount
+      await this.state.deductBalance(userId, this.config.gameId, totalBet);
+      console.log(`Deducted ${totalBet} from user ${userId}'s balance`);
+
+      // Generate spin result
+      const result = await this.generateSpinResult(payload);
+      console.log(`Spin result generated for user ${userId}`);
+
+      // Credit wins if any
+      if (result.winAmount && result.winAmount > 0) {
+        await this.state.creditBalance(
+          userId,
+          this.config.gameId,
+          result.winAmount
+        );
+        console.log(`Credited ${result.winAmount} to user ${userId}'s balance`);
+      }
+
+      // Get final balance
+      const finalBalance = await this.state.getBalance(
+        userId,
+        this.config.gameId
+      );
+
+      return {
+        success: true,
+        balance: finalBalance,
+        reels: result.reels || [],
+        winAmount: result.winAmount || 0,
+        wins: result.wins || [],
+        features: result.features,
+      };
+    } catch (error) {
+      console.error(`Error processing spin for user ${userId}:`, error);
+      throw error;
+    }
   }
 
   protected async generateSpinResult(
@@ -258,15 +261,26 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
   }
 
 
-  protected checkForSpecialSymbols(matrix: string[][]): Array<{ symbol: string; count: number }> {
-    const specialSymbols: Array<{ symbol: string; symbolName: string; count: number }> = [];
+  protected checkForSpecialSymbols(matrix: string[][]): Array<{ symbol: string; symbolName: string; count: number; specialWin?: number; freeSpinCount?: number; }> {
+    const specialSymbols: Array<{
+      symbol: string;
+      symbolName: string;
+      count: number;
+      specialWin?: number;
+      freeSpinCount?: number;
+    }> = [];
+
     const specialSymbolsData = this.config.content.symbols
-      .filter((symbol) => symbol.useWildSub === false)
+      .filter((symbol) => symbol.useWildSub === false && symbol.enabled)
       .map((symbol) => ({
         id: symbol.id.toString(),
-        name: symbol.name
+        name: symbol.name,
+        minSymbolCount: symbol.minSymbolCount,
+        multiplier: symbol.multiplier,
+        defaultAmount: symbol.defaultAmount
       }));
 
+    // Count special symbols
     matrix.flat().forEach((symbolId) => {
       const symbolData = specialSymbolsData.find(s => s.id === symbolId);
       if (symbolData) {
@@ -277,8 +291,54 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
           specialSymbols.push({
             symbol: symbolId,
             symbolName: symbolData.name,
-            count: 1
+            count: 1,
+            specialWin: 0,
+            freeSpinCount: 0
           });
+        }
+      }
+    });
+
+    specialSymbols.forEach(specialSymbol => {
+      const symbolConfig = specialSymbolsData.find(s => s.id === specialSymbol.symbol);
+      if (symbolConfig && specialSymbol.count >= (symbolConfig.minSymbolCount ?? 0)) {
+        switch (specialIcons[specialSymbol.symbol as keyof typeof specialIcons]) {
+          case specialIcons.scatter:
+            const scatterWins = [{
+              line: [],
+              symbols: Array(specialSymbol.count).fill(specialSymbol.symbol),
+              amount: symbolConfig.multiplier[specialSymbol.count - (symbolConfig.minSymbolCount ?? 0)] || 0
+            }];
+            specialSymbol.specialWin = this.accumulateWins(scatterWins);
+            break;
+
+          case specialIcons.jackpot:
+            if (specialSymbol.count >= (symbolConfig.minSymbolCount ?? 0)) {
+
+              console.log('jackpot', specialSymbol.count, symbolConfig.minSymbolCount)
+              const jackpotWins = [{
+                line: [],
+                symbols: Array(5).fill(specialSymbol.symbol),
+                amount: symbolConfig.defaultAmount || 0
+              }];
+
+              console.log(jackpotWins)
+              specialSymbol.specialWin = this.accumulateWins(jackpotWins);
+            }
+            break;
+
+          case specialIcons.FreeSpin:
+            const multiplierIndex = specialSymbol.count - (symbolConfig.minSymbolCount ?? 0);
+            if (multiplierIndex >= 0) {
+              specialSymbol.freeSpinCount = symbolConfig.multiplier[multiplierIndex];
+              const freeSpinWins = [{
+                line: [],
+                symbols: Array(specialSymbol.count).fill(specialSymbol.symbol),
+                amount: symbolConfig.multiplier[multiplierIndex] || 0
+              }];
+              specialSymbol.specialWin = this.accumulateWins(freeSpinWins);
+            }
+            break;
         }
       }
     });
@@ -286,8 +346,11 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
     return specialSymbols;
   }
 
+
+
   protected accumulateWins(wins: Array<{ line: number[]; symbols: string[]; amount: number }>) {
     const totalWin = wins.reduce((acc, win) => acc + win.amount, 0);
+    if (totalWin > 0) console.log('TOTAL WIN', totalWin);
     return totalWin
   }
 

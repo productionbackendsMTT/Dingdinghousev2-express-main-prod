@@ -49,8 +49,8 @@ export interface SymbolConfig {
   };
   useWildSub: boolean;
   multiplier: number[];
+  minSymbolCount?: number;
   description: string;
-  count?: number;
   defaultAmount?: number;
 }
 
@@ -122,7 +122,7 @@ export interface settings {
 }
 
 
-export const specialIcons: { [key: string]: string } = {
+export const specialIcons = {
   bonus: "Bonus",
   scatter: "Scatter",
   jackpot: "Jackpot",

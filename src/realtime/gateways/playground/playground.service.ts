@@ -40,6 +40,47 @@ class PlaygroundService {
     return { engine, state };
   }
 
+  public async reinitialize(gameId: string, newConfig: any) {
+    if (!newConfig) {
+      throw new Error("New configuration is required");
+    }
+
+    const game = await this.getGameWithPayout(gameId);
+    if (!game || !game.payout) {
+      throw new Error("Game not found");
+    }
+
+    const gameData = {
+      _id: game._id,
+      tag: game.tag,
+      payout: {
+        _id: game.payout._id,
+        gameId: game.payout.gameId,
+        name: game.payout.name,
+        version: game.payout.version,
+        isActive: game.payout.isActive,
+        tag: game.tag,
+        content: {
+          ...game.payout.content,
+          ...newConfig,
+        },
+        createdAt: game.payout.createdAt,
+        updatedAt: new Date(),
+      },
+    } as IGame & { payout: IPayout };
+
+    console.log("updated game data ; ");
+    console.dir(gameData, { depth: null });
+
+    // Update existing engine config instead of creating new instance
+    const updatedEngine = this.gameManager.updateGameConfig(gameData);
+    if (!updatedEngine) {
+      throw new Error("Failed to update game configuration");
+    }
+
+    return updatedEngine;
+  }
+
   async getGameWithPayout(gameId: Types.ObjectId | string) {
     return Game.findOne({
       _id: gameId,

@@ -35,6 +35,10 @@ export abstract class GameEngine<
     };
   }
 
+  public updateConfig(game: IGame & { payout: IPayout }): void {
+    this.config = this.createConfig(game);
+  }
+
   public getConfig(): GameConfig<TConfig> {
     return {
       gameId: this.config.gameId,
