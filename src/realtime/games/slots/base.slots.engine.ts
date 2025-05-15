@@ -24,17 +24,42 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
   protected async handleSpin(action: SlotAction): Promise<SlotResponse> {
     try {
       const { userId, payload } = action;
+
+      if (payload.betAmount > this.config.content.bets.length - 1) {
+        throw new Error("Invalid bet amount");
+      }
+
+      if (this.config.content.bets[payload.betAmount] <= 0) {
+        throw new Error("Something went wrong");
+      }
+
+      const betAmount =
+        this.config.content.bets[payload.betAmount] *
+        this.config.content.lines.length;
+
+      const b1 = await this.state.getBalance(userId, this.config.gameId);
+
+      if (b1 < betAmount) {
+        throw new Error("Balance is low");
+      }
+
       const matrix = this.getRandomMatrix();
       const specialIconsCheck = this.checkForSpecialSymbols(matrix);
       const lines = this.checkLines(matrix);
 
-      const balance = await this.state.getBalance(userId, this.config.gameId);
+      await this.state.deductBalanceWithDbSync(
+        userId,
+        this.config.gameId,
+        betAmount
+      );
+
+      const b2 = await this.state.getBalance(userId, this.config.gameId);
 
       console.log("MATRIX", matrix);
       console.log("SPECIAL ICONS", specialIconsCheck);
       console.log("LINES", lines);
 
-      return { success: true, balance: balance, matrix };
+      return { success: true, balance: b2, matrix };
     } catch (error) {
       console.error(`Error processing spin for user `, error);
       throw error;

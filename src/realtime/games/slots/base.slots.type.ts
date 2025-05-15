@@ -5,7 +5,6 @@ export interface SlotAction extends GameAction {
   type: "spin";
   payload: {
     betAmount: number;
-    lines: number;
   };
 }
 

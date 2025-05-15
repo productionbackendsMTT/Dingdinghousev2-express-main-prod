@@ -50,7 +50,6 @@ export function setupPlayground(namespace: Namespace) {
             userId,
             payload: {
               betAmount: payload.currentBet,
-              lines: payload.currentLines,
             },
           });
 
@@ -67,7 +66,7 @@ export function setupPlayground(namespace: Namespace) {
       });
 
       socket.on("disconnect", () => {
-        console.log(`Player disconnected from game ${gameId}`);
+        console.log(`Player disconnected from game ${gameId} : ${userId}`);
       });
     } catch (error) {
       console.error("Connection error:", error);

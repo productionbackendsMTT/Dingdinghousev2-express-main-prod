@@ -7,6 +7,7 @@ export class StateService {
   private static instance: StateService;
   private redisService: RedisService;
   private readonly STATE_TTL = 86400; // 24 hours in seconds
+  private readonly DECIMAL_PRECISION = 4; // Specify decimal precision
 
   private constructor() {
     this.redisService = RedisService.getInstance();
@@ -17,6 +18,11 @@ export class StateService {
       StateService.instance = new StateService();
     }
     return StateService.instance;
+  }
+
+  // Helper method to format balance with precision
+  private formatBalance(balance: number): number {
+    return Number(balance.toFixed(this.DECIMAL_PRECISION));
   }
 
   // ================= Core State Management =================
@@ -67,12 +73,13 @@ export class StateService {
         throw new Error("User not found");
       }
 
-      // Ensure balance is a number and properly initialized
-      const balance = typeof user.balance === "number" ? user.balance : 0;
+      // Ensure balance is a number and properly initialized with precision
+      const rawBalance = typeof user.balance === "number" ? user.balance : 0;
+      const balance = this.formatBalance(rawBalance);
       console.log("Initializing player state with balance:", balance);
 
       const initialState: PlayerState = {
-        balance: balance, // Use the actual user balance
+        balance: balance, // Use the formatted balance with proper precision
         lastUpdated: new Date(),
         sessionStart: new Date(),
         gameSpecific: {},
@@ -127,9 +134,17 @@ export class StateService {
     gameId: string | Types.ObjectId,
     amount: number
   ): Promise<{ success: boolean; newBalance: number }> {
+    // Format the amount with proper precision
+    const formattedAmount = this.formatBalance(amount);
+
     // Use a single lock for the entire operation
     return this.withLock(this.getLockKey(userId, gameId), async () => {
-      const result = await this.deductBalance(userId, gameId, amount, false);
+      const result = await this.deductBalance(
+        userId,
+        gameId,
+        formattedAmount,
+        false
+      );
       if (result.success) {
         await User.findByIdAndUpdate(userId, {
           balance: result.newBalance,
@@ -144,12 +159,15 @@ export class StateService {
     gameId: string | Types.ObjectId,
     amount: number
   ): Promise<number> {
+    // Format the amount with proper precision
+    const formattedAmount = this.formatBalance(amount);
+
     // Use a single lock for the entire operation
     return this.withLock(this.getLockKey(userId, gameId), async () => {
       const newBalance = await this.creditBalance(
         userId,
         gameId,
-        amount,
+        formattedAmount,
         false
       );
       await User.findByIdAndUpdate(userId, {
@@ -174,6 +192,11 @@ export class StateService {
     useLock = true
   ): Promise<PlayerState> {
     const key = this.getStateKey(userId, gameId);
+
+    // Format balance if it exists in updates
+    if (updates.balance !== undefined) {
+      updates.balance = this.formatBalance(updates.balance);
+    }
 
     const updateFunc = async () => {
       const currentState =
@@ -216,22 +239,25 @@ export class StateService {
       throw new Error("Deduction amount must be positive");
     }
 
+    // Format the amount with proper precision
+    const formattedAmount = this.formatBalance(amount);
+
     const deductFunc = async () => {
       const state =
         (await this.getState(userId, gameId)) ||
         (await this.initialize(userId, gameId));
 
-      if (state.balance < amount) {
+      if (state.balance < formattedAmount) {
         return { success: false, newBalance: state.balance };
       }
 
-      const newBalance = state.balance - amount;
+      const newBalance = this.formatBalance(state.balance - formattedAmount);
       await this.updatePlayerState(
         userId,
         gameId,
         {
           balance: newBalance,
-          currentBet: amount, // Optionally track last bet
+          currentBet: formattedAmount, // Optionally track last bet
         },
         false // Don't use another lock since we're already in one
       );
@@ -256,12 +282,15 @@ export class StateService {
       throw new Error("Credit amount must be positive");
     }
 
+    // Format the amount with proper precision
+    const formattedAmount = this.formatBalance(amount);
+
     const creditFunc = async () => {
       const state =
         (await this.getState(userId, gameId)) ||
         (await this.initialize(userId, gameId));
 
-      const newBalance = state.balance + amount;
+      const newBalance = this.formatBalance(state.balance + formattedAmount);
       await this.updatePlayerState(
         userId,
         gameId,
