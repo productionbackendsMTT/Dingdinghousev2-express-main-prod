@@ -1,8 +1,8 @@
 import { Router } from "express";
 import UserService from "./users.service";
 import UserController from "./users.controller";
-import { authHandler } from "../../../common/middlewares/auth.middleware";
-import { checkPermission } from "../../../common/middlewares/permission.middleware";
+import { authHandler } from "../../middleware/auth.middleware";
+import { checkPermission } from "../../middleware/permission.middleware";
 import { Resource } from "../../../common/lib/resources";
 
 

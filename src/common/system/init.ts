@@ -1,10 +1,10 @@
-import RoleModel from "../../api/modules/roles/roles.model";
-import UserModel from "../../api/modules/users/users.model";
+import Role from "../schemas/role.schema";
+import User from "../schemas/user.schema";
 
 export async function init() {
     try {
-        await RoleModel.ensureRoleHierarchy();
-        await UserModel.ensureRootUser();
+        await Role.ensureRoleHierarchy();
+        await User.ensureRootUser();
     } catch (error) {
         console.error('Failed to initialize system:', error);
         throw error;

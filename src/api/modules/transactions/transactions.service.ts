@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
-import TransactionModel, { ITransaction, TransactionType } from "./transactions.model";
 import createHttpError from "http-errors";
-import { UserStatus } from "../users/users.types";
-import UserModel from "../users/users.model";
+import Transaction from "../../../common/schemas/transaction.schema";
+import { ITransaction, TransactionType } from "../../../common/types/transaction.type";
+import User from "../../../common/schemas/user.schema";
+import { UserStatus } from "../../../common/types/user.type";
 
 
 class TransactionService {
@@ -15,8 +16,8 @@ class TransactionService {
         }
 
         // Validate sender and receiver
-        const sender = await UserModel.findOne({ _id: senderId, status: { $ne: UserStatus.DELETED } }).session(session);
-        const receiver = await UserModel.findOne({ _id: receiverId, status: { $ne: UserStatus.DELETED } }).session(session);
+        const sender = await User.findOne({ _id: senderId, status: { $ne: UserStatus.DELETED } }).session(session);
+        const receiver = await User.findOne({ _id: receiverId, status: { $ne: UserStatus.DELETED } }).session(session);
 
         if (!sender) {
             throw createHttpError(404, "Sender not found");
@@ -36,7 +37,7 @@ class TransactionService {
             throw createHttpError(400, "Insufficient balance for redemption");
         }
 
-        const transaction = new TransactionModel({
+        const transaction = new Transaction({
             sender: senderId,
             receiver: receiverId,
             type,
@@ -67,7 +68,7 @@ class TransactionService {
 
     // Get a transaction by ID
     async getById(transactionId: mongoose.Types.ObjectId): Promise<ITransaction | null> {
-        const transaction = await TransactionModel.findById(transactionId)
+        const transaction = await Transaction.findById(transactionId)
             .populate({
                 path: 'sender',
                 select: 'name username balance role',
@@ -95,7 +96,7 @@ class TransactionService {
         };
 
         const [transactions, total] = await Promise.all([
-            TransactionModel.find(query)
+            Transaction.find(query)
                 .sort(sort)
                 .skip((page - 1) * limit)
                 .limit(limit)
@@ -110,7 +111,7 @@ class TransactionService {
                     match: { status: { $ne: UserStatus.DELETED } }
                 })
                 .lean(),
-            TransactionModel.countDocuments(query)
+            Transaction.countDocuments(query)
         ]);
 
         return {
@@ -139,7 +140,7 @@ class TransactionService {
         };
 
         const [transactions, total] = await Promise.all([
-            TransactionModel.find(query)
+            Transaction.find(query)
                 .sort(sort)
                 .skip((page - 1) * limit)
                 .limit(limit)
@@ -154,7 +155,7 @@ class TransactionService {
                     match: { status: { $ne: UserStatus.DELETED } }
                 })
                 .lean(),
-            TransactionModel.countDocuments(query)
+            Transaction.countDocuments(query)
         ]);
 
         return {
@@ -170,7 +171,7 @@ class TransactionService {
 
     // Get total received and spent amounts for a user within a date range
     async getTotalAmounts(userId: mongoose.Types.ObjectId, startDate: Date, endDate: Date): Promise<{ totalReceived: number, totalSpent: number }> {
-        const result = await TransactionModel.aggregate([
+        const result = await Transaction.aggregate([
             {
                 $match: {
                     $or: [
@@ -209,7 +210,7 @@ class TransactionService {
 
 
         const [transactions, total] = await Promise.all([
-            TransactionModel.find(filters)
+            Transaction.find(filters)
                 .sort(sort)
                 .skip((page - 1) * limit)
                 .limit(limit)
@@ -222,7 +223,7 @@ class TransactionService {
                     select: 'name',
                 })
                 .lean(),
-            TransactionModel.countDocuments(filters)
+            Transaction.countDocuments(filters)
         ]);
 
         return {
@@ -246,7 +247,7 @@ class TransactionService {
         delete filters.search;
 
 
-        const user = await UserModel.findById(userId);
+        const user = await User.findById(userId);
         if (!user) {
             throw createHttpError(404, "User not found");
         }
@@ -262,7 +263,7 @@ class TransactionService {
 
         if (searchTerm) {
             // First, find users matching the search term
-            const matchingUsers = await UserModel.find({
+            const matchingUsers = await User.find({
                 $or: [
                     { name: new RegExp(searchTerm, "i") },
                     { username: new RegExp(searchTerm, "i") }
@@ -291,7 +292,7 @@ class TransactionService {
         }
 
         const [transactions, total] = await Promise.all([
-            TransactionModel.find(query)
+            Transaction.find(query)
                 .sort(sort)
                 .skip((page - 1) * limit)
                 .limit(limit)
@@ -306,7 +307,7 @@ class TransactionService {
                     match: { status: { $ne: UserStatus.DELETED } }
                 })
                 .lean(),
-            TransactionModel.countDocuments(query)
+            Transaction.countDocuments(query)
         ]);
 
 

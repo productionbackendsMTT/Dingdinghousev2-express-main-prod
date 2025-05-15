@@ -2,8 +2,8 @@ import express from 'express';
 import { GameController } from './games.controller';
 import { GameService } from './games.service';
 import multer from 'multer';
-import { authHandler } from "../../../common/middlewares/auth.middleware";
-import { checkPermission } from "../../../common/middlewares/permission.middleware";
+import { authHandler } from "../../middleware/auth.middleware";
+import { checkPermission } from "../../middleware/permission.middleware";
 import { Resource } from "../../../common/lib/resources";
 
 const gamesRoutes = express.Router();
@@ -27,6 +27,7 @@ gamesRoutes.delete('/:id', authHandler, checkPermission(resource, 'x'), gamesCon
 
 gamesRoutes.get('/tag/:tag', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
 gamesRoutes.get('/slug/:slug', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
+gamesRoutes.get('/slug/:slug/play', authHandler, checkPermission(resource, 'r'), gamesController.playGame);
 gamesRoutes.get('/name/:name', authHandler, checkPermission(resource, 'r'), gamesController.getGame);
 
 

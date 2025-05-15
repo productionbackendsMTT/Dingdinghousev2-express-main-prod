@@ -1,16 +1,16 @@
 import createHttpError from "http-errors";
-import RoleModel from "./roles.model";
 import mongoose, { Types } from "mongoose";
-import { DescendantOperation, IRole, RoleStatus, IUpdateRoleParams } from "./roles.types";
-import { UserStatus } from "../users/users.types";
-import UserModel from "../users/users.model";
 import { config } from "../../../common/config/config";
 import { Roles } from "../../../common/lib/default-role-hierarchy";
+import Role from "../../../common/schemas/role.schema";
+import { DescendantOperation, IRole, IUpdateRoleParams, RoleStatus } from "../../../common/types/role.type";
+import User from "../../../common/schemas/user.schema";
+import { UserStatus } from "../../../common/types/user.type";
 
 class RoleService {
 
     async addRole(name: string, descendants: string[]): Promise<IRole> {
-        const existingRole = await RoleModel.findOne({
+        const existingRole = await Role.findOne({
             name: { $regex: new RegExp(`^${name}$`, "i") },
             status: RoleStatus.ACTIVE,
         });
@@ -18,14 +18,14 @@ class RoleService {
             throw createHttpError(400, "Role already exists");
         }
 
-        const role = new RoleModel({ name, descendants });
+        const role = new Role({ name, descendants });
         await role.save();
 
         return role;
     }
 
     async getRole(id: Types.ObjectId): Promise<IRole> {
-        const role = await RoleModel.findOne({
+        const role = await Role.findOne({
             _id: id,
             status: { $ne: RoleStatus.DELETED },
         }).populate({
@@ -78,19 +78,19 @@ class RoleService {
 
         // Add role hierarchy filter
         if (requestingRoleId) {
-            const requestingRole = await RoleModel.findById(requestingRoleId);
+            const requestingRole = await Role.findById(requestingRoleId);
             if (requestingRole) {
                 query["_id"] = { $in: [...requestingRole.descendants] };
             }
         }
 
         const [roles, total] = await Promise.all([
-            RoleModel.find(query)
+            Role.find(query)
                 .select("_id name status") // Only select required fields
                 .sort({ [sortBy]: sortOrder === "desc" ? -1 : 1 })
                 .skip((page - 1) * limit)
                 .limit(limit),
-            RoleModel.countDocuments(query),
+            Role.countDocuments(query),
         ]);
 
         return {
@@ -109,7 +109,7 @@ class RoleService {
         requestingRoleId: Types.ObjectId,
         targetRoleId: Types.ObjectId
     ): Promise<void> {
-        const requestingRole = await RoleModel.findOne({
+        const requestingRole = await Role.findOne({
             _id: requestingRoleId,
             status: RoleStatus.ACTIVE,
         });
@@ -124,7 +124,7 @@ class RoleService {
     }
 
     async updateRole(id: string, params: IUpdateRoleParams): Promise<IRole> {
-        const role = await RoleModel.findById(id);
+        const role = await Role.findById(id);
         if (!role) {
             throw createHttpError.NotFound("Role not found");
         }
@@ -145,7 +145,7 @@ class RoleService {
                 (id) => new Types.ObjectId(id)
             );
 
-            const count = await RoleModel.countDocuments({
+            const count = await Role.countDocuments({
                 _id: { $in: descendantObjectIds },
                 status: { $ne: RoleStatus.DELETED },
             });
@@ -190,7 +190,7 @@ class RoleService {
     }
 
     async deleteRole(id: string): Promise<void> {
-        const role = await RoleModel.findOne({
+        const role = await Role.findOne({
             _id: id,
             status: { $ne: RoleStatus.DELETED },
         });
@@ -209,7 +209,7 @@ class RoleService {
 
         // Check for users with this role
         // Check for active users with this role
-        const activeUsersWithRole = await UserModel.countDocuments({
+        const activeUsersWithRole = await User.countDocuments({
             role: role._id,
             status: UserStatus.ACTIVE,
         });
@@ -222,18 +222,18 @@ class RoleService {
         const session = await mongoose.startSession();
         try {
             await session.withTransaction(async () => {
-                await RoleModel.findByIdAndUpdate(id, {
+                await Role.findByIdAndUpdate(id, {
                     status: RoleStatus.DELETED,
                     name: `${role.name}_DELETED_${Date.now()}`, // Ensure unique name
                 });
 
-                await RoleModel.findOneAndUpdate(
+                await Role.findOneAndUpdate(
                     { name: config.root.role },
                     { $pull: { descendants: role._id } }
                 );
 
                 // Remove from all other roles' descendants
-                await RoleModel.updateMany(
+                await Role.updateMany(
                     { descendants: role._id },
                     { $pull: { descendants: role._id } }
                 );

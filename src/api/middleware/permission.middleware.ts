@@ -1,10 +1,12 @@
+
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import mongoose from "mongoose";
 import { AuthRequest } from "./auth.middleware";
-import { Resource } from "../lib/resources";
-import RoleModel from "../../api/modules/roles/roles.model";
-import UserModel from "../../api/modules/users/users.model";
+import { Resource } from "../../common/lib/resources";
+import Role from "../../common/schemas/role.schema";
+import User from "../../common/schemas/user.schema";
+
 
 export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => {
     return async (req: Request, res: Response, next: NextFunction) => {
@@ -30,7 +32,7 @@ export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => 
                     return next();
                 }
 
-                const targetUser = await UserModel.findById(req.params.userId).populate('role');
+                const targetUser = await User.findById(req.params.userId).populate('role');
                 if (!targetUser) {
                     throw createHttpError(404, 'User not found');
                 }
@@ -56,7 +58,7 @@ export const checkPermission = (resource: Resource, action: 'r' | 'w' | 'x') => 
                     return next();
                 }
 
-                const targetRole = await RoleModel.findById(req.params.roleId).lean();
+                const targetRole = await Role.findById(req.params.roleId).lean();
                 if (!targetRole) {
                     throw createHttpError(404, 'Role not found');
                 }

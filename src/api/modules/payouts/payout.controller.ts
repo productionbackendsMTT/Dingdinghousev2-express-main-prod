@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
 import { PayoutService } from "./payout.service";
 
-
 export class PayoutController {
 
     constructor(private payoutService: PayoutService) {

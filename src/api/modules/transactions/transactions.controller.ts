@@ -3,7 +3,7 @@ import TransactionService from "./transactions.service";
 import mongoose from "mongoose";
 import createHttpError from "http-errors";
 import { successResponse } from "../../../common/lib/response";
-import { AuthRequest } from "../../../common/middlewares/auth.middleware";
+import { AuthRequest } from "../../middleware/auth.middleware";
 
 
 class TransactionController {

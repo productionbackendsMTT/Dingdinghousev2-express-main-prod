@@ -1,21 +1,28 @@
 import createHttpError from "http-errors";
-import GameModel, { GameStatus, IGame } from "./games.model";
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
+import jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 import { CloudinaryService } from "../../../common/config/cloudinary";
 import { PayoutService } from "../payouts/payout.service";
-
+import Game from "../../../common/schemas/game.schema";
+import { GameStatus, IGame } from "../../../common/types/game.type";
+import { config } from "../../../common/config/config";
+import RedisService from "../../../common/config/redis";
+import { randomBytes } from "crypto";
 
 export class GameService {
     private cloudinaryService: CloudinaryService;
     private payoutService: PayoutService;
+    private redisService: RedisService;
 
     constructor() {
         this.cloudinaryService = new CloudinaryService();
         this.payoutService = new PayoutService();
+        this.redisService = RedisService.getInstance();
     }
 
     private async getNextGameOrder(): Promise<number> {
-        const lastGame = await GameModel.findOne().sort({ order: -1 }).select('order').lean<IGame>().exec();
+        const lastGame = await Game.findOne().sort({ order: -1 }).select('order').lean<IGame>().exec();
         return lastGame ? lastGame.order + 1 : 1;
     }
 
@@ -25,7 +32,7 @@ export class GameService {
 
         try {
             // 1. Check existing game
-            const existingGame = await GameModel.findOne({
+            const existingGame = await Game.findOne({
                 $or: [{ name: gameData.name }, { tag: gameData.tag }],
                 status: { $ne: GameStatus.DELETED }
             }).select('_id').lean().session(session);
@@ -35,7 +42,7 @@ export class GameService {
             }
 
             // 2. Create initial game without thumbnail
-            const game = await GameModel.create([{
+            const game = await Game.create([{
                 ...gameData,
             }], { session });
 
@@ -47,7 +54,7 @@ export class GameService {
             const thumbnailUploadResult = await this.cloudinaryService.uploadImage(thumbnailBuffer);
 
             // 5. Update game with thumbnail and payout
-            const updatedGame = await GameModel.findByIdAndUpdate(
+            const updatedGame = await Game.findByIdAndUpdate(
                 game[0]._id,
                 {
                     thumbnail: thumbnailUploadResult.secure_url,
@@ -115,15 +122,15 @@ export class GameService {
 
 
         const [games, total, distinctValues] = await Promise.all([
-            GameModel.find(query)
+            Game.find(query)
                 .sort(options.sort)
                 .skip((options.page - 1) * options.limit)
                 .limit(options.limit)
                 .lean<IGame[]>(),
-            GameModel.countDocuments(query),
+            Game.countDocuments(query),
             Promise.all([
-                GameModel.distinct('category', { status: { $ne: GameStatus.DELETED } }),
-                GameModel.distinct('type', { status: { $ne: GameStatus.DELETED } }),
+                Game.distinct('category', { status: { $ne: GameStatus.DELETED } }),
+                Game.distinct('type', { status: { $ne: GameStatus.DELETED } }),
             ])
         ]);
 
@@ -163,7 +170,7 @@ export class GameService {
             throw createHttpError.BadRequest("At least one identifier (id, tag, slug, name) is required");
         }
 
-        const game = await GameModel
+        const game = await Game
             .findOne(filter)
             .populate<{ payout: mongoose.Types.ObjectId }>("payout")
             .lean<IGame>()
@@ -179,7 +186,7 @@ export class GameService {
 
         try {
             // 1. First check if game exists
-            const existingGame = await GameModel.findById(id)
+            const existingGame = await Game.findById(id)
                 .populate('payout')
                 .session(session);
 
@@ -189,7 +196,7 @@ export class GameService {
 
             // 2. Check for duplicates if name or tag is being updated
             if (updateData.name || updateData.tag) {
-                const duplicate = await GameModel.findOne({
+                const duplicate = await Game.findOne({
                     _id: { $ne: id },
                     $or: [
                         ...(updateData.name ? [{ name: updateData.name }] : []),
@@ -217,7 +224,7 @@ export class GameService {
             }
 
             // 5. Update game with all changes
-            const updatedGame = await GameModel.findByIdAndUpdate(
+            const updatedGame = await Game.findByIdAndUpdate(
                 id,
                 { $set: updateData },
                 {
@@ -246,7 +253,7 @@ export class GameService {
             throw createHttpError.BadRequest('Invalid game ID format');
         }
 
-        const game = await GameModel.findById(id).select('status name tag').exec();
+        const game = await Game.findById(id).select('status name tag').exec();
 
         if (!game) throw createHttpError.NotFound('Game not found');
         if (game.status === GameStatus.DELETED) {
@@ -254,7 +261,7 @@ export class GameService {
         }
 
         // Update with deletion details
-        const result = await GameModel.updateOne(
+        const result = await Game.updateOne(
             { _id: id },
             {
                 $set: {
@@ -276,7 +283,7 @@ export class GameService {
             throw createHttpError.BadRequest('Invalid game ID format');
         }
 
-        const game = await GameModel.findById(gameId).lean();
+        const game = await Game.findById(gameId).lean();
         if (!game) throw createHttpError.NotFound('Game not found');
 
         return await this.payoutService.getPayoutByGame(gameId);
@@ -287,7 +294,7 @@ export class GameService {
             throw createHttpError.BadRequest('Invalid game or payout ID format');
         }
 
-        const game = await GameModel.findById(gameId).lean();
+        const game = await Game.findById(gameId).lean();
         if (!game) throw createHttpError.NotFound('Game not found');
 
         return await this.payoutService.activatePayout(payoutId);
@@ -298,7 +305,7 @@ export class GameService {
             throw createHttpError.BadRequest('Invalid game or payout ID format');
         }
 
-        const game = await GameModel.findById(gameId).lean();
+        const game = await Game.findById(gameId).lean();
         if (!game) throw createHttpError.NotFound('Game not found');
 
         return await this.payoutService.deletePayout(payoutId);
@@ -317,7 +324,7 @@ export class GameService {
 
             // Verify all games exist
             const gameIds = reorderData.map(item => item.gameId);
-            const existingGames = await GameModel.find({ _id: { $in: gameIds } })
+            const existingGames = await Game.find({ _id: { $in: gameIds } })
                 .select('_id')
                 .session(session);
 
@@ -336,7 +343,7 @@ export class GameService {
                 }
             }));
 
-            await GameModel.bulkWrite(bulkOps, { session });
+            await Game.bulkWrite(bulkOps, { session });
             await session.commitTransaction();
         } catch (error) {
             await session.abortTransaction();
@@ -360,7 +367,7 @@ export class GameService {
         try {
             for (const game of games) {
                 try {
-                    const existingGame = await GameModel.findOne({ $or: [{ name: game.name }, { tag: game.tag }] }).session(session);
+                    const existingGame = await Game.findOne({ $or: [{ name: game.name }, { tag: game.tag }] }).session(session);
                     if (existingGame) {
                         result.skipped++;
                         result.errors.push(`Game ${game.name} already exists`);
@@ -370,7 +377,7 @@ export class GameService {
                     const order = await this.getNextGameOrder();
 
                     // Create game without payout first
-                    const createdGame = await GameModel.create([{
+                    const createdGame = await Game.create([{
                         name: game.name,
                         description: game.description,
                         url: game.url,
@@ -395,7 +402,7 @@ export class GameService {
                         );
 
                         // Update game with payout reference
-                        await GameModel.findByIdAndUpdate(
+                        await Game.findByIdAndUpdate(
                             createdGame[0]._id,
                             { payout: payoutId },
                             { session }
@@ -425,7 +432,68 @@ export class GameService {
     }
 
     async downloadGames(): Promise<IGame[]> {
-        const games = await GameModel.find({ status: { $ne: GameStatus.DELETED } }).populate('payout').sort({ order: 1, createdAt: -1 }).lean<IGame[]>().exec();
+        const games = await Game.find({ status: { $ne: GameStatus.DELETED } }).populate('payout').sort({ order: 1, createdAt: -1 }).lean<IGame[]>().exec();
         return games;
+    }
+
+    async playGame(platformToken: string, slug: string): Promise<string> {
+        try {
+            const filter: any = {
+                slug: slug,
+                status: { $ne: GameStatus.DELETED }
+            };
+            const game = await Game
+                .findOne(filter)
+                .select('url')
+                .lean<IGame>()
+                .exec();
+
+            if (!game) {
+                throw new Error('Game not found');
+            }
+
+            // Generate a short token identifier
+            const shortToken = await this.generateShortToken(game._id, platformToken);
+
+            // Create a signed URL by appending the token
+            const signedUrl = `${game.url}?token=${shortToken}`;
+
+
+            return signedUrl;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async generateShortToken(gameId: Types.ObjectId, platformToken: string): Promise<string> {
+        try {
+            // Use full UUID without hyphens for maximum uniqueness
+            let token = uuidv4().replace(/-/g, '');
+
+            const data = {
+                gameId: gameId.toString(),
+                platform: platformToken,
+                createdAt: new Date().toISOString(),
+                nonce: randomBytes(4).toString('hex')
+            };
+
+            const tokenKey = `game:token:${token}`;
+            const expiresIn = config.redis.ttl;
+
+            // Use Redis SETNX to ensure the key doesn't already exist
+            const success = await this.redisService.getClient().setNX(tokenKey, JSON.stringify(data));
+
+            if (success) {
+                // Set the expiration time separately if the key was set
+                await this.redisService.getClient().expire(tokenKey, expiresIn);
+                return token;
+            }
+
+            // If the key already exists, try again with a new token
+            return this.generateShortToken(gameId, platformToken);
+        } catch (error) {
+            console.error('Token generation error:', error);
+            throw error;
+        }
     }
 }

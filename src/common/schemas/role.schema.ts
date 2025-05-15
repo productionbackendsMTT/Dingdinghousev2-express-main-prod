@@ -1,8 +1,7 @@
-import mongoose, { Model, Schema, Types } from "mongoose";
-import { IRole, IRoleModel, RoleStatus } from "./roles.types";
-import { getAncestorRoles } from "../../../common/lib/utils";
-import { roleHierarchy, Roles } from "../../../common/lib/default-role-hierarchy";
-
+import mongoose, { Schema, Types } from "mongoose";
+import { IRole, IRoleModel, RoleStatus } from "../types/role.type";
+import { getAncestorRoles } from "../lib/utils";
+import { roleHierarchy, Roles } from "../lib/default-role-hierarchy";
 
 const INITIALIZATION_FLAG = "ROLES_INITIALIZED";
 
@@ -36,7 +35,7 @@ RoleSchema.pre("validate", async function (next) {
 
         // If no ancestors found, add to root role's descendants
         if (ancestorRoleNames.length === 0) {
-            const rootRole = await RoleModel.findOne({ name: Roles.ROOT });
+            const rootRole = await Role.findOne({ name: Roles.ROOT });
             if (rootRole && !rootRole.descendants.includes(this._id)) {
                 rootRole.descendants.push(this._id);
                 await rootRole.save();
@@ -44,7 +43,7 @@ RoleSchema.pre("validate", async function (next) {
         } else {
             // Add to all ancestor roles' descendants
             for (const ancestorName of ancestorRoleNames) {
-                const ancestorRole = await RoleModel.findOne({ name: ancestorName });
+                const ancestorRole = await Role.findOne({ name: ancestorName });
                 if (ancestorRole && !ancestorRole.descendants.includes(this._id)) {
                     ancestorRole.descendants.push(this._id);
                     await ancestorRole.save();
@@ -126,5 +125,5 @@ RoleSchema.statics.ensureRoleHierarchy = async function () {
 };
 
 
-const RoleModel = mongoose.model<IRole, IRoleModel>("Role", RoleSchema);
-export default RoleModel;
+const Role = mongoose.model<IRole, IRoleModel>("Role", RoleSchema);
+export default Role;
