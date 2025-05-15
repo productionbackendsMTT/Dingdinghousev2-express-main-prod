@@ -28,11 +28,13 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
       const specialIconsCheck = this.checkForSpecialSymbols(matrix);
       const lines = this.checkLines(matrix);
 
+      const balance = await this.state.getBalance(userId, this.config.gameId);
+
       console.log("MATRIX", matrix);
       console.log("SPECIAL ICONS", specialIconsCheck);
       console.log("LINES", lines);
 
-      return { success: true, balance: 0, matrix };
+      return { success: true, balance: balance, matrix };
     } catch (error) {
       console.error(`Error processing spin for user `, error);
       throw error;
