@@ -1,6 +1,8 @@
-import { symbol } from "zod";
+
 import { GameEngine } from "../game.engine";
-import { SlotAction, SlotConfig, SlotResponse } from "./base.slots.type";
+import { SlotAction, SlotConfig, SlotResponse, specialIcons } from "./base.slots.type";
+
+
 
 class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
   validateConfig(): void {
@@ -19,12 +21,14 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
 
   protected async handleSpin(action: SlotAction): Promise<SlotResponse> {
     const { userId, payload } = action;
-
+    const lockKey = `lock:player:${userId}:game:${this.config.gameId}:spin`;
     const matrix = this.getRandomMatrix();
+    const specialIconsCheck = this.checkForSpecialSymbols(matrix);
     const lines = this.checkLines(matrix);
-    console.log("Lines:", lines);
-    this.checkForSpecialSymbols(matrix);
-
+    console.log('MATRIX', matrix);
+    console.log('SPECIAL ICONS', specialIconsCheck);
+    console.log('LINES', lines);
+    console.log(`Attempting to acquire spin lock for ${lockKey}`);
     // Remove the withLock wrapper since StateService will handle its own locking
     try {
       // Validate balance and deduct bet
@@ -32,9 +36,6 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
       const totalBet = payload.betAmount * payload.lines;
 
       if (balance < totalBet) {
-        console.log(
-          `Insufficient balance for user ${userId}. Balance: ${balance}, Bet: ${totalBet}`
-        );
         return {
           success: false,
           balance,
@@ -271,21 +272,27 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
     };
   }
 
-  protected checkForSpecialSymbols(
-    matrix: string[][]
-  ): Array<{ symbol: string; count: number }> {
+
+  protected checkForSpecialSymbols(matrix: string[][]): Array<{ symbol: string; symbolName: string; count: number; specialWin?: number; freeSpinCount?: number; }> {
     const specialSymbols: Array<{
       symbol: string;
       symbolName: string;
       count: number;
+      specialWin?: number;
+      freeSpinCount?: number;
     }> = [];
+
     const specialSymbolsData = this.config.content.symbols
-      .filter((symbol) => symbol.useWildSub === false)
+      .filter((symbol) => symbol.useWildSub === false && symbol.enabled)
       .map((symbol) => ({
         id: symbol.id.toString(),
         name: symbol.name,
+        minSymbolCount: symbol.minSymbolCount,
+        multiplier: symbol.multiplier,
+        defaultAmount: symbol.defaultAmount
       }));
 
+    // Count special symbols
     matrix.flat().forEach((symbolId) => {
       const symbolData = specialSymbolsData.find((s) => s.id === symbolId);
       if (symbolData) {
@@ -297,7 +304,53 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
             symbol: symbolId,
             symbolName: symbolData.name,
             count: 1,
+            specialWin: 0,
+            freeSpinCount: 0
           });
+        }
+      }
+    });
+
+    specialSymbols.forEach(specialSymbol => {
+      const symbolConfig = specialSymbolsData.find(s => s.id === specialSymbol.symbol);
+      if (symbolConfig && specialSymbol.count >= (symbolConfig.minSymbolCount ?? 0)) {
+        switch (specialIcons[specialSymbol.symbol as keyof typeof specialIcons]) {
+          case specialIcons.scatter:
+            const scatterWins = [{
+              line: [],
+              symbols: Array(specialSymbol.count).fill(specialSymbol.symbol),
+              amount: symbolConfig.multiplier[specialSymbol.count - (symbolConfig.minSymbolCount ?? 0)] || 0
+            }];
+            specialSymbol.specialWin = this.accumulateWins(scatterWins);
+            break;
+
+          case specialIcons.jackpot:
+            if (specialSymbol.count >= (symbolConfig.minSymbolCount ?? 0)) {
+
+              console.log('jackpot', specialSymbol.count, symbolConfig.minSymbolCount)
+              const jackpotWins = [{
+                line: [],
+                symbols: Array(5).fill(specialSymbol.symbol),
+                amount: symbolConfig.defaultAmount || 0
+              }];
+
+              console.log(jackpotWins)
+              specialSymbol.specialWin = this.accumulateWins(jackpotWins);
+            }
+            break;
+
+          case specialIcons.FreeSpin:
+            const multiplierIndex = specialSymbol.count - (symbolConfig.minSymbolCount ?? 0);
+            if (multiplierIndex >= 0) {
+              specialSymbol.freeSpinCount = symbolConfig.multiplier[multiplierIndex];
+              const freeSpinWins = [{
+                line: [],
+                symbols: Array(specialSymbol.count).fill(specialSymbol.symbol),
+                amount: symbolConfig.multiplier[multiplierIndex] || 0
+              }];
+              specialSymbol.specialWin = this.accumulateWins(freeSpinWins);
+            }
+            break;
         }
       }
     });
@@ -305,11 +358,12 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
     return specialSymbols;
   }
 
-  protected accumulateWins(
-    wins: Array<{ line: number[]; symbols: string[]; amount: number }>
-  ) {
+
+
+  protected accumulateWins(wins: Array<{ line: number[]; symbols: string[]; amount: number }>) {
     const totalWin = wins.reduce((acc, win) => acc + win.amount, 0);
-    return totalWin;
+    if (totalWin > 0) console.log('TOTAL WIN', totalWin);
+    return totalWin
   }
 }
 
