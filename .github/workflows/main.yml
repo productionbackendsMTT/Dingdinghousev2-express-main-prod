@@ -1,65 +1,33 @@
-name: Build and Deploy
+name: Deploy Server
 
 on:
   push:
     branches:
-      - "dev"
-  workflow_dispatch:
-
-permissions:
-  contents: write
-  pull-requests: write
+      - dev  # Trigger on push to the dev branch
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  deploy:
+    name: Deploy to EC2
+    runs-on: self-hosted
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Push updated package.json to dev-build branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.G_TOKEN }}
+      - name: Deploy to EC2
         run: |
-          git checkout dev
-          git checkout -b dev-build
-         
-      - name: Install Dependencies
-        run: npm install
 
-      - name: Build
-        run: npm run build
+          pwd
 
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifact
-          path: ./dist/**/*.js
+          # Create the .env file
+          echo "${{ secrets.ENV_CONTENT }}" > .env
+          [ -f .env ] && echo ".env file created successfully" || { echo "Failed to create .env file"; exit 1; }
 
-      - name: Copy Src and app.js in root
-        run: |
-          git config --global user.email "prathamesh@underpinservices.com"
-          git config --global user.name "Prathm0025"
-          git stash -u
-          git checkout dev-build
-          
-          # Copy built files
-          cp -r ./dist/src .
-          cp -r ./dist/app.js .
+          # Install dependencies and build the frontend
+          npm install || { echo "npm install failed"; exit 1; }
+          npm run build || { echo "npm run build failed"; exit 1; }
 
-          # Clean up
-          rm -rf ./dist
-          rm -rf ./node_modules
-          rm -rf ./app.ts
+          # Restart or start the frontend application with PM2
+          pm2 restart backend || pm2 start dist/app.js --name backend || { echo "PM2 command failed"; exit 1; }
 
-          # Delete all .ts files just in case
-          find ./src -name "*.ts" -type f -delete
-
-          git add -f ./app.js ./src
-          git commit -m "add new build" || echo "No changes to commit"
-          git push origin dev-build --force
+          echo "Backend deployment completed."
