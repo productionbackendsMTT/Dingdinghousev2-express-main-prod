@@ -128,11 +128,6 @@ class RedisService {
       });
 
       const success = result === "OK";
-      console.log(
-        `Lock acquisition for ${key}: ${
-          success ? "success" : "failed"
-        }, TTL: ${ttl}s`
-      );
 
       if (!success) {
         // Check remaining TTL for debugging
@@ -156,11 +151,6 @@ class RedisService {
       }
 
       const released = await this.del(key);
-      console.log(
-        `Lock release for ${key}: ${
-          released ? "success" : "failed or already released"
-        }`
-      );
     } catch (error) {
       console.error(`Error releasing lock for ${key}:`, error);
     }

@@ -30,13 +30,10 @@ export enum GameTypesById {
   BJ = "BJ",
 }
 
-
 export enum GamesTypes {
   SLOTS = "slots",
   KENO = "keno",
 }
-
-
 
 export interface SpinResult {
   success: boolean;
@@ -44,4 +41,3 @@ export interface SpinResult {
   winAmount?: number;
   [key: string]: any; // Allow game-specific properties
 }
-

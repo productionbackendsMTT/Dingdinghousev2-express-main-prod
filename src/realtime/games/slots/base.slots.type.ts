@@ -10,17 +10,7 @@ export interface SlotAction extends GameAction {
 }
 
 export interface SlotResponse extends GameResponse {
-  reels: string[][];
-  winAmount: number;
-  wins: Array<{
-    line: number;
-    symbols: string[];
-    amount: number;
-  }>;
-  features?: Array<{
-    type: string;
-    data: any;
-  }>;
+  matrix: string[][];
 }
 export type BonusType = "spin" | "tap" | "mini-slot";
 
@@ -32,8 +22,6 @@ export interface BonusFeature {
   }>;
   minSymbolCount: number;
 }
-
-
 
 export interface GambleFeature {
   type: "card";
@@ -68,7 +56,6 @@ export interface SlotConfig {
   };
   symbols: SymbolConfig[];
 }
-
 
 //   paylines: any[];
 //   symbols: {
@@ -121,10 +108,9 @@ export interface settings {
   // currentBet:
 }
 
-
 export const specialIcons = {
   bonus: "Bonus",
   scatter: "Scatter",
   jackpot: "Jackpot",
-  FreeSpin: "FreeSpin"
+  FreeSpin: "FreeSpin",
 };

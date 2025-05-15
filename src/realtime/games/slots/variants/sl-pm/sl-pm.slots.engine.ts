@@ -10,9 +10,6 @@ class SLPMEngine extends BaseSlotsEngine {
     const wins = this.evaluateSLPMWins(reels, bet);
 
     return {
-      reels,
-      winAmount: wins.total,
-      wins: wins.lines,
       // Add SLPM specific response data
     };
   }
