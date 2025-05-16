@@ -1,4 +1,9 @@
-import { GameConfig, GameAction, GameResponse } from "./game.type";
+import {
+  GameConfig,
+  GameAction,
+  GameResponse,
+  BaseInitData,
+} from "./game.type";
 import { StateService } from "../../realtime/gateways/playground/playground.state";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
@@ -7,7 +12,8 @@ import { PlayerState } from "../../realtime/gateways/playground/playground.types
 export abstract class GameEngine<
   TConfig = any,
   TAction extends GameAction = GameAction,
-  TResponse extends GameResponse = GameResponse
+  TResponse extends GameResponse = GameResponse,
+  TInitData extends BaseInitData = BaseInitData
 > {
   protected state: StateService;
   protected config: GameConfig<TConfig>;
@@ -51,6 +57,7 @@ export abstract class GameEngine<
 
   abstract validateConfig(): void;
   abstract handleAction(action: TAction): Promise<TResponse>;
+  public abstract getInitData(userId: string): Promise<TInitData>;
 
   protected async getPlayerState(userId: string) {
     return this.state.getState(userId, this.config.gameId);

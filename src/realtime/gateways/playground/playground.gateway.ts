@@ -15,8 +15,9 @@ export function setupPlayground(namespace: Namespace) {
         gameId,
         userId
       );
-      // Send game configuration to client using the public getter
-      socket.emit(Events.SERVER.CONFIG.name, engine.getConfig());
+      // Get and send initialization data
+      const initData = await engine.getInitData(userId);
+      socket.emit(Events.SERVER.INIT_DATA.name, JSON.stringify(initData));
 
       // Handle config update request
       socket.on(
@@ -45,23 +46,30 @@ export function setupPlayground(namespace: Namespace) {
       // Handle spin requests
       socket.on(Events.CLIENT.SPIN_REQUEST.name, async (payload) => {
         try {
+          const data = JSON.parse(payload);
+          console.log("SPIN REQUEST ; ", payload);
+          console.log("PARSE SPIN REQIERS ; ", data);
+
           const result = await engine.handleAction({
             type: "spin",
             userId,
             payload: {
-              betAmount: payload.currentBet,
+              betAmount: parseFloat(data.currentBet),
             },
           });
 
-          socket.emit(Events.SERVER.SPIN_RESULT.name, result);
+          socket.emit(Events.SERVER.SPIN_RESULT.name, JSON.stringify(result));
         } catch (error) {
-          socket.emit(Events.SERVER.ERROR.name, {
-            message:
-              error instanceof Error
-                ? error.message
-                : "An unknown error occurred",
-            code: "SPIN_ERROR",
-          });
+          socket.emit(
+            Events.SERVER.ERROR.name,
+            JSON.stringify({
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "An unknown error occurred",
+              code: "SPIN_ERROR",
+            })
+          );
         }
       });
 

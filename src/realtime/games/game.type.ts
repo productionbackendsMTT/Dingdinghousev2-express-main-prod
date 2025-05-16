@@ -20,9 +20,6 @@ export interface GameResponse {
   balance: number;
   error?: string;
 }
-export interface SlotGameConfig extends IPayout {
-  content: SlotConfig;
-}
 
 export enum GameTypesById {
   SL = "SL",
@@ -41,3 +38,33 @@ export interface SpinResult {
   winAmount?: number;
   [key: string]: any; // Allow game-specific properties
 }
+
+export interface SlotGameConfig extends IPayout {
+  content: SlotConfig;
+}
+
+export interface BaseInitData {
+  player: {
+    balance: number;
+  };
+}
+
+export interface SlotsInitData extends BaseInitData {
+  id: string;
+  gameData: {
+    lines: number[][];
+    bets: number[];
+  };
+  uiData: {
+    paylines: {
+      symbols: Array<{
+        id: number;
+        name: string;
+        multiplier: number[];
+        description?: string;
+      }>;
+    };
+  };
+}
+
+export type InitData<T = BaseInitData> = T;
