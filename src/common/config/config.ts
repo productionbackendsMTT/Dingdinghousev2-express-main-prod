@@ -21,7 +21,7 @@ const _config: IConfig = {
   },
   redis: {
     url: process.env.REDIS_URL || "redis://localhost:6379",
-    ttl: 3600, // 1 hour default
+    ttl: process.env.NODE_ENV === "development" ? 86400 : 3600,
   },
   cloudinary: {
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
