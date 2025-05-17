@@ -1,4 +1,5 @@
 import { GameEngine } from "../game.engine";
+import { SlotsInitData } from "../game.type";
 import {
   SlotAction,
   SlotConfig,
@@ -6,7 +7,12 @@ import {
   specialIcons,
 } from "./base.slots.type";
 
-class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
+class BaseSlotsEngine extends GameEngine<
+  SlotConfig,
+  SlotAction,
+  SlotResponse,
+  SlotsInitData
+> {
   validateConfig(): void {
     const { matrix, lines, symbols } = this.config.content;
     console.log("Validating config...");
@@ -19,6 +25,31 @@ class BaseSlotsEngine extends GameEngine<SlotConfig, SlotAction, SlotResponse> {
       default:
         throw new Error(`Unknown action: ${action.type}`);
     }
+  }
+
+  public async getInitData(userId: string): Promise<SlotsInitData> {
+    const balance = await this.state.getBalance(userId, this.config.gameId);
+
+    return {
+      id: "initData",
+      gameData: {
+        lines: this.config.content.lines,
+        bets: this.config.content.bets,
+      },
+      uiData: {
+        paylines: {
+          symbols: this.config.content.symbols.map((symbol) => ({
+            id: symbol.id,
+            name: symbol.name,
+            multiplier: symbol.multiplier,
+            description: symbol.description,
+          })),
+        },
+      },
+      player: {
+        balance,
+      },
+    };
   }
 
   protected async handleSpin(action: SlotAction): Promise<SlotResponse> {

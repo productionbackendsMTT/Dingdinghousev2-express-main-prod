@@ -8,6 +8,7 @@ export const playgroundAuthMiddleware = async (
   socket: PlaygroundSocket,
   next: (err?: ExtendedError | undefined) => void
 ) => {
+  console.log("HAND SHAKING ; ", socket.handshake);
   const token = socket.handshake.auth.token;
   if (!token) return next(new Error("Playground token required"));
 

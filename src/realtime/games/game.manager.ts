@@ -54,8 +54,7 @@ export class GameManager {
     );
 
     if (!filePath) {
-      console.warn(`Game file not found for ID "${game.tag}". Using default.`)
-        ;
+      console.warn(`Game file not found for ID "${game.tag}". Using default.`);
       return this.getDefaultGameEngine(game, gameType);
     }
 
@@ -141,7 +140,6 @@ export class GameManager {
     console.log("Creating default game engine for game type:", gameType);
     const engine = createEngine();
     this.gameEngineInstances.set(game.payout.gameId.toString(), engine);
-
 
     return engine;
   }

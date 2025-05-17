@@ -39,6 +39,10 @@ export const Events = {
         }>;
       },
     },
+    INIT_DATA: {
+      name: "game:init",
+      payload: {} as {},
+    },
     ERROR: {
       name: "error",
       payload: {} as {
