@@ -543,7 +543,7 @@ export class GameService {
       const shortToken = await this.generateShortToken(game._id, platformToken);
 
       // Create a signed URL by appending the token
-      const signedUrl = `${game.url}?token=${shortToken}`;
+      const signedUrl = `${game.url}?url=${config.serverUrl}&token=${shortToken}`;
 
       return signedUrl;
     } catch (error) {

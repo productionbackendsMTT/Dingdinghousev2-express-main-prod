@@ -36,6 +36,7 @@ const _config: IConfig = {
   },
   domain: process.env.DOMAIN || "localhost",
   clientUrl: process.env.CLIENT_URL || "http://localhost:3000",
+  serverUrl: process.env.SERVER_URL || "http://localhost:5000",
 };
 
 export const config = Object.freeze(_config);
