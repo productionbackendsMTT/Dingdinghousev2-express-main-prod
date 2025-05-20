@@ -9,7 +9,6 @@ const authRoutes = Router();
 const authService = new AuthService();
 const authController = new AuthController(authService);
 
-authRoutes.get("/events", sseAuthHandler, authController.sendEvents);
 authRoutes.post("/login", authController.login);
 authRoutes.post("/logout", authHandler, authController.logout);
 authRoutes.post(
