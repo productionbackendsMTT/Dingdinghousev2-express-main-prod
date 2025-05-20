@@ -161,43 +161,6 @@ class AuthController {
       next(error);
     }
   }
-
-  async sendEvents(req: Request, res: Response) {
-    try {
-      res.set({
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "Access-Control-Allow-Origin": config.clientUrl, // Add this
-        "Access-Control-Allow-Credentials": "true", // If using credentials,
-      });
-
-      res.flushHeaders();
-
-      // Send initial connection message
-      res.write("event: connected\n");
-
-      const sendPing = () => {
-        res.write(
-          `event: ping\ndata: ${JSON.stringify({
-            time: new Date().toISOString(),
-          })}\n\n`
-        );
-      };
-
-      res.write(`data: ${JSON.stringify({ message: "SSE connected" })}\n\n`);
-
-      const intervalId = setInterval(sendPing, 1000);
-
-      req.on("close", () => {
-        clearInterval(intervalId);
-        res.end();
-      });
-    } catch (err) {
-      console.error("Error in sendEvents:", err);
-      res.status(500).end();
-    }
-  }
 }
 
 export default AuthController;

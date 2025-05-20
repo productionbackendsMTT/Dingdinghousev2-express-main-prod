@@ -2,6 +2,7 @@ import { Namespace } from "socket.io";
 import PlaygroundService from "./playground.service";
 import { PlaygroundSocket } from "./playground.types";
 import { Events } from "./playground.events";
+import { publishToSSE, SSEEventTypes } from "../../../common/lib/sse.events";
 
 export function setupPlayground(namespace: Namespace) {
   const playgroundService = PlaygroundService.getInstance();
@@ -15,9 +16,18 @@ export function setupPlayground(namespace: Namespace) {
         gameId,
         userId
       );
+
       // Get and send initialization data
       const initData = await engine.getInitData(userId);
       socket.emit(Events.SERVER.INIT_DATA.name, JSON.stringify(initData));
+
+      // Notify SSE clients about user connection
+      await publishToSSE(SSEEventTypes.GAME_STARTED, {
+        userId,
+        gameId,
+        socketId: socket.id,
+        timestamp: new Date().toISOString(),
+      });
 
       // Handle config update request
       socket.on(
@@ -47,8 +57,6 @@ export function setupPlayground(namespace: Namespace) {
       socket.on(Events.CLIENT.SPIN_REQUEST.name, async (payload) => {
         try {
           const data = JSON.parse(payload);
-          console.log("SPIN REQUEST ; ", payload);
-          console.log("PARSE SPIN REQIERS ; ", data);
 
           const result = await engine.handleAction({
             type: "spin",
@@ -73,8 +81,16 @@ export function setupPlayground(namespace: Namespace) {
         }
       });
 
-      socket.on("disconnect", () => {
+      socket.on("disconnect", async () => {
         console.log(`Player disconnected from game ${gameId} : ${userId}`);
+
+        // Notify SSE clients about user disconnection
+        await publishToSSE(SSEEventTypes.GAME_ENDED, {
+          userId,
+          gameId,
+          socketId: socket.id,
+          timestamp: new Date().toISOString(),
+        });
       });
     } catch (error) {
       console.error("Connection error:", error);
