@@ -68,31 +68,57 @@ class BaseSlotsEngine extends GameEngine<
         this.config.content.bets[payload.betAmount] *
         this.config.content.lines.length;
 
-      const b1 = await this.state.getBalance(userId, this.config.gameId);
-
-      if (b1 < betAmount) {
+      const balance = await this.state.getBalance(userId, this.config.gameId);
+      if (balance < betAmount) {
         throw new Error("Balance is low");
       }
 
-      const matrix = this.getRandomMatrix();
-      const specialIconsCheck = this.checkForSpecialSymbols(matrix);
-      const lines = this.checkLines(matrix);
+      const reels = this.getRandomMatrix();
+      const specialSymbolsResult = this.checkForSpecialSymbols(reels);
+      const lineWins = this.checkLines(reels);
 
-      await this.state.deductBalanceWithDbSync(
-        userId,
-        this.config.gameId,
-        betAmount
-      );
+      const totalWinAmount = this.accumulateWins(lineWins) +
+        (specialSymbolsResult.reduce((sum, symbol) => sum + (symbol.specialWin || 0), 0));
 
-      const b2 = await this.state.getBalance(userId, this.config.gameId);
+      await this.state.deductBalanceWithDbSync(userId, this.config.gameId, betAmount);
+      const newBalance = await this.state.getBalance(userId, this.config.gameId);
 
-      console.log("MATRIX", matrix);
-      console.log("SPECIAL ICONS", specialIconsCheck);
-      console.log("LINES", lines);
+      const features = specialSymbolsResult
+        .filter(symbol => symbol.specialWin || symbol.freeSpinCount)
+        .map(symbol => ({
+          type: specialIcons[symbol.symbol as keyof typeof specialIcons],
+          data: {
+            count: symbol.count,
+            winAmount: symbol.specialWin,
+            ...(symbol.freeSpinCount ? { freeSpins: symbol.freeSpinCount } : {})
+          }
+        }));
 
-      return { success: true, balance: b2, matrix };
+      const spinResult = {
+        name: "SPIN_RESULT",
+        payload: {
+          success: true,
+          balance: newBalance,
+          reels,
+          winAmount: totalWinAmount,
+          wins: lineWins.map(win => ({
+            line: win.line[0],
+            symbols: win.symbols,
+            amount: win.amount
+          })),
+          ...(features.length > 0 ? { features } : {})
+        }
+      };
+
+      return {
+        matrix: reels,
+        success: true,
+        balance: newBalance,
+        ...spinResult,
+      };
+
     } catch (error) {
-      console.error(`Error processing spin for user `, error);
+      console.error(`Error processing spin for user`, error);
       throw error;
     }
   }
@@ -323,7 +349,7 @@ class BaseSlotsEngine extends GameEngine<
         specialSymbol.count >= (symbolConfig.minSymbolCount ?? 0)
       ) {
         switch (
-          specialIcons[specialSymbol.symbol as keyof typeof specialIcons]
+        specialIcons[specialSymbol.symbol as keyof typeof specialIcons]
         ) {
           case specialIcons.scatter:
             const scatterWins = [
@@ -332,7 +358,7 @@ class BaseSlotsEngine extends GameEngine<
                 symbols: Array(specialSymbol.count).fill(specialSymbol.symbol),
                 amount:
                   symbolConfig.multiplier[
-                    specialSymbol.count - (symbolConfig.minSymbolCount ?? 0)
+                  specialSymbol.count - (symbolConfig.minSymbolCount ?? 0)
                   ] || 0,
               },
             ];

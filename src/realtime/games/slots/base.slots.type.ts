@@ -56,7 +56,7 @@ export interface SlotConfig {
   symbols: SymbolConfig[];
 }
 
-//   paylines: any[];
+
 //   symbols: {
 //     freeSpin: {
 //       id: number;
