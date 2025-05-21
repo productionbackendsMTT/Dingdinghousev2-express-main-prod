@@ -35,6 +35,7 @@ class BaseSlotsEngine extends GameEngine<
       gameData: {
         lines: this.config.content.lines,
         bets: this.config.content.bets,
+        spinBonus: this.config.content.features.bonus.payout
       },
       uiData: {
         paylines: {

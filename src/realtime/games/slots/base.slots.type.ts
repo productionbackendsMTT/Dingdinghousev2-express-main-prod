@@ -1,4 +1,3 @@
-import { symbol } from "zod";
 import { GameAction, GameResponse } from "../game.type";
 
 export interface SlotAction extends GameAction {
