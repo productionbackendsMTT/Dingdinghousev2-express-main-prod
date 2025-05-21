@@ -97,24 +97,25 @@ class BaseSlotsEngine extends GameEngine<
       const spinResult = {
         name: "SPIN_RESULT",
         payload: {
-          success: true,
-          balance: newBalance,
-          reels,
           winAmount: totalWinAmount,
-          wins: lineWins.map(win => ({
-            line: win.line[0],
-            symbols: win.symbols,
-            amount: win.amount
-          })),
+          wins: lineWins.map(win => {
+            const lineIndex = win.line[0] - 1;
+            const winningSymbolsInfo = this.getWinningSymbolsInfo(win.symbols, lineIndex);
+            return {
+              line: lineIndex,
+              positions: winningSymbolsInfo.positions,
+              amount: win.amount
+            };
+          }),
           ...(features.length > 0 ? { features } : {})
         }
       };
 
       return {
-        matrix: reels,
         success: true,
-        balance: newBalance,
+        matrix: reels,
         ...spinResult,
+        balance: newBalance,
       };
 
     } catch (error) {
@@ -122,7 +123,35 @@ class BaseSlotsEngine extends GameEngine<
       throw error;
     }
   }
+  protected getWinningSymbolsInfo(symbols: string[], lineIndex: number): {
+    symbols: string[],
+    positions: number[]
+  } {
+    const lineDefinition = this.config.content.lines[lineIndex];
+    const wildSymbol = this.config.content.symbols
+      .find(s => s.name === "Wild")?.id.toString();
 
+    // Determine the paying symbol (first non-wild or first symbol)
+    let paySymbol = symbols.find(s => s !== wildSymbol) || symbols[0];
+
+    // Find all consecutive matching symbols (including wilds)
+    const winningSymbols: string[] = [];
+    const winningPositions: number[] = [];
+
+    for (let i = 0; i < symbols.length; i++) {
+      if (symbols[i] === paySymbol || symbols[i] === wildSymbol) {
+        winningSymbols.push(symbols[i]);
+        winningPositions.push(i); // The position in the line (0-4)
+      } else {
+        break; // Stop at first non-matching symbol
+      }
+    }
+
+    return {
+      symbols: winningSymbols,
+      positions: winningPositions
+    };
+  }
   protected generateReels(): string[][] {
     // Base implementation - override in variants
     return [];
@@ -414,7 +443,6 @@ class BaseSlotsEngine extends GameEngine<
     wins: Array<{ line: number[]; symbols: string[]; amount: number }>
   ) {
     const totalWin = wins.reduce((acc, win) => acc + win.amount, 0);
-    if (totalWin > 0) console.log("TOTAL WIN", totalWin);
     return totalWin;
   }
 }
