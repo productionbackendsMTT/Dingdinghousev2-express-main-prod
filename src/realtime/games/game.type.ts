@@ -17,7 +17,7 @@ export interface GameAction {
 
 export interface GameResponse {
   success: boolean;
-  balance: number;
+  player: { balance: number; }
   error?: string;
 }
 
