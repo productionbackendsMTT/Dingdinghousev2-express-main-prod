@@ -81,6 +81,8 @@ class BaseSlotsEngine extends GameEngine<
 
       const reels = this.getRandomMatrix();
       const specialSymbolsResult = this.checkForSpecialSymbols(reels);
+      // console.log("spl symbol res ", specialSymbolsResult);
+
       const lineWins = this.checkLines(reels);
 
       const totalWinAmount =
@@ -97,6 +99,7 @@ class BaseSlotsEngine extends GameEngine<
           totalWinAmount * this.config.content.bets[payload.betAmount]
         );
       }
+
 
       const newBalance = await this.state.getBalance(
         userId,
@@ -408,7 +411,7 @@ class BaseSlotsEngine extends GameEngine<
         specialSymbol.count >= (symbolConfig.minSymbolCount ?? 0)
       ) {
         switch (
-          specialIcons[specialSymbol.symbol as keyof typeof specialIcons]
+        specialIcons[specialSymbol.symbol as keyof typeof specialIcons]
         ) {
           case specialIcons.scatter:
             const scatterWins = [
@@ -417,7 +420,7 @@ class BaseSlotsEngine extends GameEngine<
                 symbols: Array(specialSymbol.count).fill(specialSymbol.symbol),
                 amount:
                   symbolConfig.multiplier[
-                    specialSymbol.count - (symbolConfig.minSymbolCount ?? 0)
+                  specialSymbol.count - (symbolConfig.minSymbolCount ?? 0)
                   ] || 0,
               },
             ];
