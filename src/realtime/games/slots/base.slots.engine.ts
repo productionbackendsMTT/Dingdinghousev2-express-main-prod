@@ -36,7 +36,7 @@ class BaseSlotsEngine extends GameEngine<
       gameData: {
         lines: this.config.content.lines,
         bets: this.config.content.bets,
-        spinBonus: this.config.content.features.bonus.payout
+        spinBonus: this.config.content.features.bonus.payout.map((item) => item.amount)
       },
       uiData: {
         paylines: {
@@ -145,7 +145,8 @@ class BaseSlotsEngine extends GameEngine<
       const features: any[] = []
       if (this.config.tag === "SL-VIK") {
         features.push({
-          BonusSpinStopIndex: spinBonusResp
+          BonusSpinStopIndex: spinBonusResp,
+          amount: this.config.content.features.bonus.payout[spinBonusResp]?.amount,
         })
       }
 
