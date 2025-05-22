@@ -1,11 +1,11 @@
-import { GameEngine } from "../game.engine";
-import { SlotsInitData } from "../game.type";
+import { GameEngine } from "../../game.engine";
+import { SlotsInitData } from "../../game.type";
 import {
   SlotAction,
   SlotConfig,
   SlotResponse,
   specialIcons,
-} from "./base.slots.type";
+} from "../base.slots.type";
 
 class BaseSlotsEngine extends GameEngine<
   SlotConfig,
@@ -73,8 +73,6 @@ class BaseSlotsEngine extends GameEngine<
         throw new Error("Balance is low");
       }
 
-      await this.state.deductBalanceWithDbSync(userId, this.config.gameId, betAmount);
-
       const reels = this.getRandomMatrix();
       const specialSymbolsResult = this.checkForSpecialSymbols(reels);
       const lineWins = this.checkLines(reels);
@@ -82,13 +80,8 @@ class BaseSlotsEngine extends GameEngine<
       const totalWinAmount = this.accumulateWins(lineWins) +
         (specialSymbolsResult.reduce((sum, symbol) => sum + (symbol.specialWin || 0), 0));
 
-
-
-      await this.state.creditBalanceWithDbSync(userId, this.config.gameId, totalWinAmount * payload.betAmount)
-
+      await this.state.deductBalanceWithDbSync(userId, this.config.gameId, betAmount);
       const newBalance = await this.state.getBalance(userId, this.config.gameId);
-
-
 
       const features = specialSymbolsResult
         .filter(symbol => symbol.specialWin || symbol.freeSpinCount)
@@ -102,7 +95,7 @@ class BaseSlotsEngine extends GameEngine<
         }));
 
       const spinResult = {
-        id: "ResultData",
+        name: "SPIN_RESULT",
         payload: {
           winAmount: totalWinAmount,
           wins: lineWins.map(win => {
@@ -119,12 +112,12 @@ class BaseSlotsEngine extends GameEngine<
       };
 
       return {
-        success: true,
         matrix: reels,
-        ...spinResult,
+        success: true,
         player: {
           balance: newBalance,
         },
+        ...spinResult,
       };
 
     } catch (error) {
@@ -330,7 +323,7 @@ class BaseSlotsEngine extends GameEngine<
     const result = this.accumulateWins(wins);
     return {
       count,
-      win: result,
+      win: result ?? 0,
     };
   }
 
@@ -405,11 +398,11 @@ class BaseSlotsEngine extends GameEngine<
 
           case specialIcons.jackpot:
             if (specialSymbol.count >= (symbolConfig.minSymbolCount ?? 0)) {
-              console.log(
-                "jackpot",
-                specialSymbol.count,
-                symbolConfig.minSymbolCount
-              );
+              // console.log(
+              //   "jackpot",
+              //   specialSymbol.count,
+              //   symbolConfig.minSymbolCount
+              // );
               const jackpotWins = [
                 {
                   line: [],
@@ -418,7 +411,7 @@ class BaseSlotsEngine extends GameEngine<
                 },
               ];
 
-              console.log(jackpotWins);
+              // console.log(jackpotWins);
               specialSymbol.specialWin = this.accumulateWins(jackpotWins);
             }
             break;
