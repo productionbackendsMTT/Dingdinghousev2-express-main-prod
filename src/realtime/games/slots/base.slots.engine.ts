@@ -63,59 +63,76 @@ class BaseSlotsEngine extends GameEngine<
       if (this.config.content.bets[payload.betAmount] <= 0) {
         throw new Error("Something went wrong");
       }
-
-      const betAmount =
+      const totalBetAmount =
         this.config.content.bets[payload.betAmount] *
         this.config.content.lines.length;
 
       const balance = await this.state.getBalance(userId, this.config.gameId);
-      if (balance < betAmount) {
+      if (balance < totalBetAmount) {
         throw new Error("Balance is low");
       }
 
-      await this.state.deductBalanceWithDbSync(userId, this.config.gameId, betAmount);
+      await this.state.deductBalanceWithDbSync(
+        userId,
+        this.config.gameId,
+        totalBetAmount
+      );
 
       const reels = this.getRandomMatrix();
       const specialSymbolsResult = this.checkForSpecialSymbols(reels);
       const lineWins = this.checkLines(reels);
 
-      const totalWinAmount = this.accumulateWins(lineWins) +
-        (specialSymbolsResult.reduce((sum, symbol) => sum + (symbol.specialWin || 0), 0));
+      const totalWinAmount =
+        this.accumulateWins(lineWins) +
+        specialSymbolsResult.reduce(
+          (sum, symbol) => sum + (symbol.specialWin || 0),
+          0
+        );
 
+      if (totalWinAmount > 0) {
+        await this.state.creditBalanceWithDbSync(
+          userId,
+          this.config.gameId,
+          totalWinAmount * this.config.content.bets[payload.betAmount]
+        );
+      }
 
-
-      await this.state.creditBalanceWithDbSync(userId, this.config.gameId, totalWinAmount * payload.betAmount)
-
-      const newBalance = await this.state.getBalance(userId, this.config.gameId);
-
-
+      const newBalance = await this.state.getBalance(
+        userId,
+        this.config.gameId
+      );
 
       const features = specialSymbolsResult
-        .filter(symbol => symbol.specialWin || symbol.freeSpinCount)
-        .map(symbol => ({
+        .filter((symbol) => symbol.specialWin || symbol.freeSpinCount)
+        .map((symbol) => ({
           type: specialIcons[symbol.symbol as keyof typeof specialIcons],
           data: {
             count: symbol.count,
             winAmount: symbol.specialWin,
-            ...(symbol.freeSpinCount ? { freeSpins: symbol.freeSpinCount } : {})
-          }
+            ...(symbol.freeSpinCount
+              ? { freeSpins: symbol.freeSpinCount }
+              : {}),
+          },
         }));
 
       const spinResult = {
         id: "ResultData",
         payload: {
           winAmount: totalWinAmount,
-          wins: lineWins.map(win => {
+          wins: lineWins.map((win) => {
             const lineIndex = win.line[0] - 1;
-            const winningSymbolsInfo = this.getWinningSymbolsInfo(win.symbols, lineIndex);
+            const winningSymbolsInfo = this.getWinningSymbolsInfo(
+              win.symbols,
+              lineIndex
+            );
             return {
               line: lineIndex,
               positions: winningSymbolsInfo.positions,
-              amount: win.amount
+              amount: win.amount,
             };
           }),
-          ...(features.length > 0 ? { features } : {})
-        }
+          ...(features.length > 0 ? { features } : {}),
+        },
       };
 
       return {
@@ -126,22 +143,25 @@ class BaseSlotsEngine extends GameEngine<
           balance: newBalance,
         },
       };
-
     } catch (error) {
       console.error(`Error processing spin for user`, error);
       throw error;
     }
   }
-  protected getWinningSymbolsInfo(symbols: string[], lineIndex: number): {
+  protected getWinningSymbolsInfo(
     symbols: string[],
-    positions: number[]
+    lineIndex: number
+  ): {
+    symbols: string[];
+    positions: number[];
   } {
     const lineDefinition = this.config.content.lines[lineIndex];
     const wildSymbol = this.config.content.symbols
-      .find(s => s.name === "Wild")?.id.toString();
+      .find((s) => s.name === "Wild")
+      ?.id.toString();
 
     // Determine the paying symbol (first non-wild or first symbol)
-    let paySymbol = symbols.find(s => s !== wildSymbol) || symbols[0];
+    let paySymbol = symbols.find((s) => s !== wildSymbol) || symbols[0];
 
     // Find all consecutive matching symbols (including wilds)
     const winningSymbols: string[] = [];
@@ -158,7 +178,7 @@ class BaseSlotsEngine extends GameEngine<
 
     return {
       symbols: winningSymbols,
-      positions: winningPositions
+      positions: winningPositions,
     };
   }
   protected generateReels(): string[][] {
@@ -387,7 +407,7 @@ class BaseSlotsEngine extends GameEngine<
         specialSymbol.count >= (symbolConfig.minSymbolCount ?? 0)
       ) {
         switch (
-        specialIcons[specialSymbol.symbol as keyof typeof specialIcons]
+          specialIcons[specialSymbol.symbol as keyof typeof specialIcons]
         ) {
           case specialIcons.scatter:
             const scatterWins = [
@@ -396,7 +416,7 @@ class BaseSlotsEngine extends GameEngine<
                 symbols: Array(specialSymbol.count).fill(specialSymbol.symbol),
                 amount:
                   symbolConfig.multiplier[
-                  specialSymbol.count - (symbolConfig.minSymbolCount ?? 0)
+                    specialSymbol.count - (symbolConfig.minSymbolCount ?? 0)
                   ] || 0,
               },
             ];
