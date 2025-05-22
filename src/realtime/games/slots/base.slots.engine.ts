@@ -83,6 +83,9 @@ class BaseSlotsEngine extends GameEngine<
       const reels = this.getRandomMatrix();
       const specialSymbolsResult = this.checkForSpecialSymbols(reels);
 
+      console.log("splsym", specialSymbolsResult);
+
+
 
       //bonus spin 
       let isSpinBonus = false
@@ -99,10 +102,6 @@ class BaseSlotsEngine extends GameEngine<
 
       const lineWins = this.checkLines(reels);
 
-      // console.log("payout count", this.config.content.features.bonus.payout.length, spinBonusResp);
-
-      // console.log("bonus", (spinBonusResp >= 0 ? this.config.content.features.bonus.payout[spinBonusResp]?.amount : 0)
-      // );
 
 
       const totalWinAmount =
@@ -146,7 +145,8 @@ class BaseSlotsEngine extends GameEngine<
       if (this.config.tag === "SL-VIK") {
         features.push({
           BonusSpinStopIndex: spinBonusResp,
-          amount: this.config.content.features.bonus.payout[spinBonusResp]?.amount,
+          amount: this.config.content.features.bonus.payout[spinBonusResp]?.amount * this.config.content.bets[payload.betAmount] || 0
+          ,
         })
       }
 
@@ -154,7 +154,8 @@ class BaseSlotsEngine extends GameEngine<
       const spinResult = {
         id: "ResultData",
         payload: {
-          winAmount: totalWinAmount,
+          winAmount: totalWinAmount * this.config.content.bets[payload.betAmount]
+          ,
           wins: lineWins.map((win) => {
             const lineIndex = win.line[0] - 1;
             const winningSymbolsInfo = this.getWinningSymbolsInfo(
@@ -164,7 +165,8 @@ class BaseSlotsEngine extends GameEngine<
             return {
               line: lineIndex,
               positions: winningSymbolsInfo.positions,
-              amount: win.amount,
+              amount: win.amount * this.config.content.bets[payload.betAmount]
+              ,
             };
           }),
         },
