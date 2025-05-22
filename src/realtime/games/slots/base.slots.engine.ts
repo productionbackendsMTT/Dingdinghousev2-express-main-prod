@@ -74,6 +74,8 @@ class BaseSlotsEngine extends GameEngine<
         throw new Error("Balance is low");
       }
 
+      await this.state.deductBalanceWithDbSync(userId, this.config.gameId, betAmount);
+
       const reels = this.getRandomMatrix();
       const specialSymbolsResult = this.checkForSpecialSymbols(reels);
       const lineWins = this.checkLines(reels);
@@ -81,8 +83,13 @@ class BaseSlotsEngine extends GameEngine<
       const totalWinAmount = this.accumulateWins(lineWins) +
         (specialSymbolsResult.reduce((sum, symbol) => sum + (symbol.specialWin || 0), 0));
 
-      await this.state.deductBalanceWithDbSync(userId, this.config.gameId, betAmount);
+
+
+      await this.state.creditBalanceWithDbSync(userId, this.config.gameId, totalWinAmount * payload.betAmount)
+
       const newBalance = await this.state.getBalance(userId, this.config.gameId);
+
+
 
       const features = specialSymbolsResult
         .filter(symbol => symbol.specialWin || symbol.freeSpinCount)
@@ -117,7 +124,7 @@ class BaseSlotsEngine extends GameEngine<
         matrix: reels,
         ...spinResult,
         player: {
-          balance,
+          balance: newBalance,
         },
       };
 
