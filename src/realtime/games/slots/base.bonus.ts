@@ -1,9 +1,9 @@
 import { BonusFeature } from "./base.slots.type"
-import { weightedRandomPick } from "./common/weightedPick"
+import { getRandomFromProbability } from "./common/weightedPick"
 import { cryptoRng } from "./gameUtils.slots"
 
 
-interface SpinResponse {
+interface SpinBonusResponse {
   BonusStopIndex: number
 }
 /**
@@ -34,14 +34,14 @@ export function checkSpinBonus(count: BonusFeature["minSymbolCount"], matrix: st
  * @param payout - An array of payout objects, each containing a probability.
  * @returns An object containing the randomly selected bonus stop index.
  */
-export function calculateSpinBonus(payout: BonusFeature["payout"]): SpinResponse {
+export function calculateSpinBonus(payout: BonusFeature["payout"]): SpinBonusResponse {
   let pool: number[] = []
   payout.forEach((item) => {
     pool.push(item.probability)
   })
 
   return {
-    BonusStopIndex: weightedRandomPick(pool, cryptoRng)
+    BonusStopIndex: getRandomFromProbability(pool, cryptoRng) - 1
   }
 
 }

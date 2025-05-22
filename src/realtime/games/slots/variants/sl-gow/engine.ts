@@ -1,7 +1,7 @@
 // src/modules/games/god-of-wealth/engine.ts
 
 import { evaluatePaylines } from "../../common/paylines.LTRTL";
-import { weightedRandomPick } from "../../common/weightedPick";
+import { getRandomFromProbability } from "../../common/weightedPick";
 import {
   GameDefinition,
   PlayerGameState,
@@ -39,7 +39,7 @@ export function spin(
     });
 
     // Pick one symbol from the pool
-    const pickedId = weightedRandomPick(pool, ctx.rng);
+    const pickedId = getRandomFromProbability(pool, ctx.rng);
 
     // **Simple stub**: fill the entire column with the same symbol
     for (let row = 0; row < rows; row++) {

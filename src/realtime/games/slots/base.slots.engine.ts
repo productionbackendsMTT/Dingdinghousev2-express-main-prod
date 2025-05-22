@@ -1,5 +1,6 @@
 import { GameEngine } from "../game.engine";
 import { SlotsInitData } from "../game.type";
+import { calculateSpinBonus } from "./base.bonus";
 import {
   SlotAction,
   SlotConfig,
@@ -81,16 +82,37 @@ class BaseSlotsEngine extends GameEngine<
 
       const reels = this.getRandomMatrix();
       const specialSymbolsResult = this.checkForSpecialSymbols(reels);
-      // console.log("spl symbol res ", specialSymbolsResult);
+
+
+      //bonus spin 
+      let isSpinBonus = false
+      specialSymbolsResult.forEach((splSym) => {
+        if (splSym.symbolName === specialIcons.bonus && splSym.count >= this.config.content.features.bonus.minSymbolCount) {
+          isSpinBonus = true
+        }
+      })
+      let spinBonusResp: number = -1
+      if (isSpinBonus) {
+        const { BonusStopIndex } = calculateSpinBonus(this.config.content.features.bonus.payout)
+        spinBonusResp = BonusStopIndex
+      }
 
       const lineWins = this.checkLines(reels);
 
+      // console.log("payout count", this.config.content.features.bonus.payout.length, spinBonusResp);
+
+      // console.log("bonus", (spinBonusResp >= 0 ? this.config.content.features.bonus.payout[spinBonusResp]?.amount : 0)
+      // );
+
+
       const totalWinAmount =
         this.accumulateWins(lineWins) +
-        specialSymbolsResult.reduce(
-          (sum, symbol) => sum + (symbol.specialWin || 0),
-          0
-        );
+        (spinBonusResp >= 0 ? this.config.content.features.bonus.payout[spinBonusResp]?.amount : 0)
+      // specialSymbolsResult.reduce(
+      //   (sum, symbol) => sum + (symbol.specialWin || 0),
+      //   0
+      // );
+
 
       if (totalWinAmount > 0) {
         await this.state.creditBalanceWithDbSync(
@@ -106,18 +128,27 @@ class BaseSlotsEngine extends GameEngine<
         this.config.gameId
       );
 
-      const features = specialSymbolsResult
-        .filter((symbol) => symbol.specialWin || symbol.freeSpinCount)
-        .map((symbol) => ({
-          type: specialIcons[symbol.symbol as keyof typeof specialIcons],
-          data: {
-            count: symbol.count,
-            winAmount: symbol.specialWin,
-            ...(symbol.freeSpinCount
-              ? { freeSpins: symbol.freeSpinCount }
-              : {}),
-          },
-        }));
+      // const features = specialSymbolsResult
+      //   .filter((symbol) => symbol.specialWin || symbol.freeSpinCount)
+      //   .map((symbol) => ({
+      //     type: specialIcons[symbol.symbol as keyof typeof specialIcons],
+      //     data: {
+      //       count: symbol.count,
+      //       winAmount: symbol.specialWin,
+      //       ...(symbol.freeSpinCount
+      //         ? { freeSpins: symbol.freeSpinCount }
+      //         : {}),
+      //     },
+      //   }));
+
+      //FIX: fix spl sym later
+      const features: any[] = []
+      if (this.config.tag === "SL-VIK") {
+        features.push({
+          BonusSpinStopIndex: spinBonusResp
+        })
+      }
+
 
       const spinResult = {
         id: "ResultData",
@@ -135,8 +166,9 @@ class BaseSlotsEngine extends GameEngine<
               amount: win.amount,
             };
           }),
-          ...(features.length > 0 ? { features } : {}),
         },
+
+        ...(features.length > 0 ? { bonus: features[0] } : {}),
       };
 
       return {
@@ -148,7 +180,7 @@ class BaseSlotsEngine extends GameEngine<
         },
       };
     } catch (error) {
-      console.error(`Error processing spin for user`, error);
+      console.error(`Error processing spin for user (in handle spin)`, error);
       throw error;
     }
   }

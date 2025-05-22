@@ -132,7 +132,7 @@ class RedisService {
       if (!success) {
         // Check remaining TTL for debugging
         const remainingTtl = await client.ttl(key);
-        console.log(`Existing lock ${key} has ${remainingTtl}s remaining`);
+        // console.log(`Existing lock ${key} has ${remainingTtl}s remaining`);
       }
 
       return success;
@@ -146,7 +146,7 @@ class RedisService {
     try {
       const exists = await this.exists(key);
       if (!exists) {
-        console.log(`Lock ${key} already released or expired`);
+        // console.log(`Lock ${key} already released or expired`);
         return;
       }
 
@@ -170,14 +170,14 @@ class RedisService {
       try {
         if (await this.acquireLock(lockKey, ttl)) {
           try {
-            console.log(`Lock acquired for ${lockKey}, executing callback...`);
+            // console.log(`Lock acquired for ${lockKey}, executing callback...`);
             const startTime = Date.now();
             const result = await callback();
             const duration = Date.now() - startTime;
-            console.log(`Callback for ${lockKey} completed in ${duration}ms`);
+            // console.log(`Callback for ${lockKey} completed in ${duration}ms`);
 
             await this.releaseLock(lockKey);
-            console.log(`Lock released for ${lockKey}`);
+            // console.log(`Lock released for ${lockKey}`);
             return result;
           } catch (err) {
             console.error(`Error during locked operation for ${lockKey}:`, err);
@@ -190,8 +190,7 @@ class RedisService {
           // Add jitter to the delay to prevent synchronized retries
           const jitteredDelay = delay + Math.floor(Math.random() * 200);
           console.log(
-            `Retry ${
-              i + 1
+            `Retry ${i + 1
             }/${retries} for lock ${lockKey} after ${jitteredDelay}ms`
           );
           await new Promise((resolve) => setTimeout(resolve, jitteredDelay));
