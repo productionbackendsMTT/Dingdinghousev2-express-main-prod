@@ -1,18 +1,26 @@
 import { BonusFeature } from "./base.slots.type"
 import { weightedRandomPick } from "./common/weightedPick"
+import { cryptoRng } from "./gameUtils.slots"
 
 
 interface SpinResponse {
   BonusStopIndex: number
 }
+/**
+ * Checks if the number of bonus symbols in the matrix meets or exceeds the minimum required count.
+ * @param count - The minimum number of bonus symbols required.
+ * @param matrix - The slot matrix to check, represented as a 2D array of strings.
+ * @param bonusSymbol - The symbol representing the bonus.
+ * @returns True if the count of bonus symbols is greater than or equal to the required count, otherwise false.
+ */
 export function checkSpinBonus(count: BonusFeature["minSymbolCount"], matrix: string[][], bonusSymbol: string): boolean {
   if (count === undefined || count === null || count < 0) {
     console.error("Bonus feature minSymbolCount is invalid in spin bonus check")
     return false
   }
   let found = 0
-  matrix.forEach((row, rowIndex) => {
-    row.forEach((symbol, columnIndex) => {
+  matrix.forEach((row) => {
+    row.forEach((symbol) => {
       if (symbol === bonusSymbol) {
         found++
       }
@@ -21,16 +29,19 @@ export function checkSpinBonus(count: BonusFeature["minSymbolCount"], matrix: st
   return found >= count
 
 }
+/**
+ * Calculates the bonus stop index based on the payout probabilities.
+ * @param payout - An array of payout objects, each containing a probability.
+ * @returns An object containing the randomly selected bonus stop index.
+ */
 export function calculateSpinBonus(payout: BonusFeature["payout"]): SpinResponse {
   let pool: number[] = []
   payout.forEach((item) => {
     pool.push(item.probability)
   })
-  // weightedRandomPick(pool, cryptoRandom)
-
 
   return {
-    BonusStopIndex: 0
+    BonusStopIndex: weightedRandomPick(pool, cryptoRng)
   }
 
 }
