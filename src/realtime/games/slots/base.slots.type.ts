@@ -12,6 +12,10 @@ export interface SlotResponse extends GameResponse {
 }
 export type BonusType = "spin" | "tap" | "mini-slot";
 
+export interface JackpotFeature {
+
+}
+
 export interface BonusFeature {
   type: BonusType;
   enabled: boolean;

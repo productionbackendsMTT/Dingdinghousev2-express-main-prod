@@ -85,6 +85,8 @@ class BaseSlotsEngine extends GameEngine<
 
       console.log("splsym", specialSymbolsResult);
 
+      //jackpot
+      let isJackpot = false
 
 
       //bonus spin 
@@ -93,6 +95,10 @@ class BaseSlotsEngine extends GameEngine<
         if (splSym.symbolName === specialIcons.bonus && splSym.count >= this.config.content.features.bonus.minSymbolCount) {
           isSpinBonus = true
         }
+
+        // if (splSym.symbolName === specialIcons.jackpot && splSym.count >= this.config.content.symbols.find((sym) => sym. )) {
+        //   isSpinBonus = true
+        // }
       })
       let spinBonusResp: number = -1
       if (isSpinBonus) {
