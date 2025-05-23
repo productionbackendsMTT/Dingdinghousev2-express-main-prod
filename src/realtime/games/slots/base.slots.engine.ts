@@ -169,8 +169,10 @@ class BaseSlotsEngine extends GameEngine<
     const jackpotAmount = specialFeatures.isJackpot
       ? this.config.content.features.jackpot.defaultAmount
       : 0;
-
-    return lineWinAmount + bonusAmount + jackpotAmount;
+    const scatterAmount = specialFeatures.scatter > 0
+      ? specialFeatures.scatter.amount
+      : 0;
+    return lineWinAmount + bonusAmount + jackpotAmount + scatterAmount;
   }
 
   private async creditWinnings(userId: string, totalWinAmount: number): Promise<void> {
