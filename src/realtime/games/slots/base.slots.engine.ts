@@ -177,7 +177,6 @@ class BaseSlotsEngine extends GameEngine<
             return {
               line: lineIndex,
               positions: winningSymbolsInfo.positions,
-              symbols: winningSymbolsInfo.symbols,
               amount: win.amount * this.config.content.bets[payload.betAmount]
               ,
             };
