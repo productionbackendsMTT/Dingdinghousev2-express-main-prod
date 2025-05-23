@@ -464,6 +464,7 @@ class BaseSlotsEngine extends GameEngine<
         const existing = specialSymbols.find((s) => s.symbol === symbolId);
         if (existing) {
           existing.count++;
+
         } else {
           specialSymbols.push({
             symbol: symbolId,
