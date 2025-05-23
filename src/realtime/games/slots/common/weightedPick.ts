@@ -1,4 +1,3 @@
-// src/modules/common/features/weightedPick.ts
 
 /**
  * Given a “pool” array where each entry appears as many times as its weight,

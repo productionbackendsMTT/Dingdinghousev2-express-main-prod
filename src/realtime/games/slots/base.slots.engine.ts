@@ -83,7 +83,6 @@ class BaseSlotsEngine extends GameEngine<
       const reels = this.getRandomMatrix();
       const specialSymbolsResult = this.checkForSpecialSymbols(reels);
 
-      console.log("splsym", specialSymbolsResult);
 
       //jackpot
       let isJackpot = false
@@ -96,9 +95,9 @@ class BaseSlotsEngine extends GameEngine<
           isSpinBonus = true
         }
 
-        // if (splSym.symbolName === specialIcons.jackpot && splSym.count >= this.config.content.symbols.find((sym) => sym. )) {
-        //   isSpinBonus = true
-        // }
+        if (splSym.symbolName === specialIcons.jackpot && splSym.count >= this.config.content.features.jackpot.minSymbolCount) {
+          isJackpot = true
+        }
       })
       let spinBonusResp: number = -1
       if (isSpinBonus) {
@@ -106,13 +105,16 @@ class BaseSlotsEngine extends GameEngine<
         spinBonusResp = BonusStopIndex
       }
 
+
       const lineWins = this.checkLines(reels);
 
 
 
       const totalWinAmount =
         this.accumulateWins(lineWins) +
-        (spinBonusResp >= 0 ? this.config.content.features.bonus.payout[spinBonusResp]?.amount : 0)
+        (spinBonusResp >= 0 ? this.config.content.features.bonus.payout[spinBonusResp]?.amount : 0) +
+        (isJackpot ? this.config.content.features.jackpot.defaultAmount : 0)
+
       // specialSymbolsResult.reduce(
       //   (sum, symbol) => sum + (symbol.specialWin || 0),
       //   0
@@ -152,7 +154,10 @@ class BaseSlotsEngine extends GameEngine<
         features.push({
           BonusSpinStopIndex: spinBonusResp,
           amount: this.config.content.features.bonus.payout[spinBonusResp]?.amount * this.config.content.bets[payload.betAmount] || 0
-          ,
+        })
+        features.push({
+          isTriggered: isJackpot,
+          amount: isJackpot ? this.config.content.features.jackpot.defaultAmount * this.config.content.bets[payload.betAmount] : 0
         })
       }
 
@@ -177,7 +182,7 @@ class BaseSlotsEngine extends GameEngine<
           }),
         },
 
-        ...(features.length > 0 ? { bonus: features[0] } : {}),
+        ...(features.length > 0 ? { bonus: features[0], jackpot: features[1] } : {}),
       };
 
       return {
