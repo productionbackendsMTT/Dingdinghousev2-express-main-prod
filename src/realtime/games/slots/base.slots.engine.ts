@@ -146,7 +146,10 @@ class BaseSlotsEngine extends GameEngine<
         }
       }
       if (symbol.symbolName === specialIcons.scatter && symbol.count >= minCount) {
-        features.scatter = symbolConfig?.multiplier[5 - symbol.count] ?? 0;
+        if (symbol.count > 5) { features.scatter = symbolConfig?.multiplier[0] ?? 0 } else {
+          features.scatter = symbolConfig?.multiplier[5 - symbol.count] ?? 0;
+        }
+
       }
     });
 
@@ -224,7 +227,7 @@ class BaseSlotsEngine extends GameEngine<
         amount: specialFeatures.bonusResult >= 0
           ? (this.config.content.features.bonus.payout[specialFeatures.bonusResult]?.amount || 0) * betMultiplier
           : 0
-          
+
       },
       jackpot: {
         isTriggered: specialFeatures.isJackpot,
