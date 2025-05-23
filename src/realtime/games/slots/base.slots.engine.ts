@@ -6,6 +6,7 @@ import {
   SlotConfig,
   SlotResponse,
   specialIcons,
+  SymbolConfig,
 } from "./base.slots.type";
 
 class BaseSlotsEngine extends GameEngine<
@@ -82,14 +83,20 @@ class BaseSlotsEngine extends GameEngine<
 
       const reels = this.getRandomMatrix();
       const specialSymbolsResult = this.checkForSpecialSymbols(reels);
+      // console.log("splSym", specialSymbolsResult);
 
 
       //jackpot
-      let isJackpot = false
-
+      let isJackpot: boolean = false
 
       //bonus spin 
-      let isSpinBonus = false
+      let isSpinBonus: boolean = false
+
+      //scatter 
+      let scatterMultiplier: number = 0
+
+
+
       specialSymbolsResult.forEach((splSym) => {
         if (splSym.symbolName === specialIcons.bonus && splSym.count >= this.config.content.features.bonus.minSymbolCount) {
           isSpinBonus = true
@@ -98,22 +105,39 @@ class BaseSlotsEngine extends GameEngine<
         if (splSym.symbolName === specialIcons.jackpot && splSym.count >= this.config.content.features.jackpot.minSymbolCount) {
           isJackpot = true
         }
+        if (splSym.symbolName === specialIcons.scatter) {
+          let scatterSymbol = this.config.content.symbols.find(
+            (s) => s.name === specialIcons.scatter
+          ) as SymbolConfig // enforcing that scatter  symbol will be present 
+          if (splSym.count >= (scatterSymbol?.minSymbolCount ?? 0)) {
+            const multiplierIndex = Math.max(
+              0,
+              scatterSymbol.multiplier.length - (splSym.count - (scatterSymbol.minSymbolCount ?? 0)) - 1
+            );
+            scatterMultiplier = scatterSymbol.multiplier[multiplierIndex];
+          }
+        }
       })
+
+      // console.log("scattermult", scatterCountOrMultiplier);
+
+      // console.log("scatter bool", scatterMultiplier > 0);
+
+
+
       let spinBonusResp: number = -1
       if (isSpinBonus) {
         const { BonusStopIndex } = calculateSpinBonus(this.config.content.features.bonus.payout)
         spinBonusResp = BonusStopIndex
       }
 
-
       const lineWins = this.checkLines(reels);
-
-
 
       const totalWinAmount =
         this.accumulateWins(lineWins) +
         (spinBonusResp >= 0 ? this.config.content.features.bonus.payout[spinBonusResp]?.amount : 0) +
-        (isJackpot ? this.config.content.features.jackpot.defaultAmount : 0)
+        (isJackpot ? this.config.content.features.jackpot.defaultAmount : 0) +
+        (scatterMultiplier > 0 ? scatterMultiplier : 0);
 
       // specialSymbolsResult.reduce(
       //   (sum, symbol) => sum + (symbol.specialWin || 0),
@@ -158,6 +182,10 @@ class BaseSlotsEngine extends GameEngine<
         features.push({
           isTriggered: isJackpot,
           amount: isJackpot ? this.config.content.features.jackpot.defaultAmount * this.config.content.bets[payload.betAmount] : 0
+        })
+        features.push({
+          isTriggered: scatterMultiplier > 0,
+          amount: scatterMultiplier * this.config.content.bets[payload.betAmount] || 0
         })
       }
 
