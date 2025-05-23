@@ -61,13 +61,41 @@ class BaseSlotsEngine extends GameEngine<
 
       this.validateSpinPayload(payload);
 
+      //NOTE: freespin checking from state
+      let freeSpinCount: number = await this.state.
+        getGameSpecificState(
+          userId,
+          this.config.gameId, "freeSpins"
+        ) || 0
+      // console.log(`freespin count from state`, freeSpinCount);
+      let isFreeSpin = false;
+
       const totalBetAmount = this.calculateTotalBet(payload.betAmount);
-      await this.validateAndDeductBalance(userId, totalBetAmount);
+
+      if (!freeSpinCount || freeSpinCount <= 0) {
+        await this.validateAndDeductBalance(userId, totalBetAmount);
+      }
 
       const reels = this.getRandomMatrix();
 
       const lineWins = this.checkLines(reels);
       const specialFeatures = this.processSpecialFeatures(reels);
+
+      // console.log(" spins awarded now ", specialFeatures.freeSpinCount);
+
+      //NOTE: set freespincount
+      if (specialFeatures.freeSpinCount && specialFeatures.freeSpinCount > 0) {
+        isFreeSpin = true;
+        this.state.setGameSpecificState(
+          userId,
+          this.config.gameId,
+          "freeSpins",
+          freeSpinCount + specialFeatures.freeSpinCount - 1
+        );
+      }
+      specialFeatures.freeSpinCount = freeSpinCount + specialFeatures.freeSpinCount;
+
+      // console.log("final freespin ", specialFeatures.freeSpinCount);
 
       const totalWinAmount = this.calculateTotalWinAmount(
         lineWins,
@@ -87,7 +115,8 @@ class BaseSlotsEngine extends GameEngine<
         specialFeatures,
         totalWinAmount,
         newBalance,
-        payload.betAmount
+        payload.betAmount,
+        isFreeSpin
       );
     } catch (error) {
       console.error(`Error processing spin for user`, error);
@@ -184,11 +213,12 @@ class BaseSlotsEngine extends GameEngine<
     specialFeatures: any,
     totalWinAmount: number,
     newBalance: number,
-    betAmountIndex: number
+    betAmountIndex: number,
+    isFreeSpin: boolean  // Add this parameter
   ): SlotResponse {
     const betMultiplier = this.config.content.bets[betAmountIndex];
 
-    const features = this.buildFeatureResponse(specialFeatures, betMultiplier);
+    const features = this.buildFeatureResponse(specialFeatures, betMultiplier, isFreeSpin);  // Pass isFreeSpin
 
     const spinResult = {
       id: "ResultData",
@@ -217,7 +247,7 @@ class BaseSlotsEngine extends GameEngine<
     };
   }
 
-  private buildFeatureResponse(specialFeatures: any, betMultiplier: number): any {
+  private buildFeatureResponse(specialFeatures: any, betMultiplier: number, isFreeSpin: boolean): any {  // Add isFreeSpin parameter
     if (this.config.tag !== "SL-VIK") {
       return {};
     }
@@ -237,7 +267,8 @@ class BaseSlotsEngine extends GameEngine<
           : 0
       },
       freeSpin: {
-        freeSpinCount: specialFeatures.freeSpinCount,
+        count: specialFeatures.freeSpinCount,
+        isFreeSpin: isFreeSpin,  // Add this line
       },
       scatter: {
         amount: specialFeatures.scatter * betMultiplier,
