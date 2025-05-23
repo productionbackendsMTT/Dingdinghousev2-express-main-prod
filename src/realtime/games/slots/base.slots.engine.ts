@@ -1,3 +1,4 @@
+import { symbol } from "zod";
 import { GameEngine } from "../game.engine";
 import { SlotsInitData } from "../game.type";
 import { calculateSpinBonus } from "./base.bonus";
@@ -176,6 +177,7 @@ class BaseSlotsEngine extends GameEngine<
             return {
               line: lineIndex,
               positions: winningSymbolsInfo.positions,
+              symbols: winningSymbolsInfo.symbols,
               amount: win.amount * this.config.content.bets[payload.betAmount]
               ,
             };
@@ -184,7 +186,7 @@ class BaseSlotsEngine extends GameEngine<
 
         ...(features.length > 0 ? { bonus: features[0], jackpot: features[1] } : {}),
       };
-
+      console.log(reels, "reels")
       return {
         success: true,
         matrix: reels,
@@ -341,19 +343,22 @@ class BaseSlotsEngine extends GameEngine<
       ?.id.toString();
 
     if (values[0] === wildSymbol) {
-      for (let i = 1; i < values.length; i++) {
-        if (values[i] !== wildSymbol) {
+      for (let i = count; i < values.length; i++) {
+        if (values[i] === paySymbol) {
+          count++;
+        } else if (values[i] === wildSymbol) {
+          count++;
+        } else {
           const symbol = this.config.content.symbols.find(
-            (s) => s.id.toString() === values[i] && s.useWildSub
+            (s) => s.id.toString() === paySymbol
           );
-          if (symbol) {
-            paySymbol = values[i];
-            count = i + 1;
+          if (!symbol?.useWildSub) {
             break;
           }
+          break;
         }
-        count++;
       }
+
     } else {
       const firstSymbol = this.config.content.symbols.find(
         (s) => s.id.toString() === values[0]
