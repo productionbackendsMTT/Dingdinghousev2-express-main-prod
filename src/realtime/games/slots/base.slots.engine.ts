@@ -6,7 +6,6 @@ import {
   SlotConfig,
   SlotResponse,
   specialIcons,
-  SymbolConfig,
 } from "./base.slots.type";
 
 class BaseSlotsEngine extends GameEngine<
@@ -74,6 +73,13 @@ class BaseSlotsEngine extends GameEngine<
 
       if (!freeSpinCount || freeSpinCount <= 0) {
         await this.validateAndDeductBalance(userId, totalBetAmount);
+      } else {
+        this.state.setGameSpecificState(
+          userId,
+          this.config.gameId,
+          "freeSpins",
+          freeSpinCount - 1
+        );
       }
 
       const reels = this.getRandomMatrix();
@@ -90,7 +96,7 @@ class BaseSlotsEngine extends GameEngine<
           userId,
           this.config.gameId,
           "freeSpins",
-          freeSpinCount + specialFeatures.freeSpinCount - 1
+          freeSpinCount + specialFeatures.freeSpinCount
         );
       }
       specialFeatures.freeSpinCount = freeSpinCount + specialFeatures.freeSpinCount;
