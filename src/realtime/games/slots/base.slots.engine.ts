@@ -108,7 +108,7 @@ class BaseSlotsEngine extends GameEngine<
         specialFeatures,
         payload.betAmount
       );
-
+      console.log(totalWinAmount, "total win amount");
       if (totalWinAmount > 0) {
         await this.creditWinnings(userId, totalWinAmount * this.config.content.bets[payload.betAmount]);
       }
