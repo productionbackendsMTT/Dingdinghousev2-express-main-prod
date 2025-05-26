@@ -1,5 +1,5 @@
 import { IPayout } from "../../common/types/payout.type";
-import { SlotConfig } from "./slots/base.slots.type";
+import { BonusFeature, SlotConfig } from "./slots/base.slots.type";
 
 export interface GameConfig<T = any> {
   gameId: string;
@@ -17,7 +17,7 @@ export interface GameAction {
 
 export interface GameResponse {
   success: boolean;
-  balance: number;
+  player: { balance: number; }
   error?: string;
 }
 
@@ -54,6 +54,7 @@ export interface SlotsInitData extends BaseInitData {
   gameData: {
     lines: number[][];
     bets: number[];
+    spinBonus?: number[]
   };
   uiData: {
     paylines: {

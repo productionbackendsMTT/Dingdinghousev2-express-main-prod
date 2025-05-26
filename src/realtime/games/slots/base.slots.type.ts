@@ -1,4 +1,3 @@
-import { symbol } from "zod";
 import { GameAction, GameResponse } from "../game.type";
 
 export interface SlotAction extends GameAction {
@@ -12,6 +11,12 @@ export interface SlotResponse extends GameResponse {
   matrix: string[][];
 }
 export type BonusType = "spin" | "tap" | "mini-slot";
+
+export interface JackpotFeature {
+  enabled: boolean;
+  minSymbolCount: number;
+  defaultAmount: number;
+}
 
 export interface BonusFeature {
   type: BonusType;
@@ -52,6 +57,7 @@ export interface SlotConfig {
   features: {
     bonus: BonusFeature;
     gamble: GambleFeature;
+    jackpot: JackpotFeature;
   };
   symbols: SymbolConfig[];
 }
