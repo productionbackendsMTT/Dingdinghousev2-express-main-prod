@@ -87,7 +87,6 @@ class BaseSlotsEngine extends GameEngine<
       const lineWins = this.checkLines(reels);
       const specialFeatures = this.processSpecialFeatures(reels);
 
-      // console.log(" spins awarded now ", specialFeatures.freeSpinCount);
 
       //NOTE: set freespincount
       if (specialFeatures.freeSpinCount && specialFeatures.freeSpinCount > 0) {
@@ -108,7 +107,6 @@ class BaseSlotsEngine extends GameEngine<
         specialFeatures,
         payload.betAmount
       );
-
       if (totalWinAmount > 0) {
         await this.creditWinnings(userId, totalWinAmount * this.config.content.bets[payload.betAmount]);
       }
@@ -206,7 +204,7 @@ class BaseSlotsEngine extends GameEngine<
       ? this.config.content.features.jackpot.defaultAmount
       : 0;
     const scatterAmount = specialFeatures.scatter > 0
-      ? specialFeatures.scatter.amount
+      ? specialFeatures.scatter
       : 0;
     return lineWinAmount + bonusAmount + jackpotAmount + scatterAmount;
   }
@@ -226,7 +224,7 @@ class BaseSlotsEngine extends GameEngine<
   ): SlotResponse {
     const betMultiplier = this.config.content.bets[betAmountIndex];
 
-    const features = this.buildFeatureResponse(specialFeatures, betMultiplier, isFreeSpin);  // Pass isFreeSpin
+    const features = this.buildFeatureResponse(specialFeatures, betMultiplier, isFreeSpin);
 
     const spinResult = {
       id: "ResultData",
@@ -242,7 +240,7 @@ class BaseSlotsEngine extends GameEngine<
           };
         }),
       },
-      ...(features.bonus || features.jackpot || features.freeSpin ? features : {}),
+      ...(features || {}),
     };
 
     return {
