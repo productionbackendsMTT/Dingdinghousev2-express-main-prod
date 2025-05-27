@@ -2,7 +2,7 @@ import { Namespace } from "socket.io";
 import PlaygroundService from "./playground.service";
 import { PlaygroundSocket } from "./playground.types";
 import { Events } from "./playground.events";
-import { publishToSSE, SSEEventTypes } from "../../../common/lib/sse.events";
+import { publishToUser, SSEEventTypes } from "../../../common/lib/sse.events";
 
 export function setupPlayground(namespace: Namespace) {
   const playgroundService = PlaygroundService.getInstance();
@@ -21,8 +21,7 @@ export function setupPlayground(namespace: Namespace) {
       const initData = await engine.getInitData(userId);
       socket.emit(Events.SERVER.INIT_DATA.name, JSON.stringify(initData));
 
-      // Notify SSE clients about user connection
-      await publishToSSE(SSEEventTypes.GAME_STARTED, {
+      await publishToUser(userId, SSEEventTypes.GAME_STARTED, {
         userId,
         gameId,
         socketId: socket.id,
@@ -84,8 +83,7 @@ export function setupPlayground(namespace: Namespace) {
       socket.on("disconnect", async () => {
         console.log(`Player disconnected from game ${gameId} : ${userId}`);
 
-        // Notify SSE clients about user disconnection
-        await publishToSSE(SSEEventTypes.GAME_ENDED, {
+        await publishToUser(userId, SSEEventTypes.GAME_ENDED, {
           userId,
           gameId,
           socketId: socket.id,
