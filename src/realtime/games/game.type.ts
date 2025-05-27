@@ -52,7 +52,7 @@ export interface BaseInitData {
 export interface SlotsInitData extends BaseInitData {
   id: string;
   gameData: {
-    lines: number[][];
+    lines?: number[][];
     bets: number[];
     spinBonus?: number[]
   };
@@ -63,6 +63,7 @@ export interface SlotsInitData extends BaseInitData {
         name: string;
         multiplier: number[];
         description?: string;
+        isFreeSpinMultiplier?: boolean;
       }>;
     };
   };

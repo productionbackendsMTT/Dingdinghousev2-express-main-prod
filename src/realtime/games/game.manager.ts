@@ -6,6 +6,8 @@ import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
 import BaseSlotsEngine from "./slots/base.slots.engine";
 import { GamesTypes } from "./game.type";
+import logMethod from "../../common/lib/decorators/logging.decorator";
+import LifeOfLuxurySlotsEngine from "./slots/variants/SL-LOL/sl-lol.slots.engine";
 
 export class GameManager {
   private static instance: GameManager;
@@ -18,6 +20,7 @@ export class GameManager {
 
   private initializeGameEngines(): void {
     this.gameEngines.set(GamesTypes.SLOTS, BaseSlotsEngine);
+    this.gameEngines.set("SL-LOL", LifeOfLuxurySlotsEngine);;
     // this.gameEngines.set(GamesTypes.KENO, BaseKenoEngine);
   }
 
@@ -54,7 +57,7 @@ export class GameManager {
     );
 
     if (!filePath) {
-      console.warn(`Game file not found for ID "${game.tag}". Using default.`);
+      console.warn(`Game file not found for ID "${game.tag}"  . Using default.`);
       return this.getDefaultGameEngine(game, gameType);
     }
 
@@ -95,7 +98,11 @@ export class GameManager {
     const possibleFileNames = [
       `${sanitizedGameId.toLowerCase()}.${gameType}.engine.js`,
       `${sanitizedGameId.toLowerCase()}.${gameType}.engine.ts`,
+      `engine.ts`
     ];
+
+    console.log("find game file ", JSON.stringify(possibleFileNames), `${baseDir}`);
+
 
     if (!fs.existsSync(baseDir)) {
       console.warn(`Directory does not exist: ${baseDir}`);
@@ -113,6 +120,7 @@ export class GameManager {
         }
       }
     }
+    console.warn("gone in dir name")
     return null;
   }
   private static loadGameClass(filePath: string, gameId: string): any {
