@@ -130,11 +130,11 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
       });
 
 
-      // console.log("wincombs", JSON.stringify(winCombinations));
+      console.log("wincombs", JSON.stringify(winCombinations));
 
 
       if (totalWinAmount > 0) {
-        await this.creditWinnings(userId, totalWinAmount * this.config.content.bets[payload.betAmount]);
+        await this.creditWinnings(userId, totalWinAmount * totalBetAmount);
       }
 
       const newBalance = await this.state.getBalance(userId, this.config.gameId);
@@ -252,21 +252,19 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
   ): SLLOLResponse {
     const betMultiplier = this.config.content.bets[betAmountIndex];
 
-    const features: any[] = []
+    // const features: any[] = []
 
     const spinResult = {
       id: "ResultData",
       payload: {
         winAmount: totalWinAmount * betMultiplier,
-        // wins: lineWins.map((win) => {
-        //   const lineIndex = win.line[0] - 1;
-        //   const winningSymbolsInfo = this.getWinningSymbolsInfo(win.symbols, lineIndex);
-        //   return {
-        //     line: lineIndex,
-        //     positions: winningSymbolsInfo.positions,
-        //     amount: win.amount * betMultiplier,
-        //   };
-        // }),
+        wins: lineWins.map((win: WinningCombination) => {
+          return {
+            symbolId: win.symbolId,
+            positions: win.positions,
+            amount: win.payout * betMultiplier,
+          };
+        }),
       },
       // ...( features.freeSpin ? features : {}),
     };
