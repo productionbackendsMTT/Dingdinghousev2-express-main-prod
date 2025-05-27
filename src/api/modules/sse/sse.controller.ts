@@ -4,13 +4,10 @@ import { v4 as uuidv4 } from "uuid";
 import { SSEClientManager } from "../../../common/lib/sse.events";
 
 class SSEController {
-  sseHanler = (req: Request, res: Response, next: NextFunction) => {
+  sseHanler = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const authReq = req as AuthRequest;
       const userId = authReq.requestingUser._id.toString();
-
-      // Generate a unique client ID
-      const clientId = `${userId}-${uuidv4()}`;
 
       // Set headers to prevent connection timeout and properly enable SSE
       res.writeHead(200, {
@@ -29,24 +26,11 @@ class SSEController {
 
       // Add client to SSE manager
       const sseManager = SSEClientManager.getInstance();
-      sseManager.addClient(clientId, res);
-
-      // Store user info in query params for identification
-      const userInfo = {
-        userId: userId,
-        username: authReq.requestingUser.username || "unknown",
-        clientId: clientId,
-      };
-
-      // Send initial user data
-      sseManager.sendToClient(clientId, "init", {
-        message: "SSE connection established",
-        user: userInfo,
-      });
+      await sseManager.addClient(userId, res);
 
       // Handle client disconnection
       req.on("close", () => {
-        sseManager.removeClient(clientId);
+        sseManager.removeClient(userId);
       });
     } catch (error) {
       next(error);

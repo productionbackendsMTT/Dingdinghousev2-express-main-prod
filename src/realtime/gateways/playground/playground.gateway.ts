@@ -2,10 +2,11 @@ import { Namespace } from "socket.io";
 import PlaygroundService from "./playground.service";
 import { PlaygroundSocket } from "./playground.types";
 import { Events } from "./playground.events";
-import { publishToSSE, SSEEventTypes } from "../../../common/lib/sse.events";
+import { publishToSSE, publishToUser, SSEClientManager, SSEEventTypes } from "../../../common/lib/sse.events";
 
 export function setupPlayground(namespace: Namespace) {
   const playgroundService = PlaygroundService.getInstance();
+  const sseManager = SSEClientManager.getInstance();
 
   namespace.on("connection", async (socket: PlaygroundSocket) => {
     try {
@@ -21,13 +22,13 @@ export function setupPlayground(namespace: Namespace) {
       const initData = await engine.getInitData(userId);
       socket.emit(Events.SERVER.INIT_DATA.name, JSON.stringify(initData));
 
-      // Notify SSE clients about user connection
-      await publishToSSE(SSEEventTypes.GAME_STARTED, {
+
+      await publishToUser(userId, SSEEventTypes.GAME_STARTED, {
         userId,
         gameId,
         socketId: socket.id,
         timestamp: new Date().toISOString(),
-      });
+      })
 
       // Handle config update request
       socket.on(

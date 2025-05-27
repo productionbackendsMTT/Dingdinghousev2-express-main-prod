@@ -279,6 +279,11 @@ class RedisService {
     await this.getSubscriber().subscribe(channel, callback);
   }
 
+  public async unsubscribe(channel: string): Promise<void> {
+    if (!this.subClient) throw new Error("Redis subscriber not connected");
+    await this.subClient.unsubscribe(channel);
+  }
+
   // Utility Methods
   public async keys(pattern: string): Promise<string[]> {
     return this.getClient().keys(pattern);
