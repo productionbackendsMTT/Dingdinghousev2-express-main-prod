@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
-import { v4 as uuidv4 } from "uuid";
 import { SSEClientManager } from "../../../common/lib/sse.events";
 
 class SSEController {
