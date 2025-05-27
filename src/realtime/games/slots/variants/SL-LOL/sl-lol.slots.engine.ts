@@ -118,7 +118,7 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
             {
               matrix: reels.map(row => row.map(symbolId => symbolId.toString())),
               symbols: this.config.content.symbols,
-              wildSymbolId: SLLOLSpecials.Wild,
+              wildSymbolId: this.getWildSymbolId(),
               minMatchCount: this.config.content.minMatchCount,
               betPerLine: totalBetAmount
             }
@@ -130,7 +130,7 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
       });
 
 
-      console.log("wincombs", JSON.stringify(winCombinations));
+      // console.log("wincombs", JSON.stringify(winCombinations));
 
 
       if (totalWinAmount > 0) {
@@ -177,6 +177,7 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
 
 
 
+  // @logMethod
   private checkCombinations(
     symbolId: number,
     startCol: number,
