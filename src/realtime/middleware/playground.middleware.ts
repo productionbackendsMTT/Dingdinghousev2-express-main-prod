@@ -8,7 +8,6 @@ export const playgroundAuthMiddleware = async (
   socket: PlaygroundSocket,
   next: (err?: ExtendedError | undefined) => void
 ) => {
-
   const token = socket.handshake.auth.token;
   if (!token) return next(new Error("Playground token required"));
 
