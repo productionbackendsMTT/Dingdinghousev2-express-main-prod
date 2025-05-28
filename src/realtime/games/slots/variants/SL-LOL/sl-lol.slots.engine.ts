@@ -1,7 +1,8 @@
 import logMethod from "../../../../../common/lib/decorators/logging.decorator";
+import { PlayerState } from "../../../../gateways/playground/playground.types";
 import { GameEngine } from "../../../game.engine";
 import { SlotsInitData } from "../../../game.type";
-import { CombinationCheckContext, SLLOLAction, SLLOLConfig, SLLOLResponse, SLLOLSpecials, SLLOLSymbolConfig, WinningCombination } from "./sl-lol.slots.type";
+import { CombinationCheckContext, SLLOLAction, SLLOLCheckForFreeSpinContext, SLLOLConfig, SLLOLResponse, SLLOLSpecials, SLLOLSymbolConfig, WinningCombination } from "./sl-lol.slots.type";
 
 class LifeOfLuxurySlotsEngine extends GameEngine<
   SLLOLConfig,
@@ -9,6 +10,8 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
   SLLOLResponse,
   SlotsInitData
 > {
+
+
   validateConfig(): void {
     const { matrix, lines, symbols } = this.config.content;
 
@@ -39,7 +42,7 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
             name: symbol.name,
             multiplier: symbol.multiplier,
             description: symbol.description,
-            isFreeSpinMultiplier: symbol.iSFreeSpinMultiplier
+            isFreeSpinMultiplier: symbol.isFreeSpinMultiplier
           })),
         },
       },
@@ -57,40 +60,91 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
 
       this.validateSpinPayload(payload);
 
-      //NOTE: freespin checking from state
-      let freeSpinCount: number = await this.state.
-        getGameSpecificState(
-          userId,
-          this.config.gameId, "freeSpins"
-        ) || 0
+      let playerState = await this.state.getSafeState(userId, this.config.gameId) as PlayerState
+
+      console.log("player state", (playerState));
+
+
+      let freeSpinMultSymbols: number[] = this.config.content.symbols.filter((s) => s.isFreeSpinMultiplier).map((s) => s.id);
+
+
+      //NOTE: freespin count checking from state
+      let freeSpinCount: number = playerState.gameSpecific?.freeSpins || 0;
       // console.log(`freespin count from state`, freeSpinCount);
-      let isFreeSpin = false;
 
       const totalBetAmount = this.calculateTotalBet(payload.betAmount);
 
+      const reels = this.getRandomMatrix()
+
+      let winCombinations: WinningCombination[] = []
+
+      let ctx: SLLOLCheckForFreeSpinContext = {
+        matrix: reels,
+        freeSpinSymbolId: this.getFreeSpinSymbolId()
+      }
+      const isFreeSpin = this.checkForFreespin(ctx)
+
+      //NOTE: set freespincount
+      // spagatti if else ladder
       if (!freeSpinCount || freeSpinCount <= 0) {
         await this.validateAndDeductBalance(userId, totalBetAmount);
-      } else {
-        this.state.setGameSpecificState(
-          userId,
-          this.config.gameId,
-          "freeSpins",
-          freeSpinCount - 1
-        );
-      }
+        playerState.balance -= totalBetAmount
+        playerState.currentBet = totalBetAmount;
 
-      const reels = this.getRandomMatrix()
+        console.log(" deducting bet amount", totalBetAmount);
+
+
+
+
+
+        //NOTE: freespin within freespin
+        if (isFreeSpin) {
+          // If it's a free spin trigger situation, we increment 
+          // this.state.setGameSpecificState(
+          //   userId,
+          //   this.config.gameId,
+          //   "freeSpins",
+          //   freeSpinCount + this.config.content.features.freeSpin.incrementCount
+          // );
+          freeSpinCount += this.config.content.features.freeSpin.incrementCount;
+
+          playerState.gameSpecific.freeSpinMults = [1, 1, 1, 1, 1];
+        }
+      } else {
+
+        //NOTE: handle freespin mult symbol count tracker
+        let mults = playerState.gameSpecific.freeSpinMults || [1, 1, 1, 1, 1]
+        reels.flat().forEach((symbolId) => {
+          if (!isNaN(parseInt(symbolId))) {
+            freeSpinMultSymbols.forEach((sym, idx) => {
+              if (parseInt(symbolId) === sym) {
+                if (mults[idx]) {
+                  mults[idx] += mults[idx] + 1 > this.config.content.features.freeSpin.maxMultiplier ? 0 : 1;
+
+                } else {
+                  mults[idx] = 1;
+                }
+              }
+            })
+          }
+        });
+        console.log("multssss:", mults, freeSpinMultSymbols);
+
+        playerState.gameSpecific.freeSpinMults = mults;
+        // this.state.setGameSpecificState(
+        //   userId,
+        //   this.config.gameId,
+        //   "freeSpins",
+        //   freeSpinCount - 1 + (isFreeSpin ? this.config.content.features.freeSpin.incrementCount : 0)
+        // );
+        freeSpinCount = freeSpinCount - 1 + (isFreeSpin ? this.config.content.features.freeSpin.incrementCount : 0);
+      }
+      playerState.gameSpecific.freeSpins = freeSpinCount;
 
       console.log("reels", reels.map(row => row.map(symbolId => symbolId || "Unknown Symbol")));
 
+      console.log(" spins awarded ", isFreeSpin, freeSpinCount);
 
-      let winCombinations: WinningCombination[] = []
-      const specialFeatures = {}
-
-
-      // console.log(" spins awarded now ", specialFeatures.freeSpinCount);
-
-      //NOTE: set freespincount
       // if (specialFeatures.freeSpinCount && specialFeatures.freeSpinCount > 0) {
       //   isFreeSpin = true;
       //   this.state.setGameSpecificState(
@@ -104,10 +158,7 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
 
       // console.log("final freespin ", specialFeatures.freeSpinCount);
 
-
-
-      const totalWinAmount = 0
-
+      let totalWinAmount = 0
 
       this.config.content.symbols.forEach(symbol => {
         if (symbol.name !== SLLOLSpecials.FreeSpin && symbol.name !== SLLOLSpecials.Wild) {
@@ -124,29 +175,54 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
             }
           ) || [];
           if (combinationsForSymbol.length > 0) {
+            //NOTE: freespin mults 
+            //
+            if (freeSpinCount > 0 && playerState.gameSpecific?.freeSpinMults) {
+
+              if (freeSpinMultSymbols.includes(symbol.id)) {
+                combinationsForSymbol.forEach((comb) => {
+                  if (comb.payout && comb.payout > 0) {
+                    comb.payout = comb.payout * playerState.gameSpecific.freeSpinMults[freeSpinMultSymbols.indexOf(symbol.id)];
+                  }
+                });
+
+              }
+            }
             winCombinations.push(...combinationsForSymbol);
+            let winAmt: number = 0
+            combinationsForSymbol.forEach((comb) => {
+              if (comb.payout && comb.payout > 0) {
+                winAmt += comb.payout
+              }
+            })
+            totalWinAmount += winAmt;
           }
         }
       });
 
-
-      console.log("wincombs", JSON.stringify(winCombinations));
-
+      // console.log("wincombs", JSON.stringify(winCombinations));
 
       if (totalWinAmount > 0) {
         await this.creditWinnings(userId, totalWinAmount * totalBetAmount);
+        playerState.balance += totalWinAmount * totalBetAmount;
       }
+      console.log("win", totalWinAmount, playerState.balance);
 
       const newBalance = await this.state.getBalance(userId, this.config.gameId);
+
+      await this.state.updatePartialState(userId, this.config.gameId, playerState)
 
       return this.buildSpinResponse(
         reels,
         winCombinations,
-        specialFeatures,
+        {
+          isFreeSpin,
+          count: freeSpinCount,
+          mults: playerState.gameSpecific?.freeSpinMults || [1, 1, 1, 1, 1],
+        },
         totalWinAmount,
         newBalance,
         payload.betAmount,
-        isFreeSpin
       );
     } catch (error) {
       console.error(`Error processing spin for user`, error);
@@ -236,6 +312,38 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
     }
   }
 
+  private checkForFreespin(Context: SLLOLCheckForFreeSpinContext): boolean {
+    try {
+      const { matrix, freeSpinSymbolId } = Context;
+      const rows = matrix.length;
+
+      // Check if 1st, 2nd, and 3rd columns have symbol with ID 12 regardless of row
+      let col1Has12 = false;
+      let col2Has12 = false;
+      let col3Has12 = false;
+
+
+      for (let j = 0; j < rows; j++) { // Loop through rows
+        if (matrix[j][1] == freeSpinSymbolId) col1Has12 = true; // Check 1st column
+        if (matrix[j][2] == freeSpinSymbolId) col2Has12 = true; // Check 2nd column
+        if (matrix[j][3] == freeSpinSymbolId) col3Has12 = true; // Check 3rd column
+
+
+        // If all three columns have the symbol, return true
+        if (col1Has12 && col2Has12 && col3Has12) {
+          return true;
+        }
+      }
+
+      // If one of the columns doesn't have the symbol, return false
+      return false;
+
+
+    } catch (e) {
+      console.error("Error in checkForFreespin:", e);
+      return false; // Handle error by returning false in case of failure
+    }
+  }
 
   private async creditWinnings(userId: string, totalWinAmount: number): Promise<void> {
     await this.state.creditBalanceWithDbSync(userId, this.config.gameId, totalWinAmount);
@@ -244,11 +352,14 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
   private buildSpinResponse(
     reels: string[][],
     lineWins: Array<any>,
-    specialFeatures: any,
+    specialFeatures: {
+      count: number,
+      isFreeSpin: boolean,
+      mults: number[]
+    },
     totalWinAmount: number,
     newBalance: number,
     betAmountIndex: number,
-    isFreeSpin: boolean
   ): SLLOLResponse {
     const betMultiplier = this.config.content.bets[betAmountIndex];
 
@@ -266,6 +377,13 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
           };
         }),
       },
+      features: {
+        freeSpin: {
+          isFreeSpin: specialFeatures?.isFreeSpin || false,
+          count: specialFeatures?.count,
+          mults: specialFeatures?.mults
+        }
+      }
       // ...( features.freeSpin ? features : {}),
     };
 

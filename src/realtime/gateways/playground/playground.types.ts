@@ -30,9 +30,8 @@ export interface PlayerState {
   balance: number;
   currentBet?: number;
   currentLines?: number;
-  freeSpins?: number;
   bonusState?: any;
   lastUpdated: Date;
   sessionStart: Date;
-  gameSpecific?: Record<string, any>;
+  gameSpecific: Record<string, any>;
 }

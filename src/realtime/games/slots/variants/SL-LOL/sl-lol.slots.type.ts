@@ -11,9 +11,15 @@ export interface SLLOLResponse extends GameResponse {
   matrix: string[][];
 }
 
-export interface GambleFeature {
+export interface SLLOLGambleFeature {
   type: "card";
   enabled: boolean;
+}
+
+export interface SLLOLFreeSpinFeature {
+  isEnabled: boolean;
+  incrementCount: number;
+  maxMultiplier: number[]
 }
 
 export interface SLLOLSymbolConfig {
@@ -28,7 +34,7 @@ export interface SLLOLSymbolConfig {
   minSymbolCount?: number;
   description?: string;
   defaultAmount?: number;
-  iSFreeSpinMultiplier?: boolean;
+  isFreeSpinMultiplier?: boolean;
 }
 
 export interface SLLOLConfig {
@@ -41,7 +47,8 @@ export interface SLLOLConfig {
   bets: number[];
   minMatchCount: number;
   features: {
-    gamble: GambleFeature;
+    gamble: SLLOLGambleFeature;
+    freeSpin: SLLOLFreeSpinFeature;
   };
   symbols: SLLOLSymbolConfig[];
 }
@@ -62,4 +69,9 @@ export interface CombinationCheckContext {
   wildSymbolId: string;
   minMatchCount: number;
   betPerLine: number;
+}
+
+export interface SLLOLCheckForFreeSpinContext {
+  matrix: string[][];
+  freeSpinSymbolId: string;
 }
