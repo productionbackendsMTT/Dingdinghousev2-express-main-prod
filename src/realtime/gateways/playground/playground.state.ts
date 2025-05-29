@@ -82,6 +82,7 @@ export class StateService {
         balance: balance, // Use the formatted balance with proper precision
         lastUpdated: new Date(),
         sessionStart: new Date(),
+        currentWinning: 0,
         gameSpecific: {},
         userInfo: {
           username: user.username,

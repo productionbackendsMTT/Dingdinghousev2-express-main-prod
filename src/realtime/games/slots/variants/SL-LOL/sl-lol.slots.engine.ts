@@ -2,6 +2,7 @@ import logMethod from "../../../../../common/lib/decorators/logging.decorator";
 import { PlayerState } from "../../../../gateways/playground/playground.types";
 import { GameEngine } from "../../../game.engine";
 import { SlotsInitData } from "../../../game.type";
+import { gambleResponse, getGambleResult } from "../../common/gamble";
 import { CombinationCheckContext, SLLOLAction, SLLOLCheckForFreeSpinContext, SLLOLConfig, SLLOLResponse, SLLOLSpecials, SLLOLSymbolConfig, WinningCombination } from "./sl-lol.slots.type";
 
 class LifeOfLuxurySlotsEngine extends GameEngine<
@@ -18,9 +19,52 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
   }
 
   async handleAction(action: SLLOLAction): Promise<SLLOLResponse> {
-    switch (action.type) {
+    console.log("action: ", action);
+    console.log("actiontype: ", action.type, action.type === "gamble");
+
+
+    switch (action.type.trim()) {
       case "spin":
         return this.handleSpin(action);
+      case "gamble":
+        if (this.config.content.features.gamble.isEnabled) {
+
+          if (action.payload.event === "init") {
+            //NOTE: handle gamble init
+            await this.handleGambleInit(action);
+            return {
+              success: true,
+              player: {
+                balance: 0
+              }
+            }
+          } else if (action.payload.event === "draw") {
+            const result = await this.handleGambleDraw(action)
+            if (result === undefined) {
+              throw new Error("Gamble draw failed, result is undefined");
+            }
+            return {
+              success: true,
+              player: {
+                balance: result.balance,
+              },
+              payload: {
+                ...result,
+              }
+            }
+          } else if (action.payload.event === "collect") {
+            let balc = await this.handleGambleCollect(action);
+            return {
+              success: true,
+              player: {
+                balance: balc
+              }
+            }
+          }
+        } else {
+
+          throw new Error(`Gamble disabled: ${action.type}`);
+        }
       default:
         throw new Error(`Unknown action: ${action.type}`);
     }
@@ -53,10 +97,74 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
   }
 
 
+  //NOTE: handle gamble init
+  protected async handleGambleInit(action: SLLOLAction) {
+
+    const playerState = await this.state.getSafeState(action.userId, this.config.gameId) as PlayerState;
+    if (playerState.currentWinning && playerState.currentWinning > 0) {
+      // if current winning is already set, do not reset it
+
+      await this.updatePlayerState(action.userId, {
+        currentWinning: playerState.currentWinning || 0,
+        balance: playerState.balance - (action.payload.lastWinning || 0),
+      })
+      return;
+    } else {
+      throw new Error("Current winning is not set or is zero, cannot proceed with gamble init");
+    }
+    // await this.validateAndDeductBalance(action.userId, action.payload.lastWinning ?? 0);
+  }
+
+
+  //NOTE: handle gamble draw
+  protected async handleGambleDraw(action: SLLOLAction) {
+
+    if (action.payload.cardSelected === "BLACK" || action.payload.cardSelected === "RED") {
+      const playerState = await this.state.getSafeState(action.userId, this.config.gameId) as PlayerState;
+
+      let result = getGambleResult({ selected: action.payload.cardSelected });
+      //calculate payout
+      switch (result.playerWon) {
+        case true:
+          playerState.currentWinning *= 2
+          result.balance = playerState.balance + playerState.currentWinning;
+          result.currentWinning = playerState.currentWinning;
+          break;
+        case false:
+          result.currentWinning = 0;
+          result.balance = playerState.balance
+          playerState.currentWinning = 0;
+          break;
+      }
+
+      await this.state.setGameSpecificState(
+        action.userId,
+        this.config.gameId,
+        "currentWinning",
+        playerState.currentWinning
+      );
+      console.log("result", result);
+
+      return result;
+
+      // this.sendMessage("GambleResult", result) // result card 
+    } else {
+      console.error("Invalid card type for gamble draw", action.payload.cardSelected);
+    }
+  }
+
+  //NOTE: handle gamble collect
+  protected async handleGambleCollect(action: SLLOLAction) {
+    const playerState = await this.state.getSafeState(action.userId, this.config.gameId) as PlayerState;
+    playerState.balance += playerState.currentWinning;
+    await this.state.updatePartialState(action.userId, this.config.gameId, playerState);
+    return playerState.balance;
+  }
 
   protected async handleSpin(action: SLLOLAction): Promise<SLLOLResponse> {
     try {
       const { userId, payload } = action;
+
 
       this.validateSpinPayload(payload);
 
@@ -80,14 +188,15 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
 
       let ctx: SLLOLCheckForFreeSpinContext = {
         matrix: reels,
-        freeSpinSymbolId: this.getFreeSpinSymbolId()
+        freeSpinSymbolId: this.getFreeSpinSymbolId(),
+        isEnabled: this.config.content.features.freeSpin.isEnabled
       }
       const isFreeSpin = this.checkForFreespin(ctx)
 
       //NOTE: set freespincount
       // spagatti if else ladder
       if (!freeSpinCount || freeSpinCount <= 0) {
-        await this.validateAndDeductBalance(userId, totalBetAmount);
+        // await this.validateAndDeductBalance(userId, totalBetAmount);
         playerState.balance -= totalBetAmount
         playerState.currentBet = totalBetAmount;
 
@@ -203,12 +312,12 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
       // console.log("wincombs", JSON.stringify(winCombinations));
 
       if (totalWinAmount > 0) {
-        await this.creditWinnings(userId, totalWinAmount * totalBetAmount);
+        // await this.creditWinnings(userId, totalWinAmount * totalBetAmount);
         playerState.balance += totalWinAmount * totalBetAmount;
       }
       console.log("win", totalWinAmount, playerState.balance);
 
-      const newBalance = await this.state.getBalance(userId, this.config.gameId);
+      playerState.currentWinning = totalWinAmount * totalBetAmount;
 
       await this.state.updatePartialState(userId, this.config.gameId, playerState)
 
@@ -221,7 +330,8 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
           mults: playerState.gameSpecific?.freeSpinMults || [1, 1, 1, 1, 1],
         },
         totalWinAmount,
-        newBalance,
+        // newBalance,
+        playerState.balance,
         payload.betAmount,
       );
     } catch (error) {
@@ -314,7 +424,10 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
 
   private checkForFreespin(Context: SLLOLCheckForFreeSpinContext): boolean {
     try {
-      const { matrix, freeSpinSymbolId } = Context;
+      const { matrix, freeSpinSymbolId, isEnabled } = Context;
+
+
+      if (!isEnabled) return false; // If free spins are not enabled, return false
       const rows = matrix.length;
 
       // Check if 1st, 2nd, and 3rd columns have symbol with ID 12 regardless of row

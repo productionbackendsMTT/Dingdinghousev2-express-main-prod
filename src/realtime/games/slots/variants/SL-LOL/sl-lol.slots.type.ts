@@ -1,19 +1,23 @@
 import { GameAction, GameResponse } from "../../../game.type";
 
 export interface SLLOLAction extends GameAction {
-  type: "spin";
+  type: "spin" | "gamble";
   payload: {
     betAmount: number;
+    cardSelected?: "BLACK" | "RED"
+    lastWinning?: number;
+    event?: string;
   };
 }
 
 export interface SLLOLResponse extends GameResponse {
-  matrix: string[][];
+  matrix?: string[][];
+  payload?: any
 }
 
 export interface SLLOLGambleFeature {
-  type: "card";
-  enabled: boolean;
+  type: string
+  isEnabled: boolean;
 }
 
 export interface SLLOLFreeSpinFeature {
@@ -74,4 +78,5 @@ export interface CombinationCheckContext {
 export interface SLLOLCheckForFreeSpinContext {
   matrix: string[][];
   freeSpinSymbolId: string;
+  isEnabled: boolean;
 }

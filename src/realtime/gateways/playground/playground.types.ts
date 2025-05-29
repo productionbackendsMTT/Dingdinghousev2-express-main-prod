@@ -29,6 +29,7 @@ export interface PlayerState {
   // Core gameplay state
   balance: number;
   currentBet?: number;
+  currentWinning: number;
   currentLines?: number;
   bonusState?: any;
   lastUpdated: Date;

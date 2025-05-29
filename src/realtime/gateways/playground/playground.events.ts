@@ -8,6 +8,15 @@ export const Events = {
         spins: number;
       },
     },
+    GAMBLE_REQUEST: {
+      name: "gamble:request",
+      payload: {} as {
+        type: "BLACKRED"
+        lastWinning?: number;
+        cardType?: string
+        event: string
+      }
+    },
     CONFIG_UPDATE: {
       name: "game:config:update",
       payload: {} as {
@@ -38,6 +47,14 @@ export const Events = {
           data: any;
         }>;
       },
+    },
+    GAMBLE_RESULT: {
+      name: "gamble:result",
+      payload: {} as {
+        success: boolean;
+        balance: number;
+        winAmount: number;
+      }
     },
     INIT_DATA: {
       name: "game:init",
