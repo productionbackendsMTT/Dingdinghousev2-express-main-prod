@@ -56,8 +56,9 @@ export abstract class GameEngine<
   }
 
   abstract validateConfig(): void;
-  abstract handleAction(action: TAction): Promise<TResponse>;
+  abstract handleAction(action: TAction): Promise<TResponse> | Promise<void>;
   public abstract getInitData(userId: string): Promise<TInitData>;
+
 
   protected async getPlayerState(userId: string) {
     return this.state.getState(userId, this.config.gameId);

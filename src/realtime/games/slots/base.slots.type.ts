@@ -62,57 +62,6 @@ export interface SlotConfig {
   symbols: SymbolConfig[];
 }
 
-
-//   symbols: {
-//     freeSpin: {
-//       id: number;
-//       multiplier: number[];
-//       use: boolean;
-//     };
-//     jackpot: {
-//       id: number;
-//       name: string;
-//       count: number;
-//       defaultAmount: number;
-//       increaseValue: number;
-//       use: boolean;
-//     };
-//     wild: {
-//       id: number;
-//       name: string;
-//       use: boolean;
-//       substitutesFor?: number[]; // Symbol IDs this wild substitutes for
-//     };
-//     scatter: {
-//       id: number;
-//       multiplier: number[];
-//       use: boolean;
-//     };
-//     bonus: {
-//       id: number;
-//       count: number;
-//       pay: number;
-//       use: boolean;
-//     };
-//   };
-//   reelStrips: number[][]; // Base reel strips
-//   freeSpinReelStrips?: number[][]; // Optional separate reel strips for free spins
-// }
-
-// SPIN
-export interface settings {
-  currentLines: number;
-  betPerLine: number;
-  // currentBet:
-}
-
-// SPIN
-export interface settings {
-  currentLines: number;
-  betPerLine: number;
-  // currentBet:
-}
-
 export const specialIcons = {
   bonus: "Bonus",
   scatter: "Scatter",

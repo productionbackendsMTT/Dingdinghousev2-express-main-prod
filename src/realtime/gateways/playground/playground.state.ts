@@ -82,6 +82,7 @@ export class StateService {
         balance: balance, // Use the formatted balance with proper precision
         lastUpdated: new Date(),
         sessionStart: new Date(),
+        currentWinning: 0,
         gameSpecific: {},
         userInfo: {
           username: user.username,
@@ -219,6 +220,55 @@ export class StateService {
       return updateFunc();
     }
   }
+
+
+
+
+
+  // ================= New State Methods =================
+  /**
+   * Always returns a state (initializes with defaults if missing)
+   * Eliminates null checks in downstream code
+   */
+  async getSafeState(
+    userId: string,
+    gameId: string | Types.ObjectId
+  ): Promise<PlayerState> {
+    return (await this.getState(userId, gameId)) || this.initialize(userId, gameId);
+  }
+
+  /**
+   * Partial update optimized for Redis operations
+   * Uses delta changes instead of full state replacement
+   */
+  async updatePartialState(
+    userId: string,
+    gameId: string | Types.ObjectId,
+    delta: Partial<PlayerState>
+  ): Promise<PlayerState> {
+    const key = this.getStateKey(userId, gameId);
+
+    // Format balance if present in delta
+    if (delta.balance !== undefined) {
+      delta.balance = this.formatBalance(delta.balance);
+    }
+
+    return this.withLock(this.getLockKey(userId, gameId), async () => {
+      const currentState = await this.getSafeState(userId, gameId);
+
+      // Merge changes
+      const updatedState: PlayerState = {
+        ...currentState,
+        ...delta,
+        lastUpdated: new Date(),
+      };
+
+      // Optimized Redis operation - merge rather than replace
+      await this.redisService.setJSON(key, updatedState, this.STATE_TTL);
+      return updatedState;
+    });
+  }
+
 
   // ================= Balance Operations =================
   async getBalance(
