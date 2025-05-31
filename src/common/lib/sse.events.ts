@@ -46,7 +46,7 @@ export class SSEClientManager {
       }
     });
 
-    console.log(`Subscribed to global Redis channel: ${SSE_REDIS_CHANNEL}`);
+
   }
 
   public async subscribeToUserChannel(userId: string) {
@@ -54,14 +54,14 @@ export class SSEClientManager {
 
     // Check if we're already subscribed to this user's channel
     if (this.userSubscriptions.has(userChannel)) {
-      console.log(`Already subscribed to user channel: ${userChannel}`);
+
       return;
     }
 
     await this.redisService.subscribe(userChannel, (message, channel) => {
       try {
         const eventData = JSON.parse(message);
-        console.log(`Received SSE event for user ${userId}:`, eventData);
+
         this.sendToClient(userId, eventData.type, eventData.data);
       } catch (error) {
         console.error(
@@ -72,7 +72,7 @@ export class SSEClientManager {
     });
 
     this.userSubscriptions.add(userChannel);
-    console.log(`Subscribed to user Redis channel: ${userChannel}`);
+
   }
 
   public async unsubscribeFromUserChannel(userId: string) {
@@ -82,7 +82,7 @@ export class SSEClientManager {
       try {
         await this.redisService.unsubscribe(userChannel);
         this.userSubscriptions.delete(userChannel);
-        console.log(`Unsubscribed from user Redis channel: ${userChannel}`);
+
       } catch (error) {
         console.error(
           `Error unsubscribing from user channel: ${userChannel}`,
@@ -95,9 +95,7 @@ export class SSEClientManager {
   public async addClient(userId: string, res: Response): Promise<void> {
     // If user already has a connection, clean it up first
     if (this.clients.has(userId)) {
-      console.log(
-        `User ${userId} already connected, cleaning up previous connection`
-      );
+
       await this.removeClient(userId);
     }
 
@@ -113,16 +111,12 @@ export class SSEClientManager {
     this.clients.set(userId, res);
     await this.subscribeToUserChannel(userId);
 
-    console.log(
-      `SSE client connected: ${userId}, total clients: ${this.clients.size}`
-    );
+
 
     // Handle client disconnection
     res.on("close", () => {
       this.removeClient(userId);
-      console.log(
-        `SSE client disconnected: ${userId}, remaining clients: ${this.clients.size}`
-      );
+
     });
   }
 
@@ -224,7 +218,7 @@ export async function publishToUser(
   eventType: string,
   data: any
 ): Promise<void> {
-  console.log(`Publishing SSE event to user ${userId}:`, { eventType, data });
+
   try {
     const redisService = RedisService.getInstance();
     const userChannel = `sse:user:${userId}`;

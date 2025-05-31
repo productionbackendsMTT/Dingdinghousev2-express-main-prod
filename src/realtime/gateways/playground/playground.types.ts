@@ -29,10 +29,10 @@ export interface PlayerState {
   // Core gameplay state
   balance: number;
   currentBet?: number;
+  currentWinning: number;
   currentLines?: number;
-  freeSpins?: number;
   bonusState?: any;
   lastUpdated: Date;
   sessionStart: Date;
-  gameSpecific?: Record<string, any>;
+  gameSpecific: Record<string, any>;
 }

@@ -1,11 +1,11 @@
 import path from "path";
 import fs from "fs";
-// import { BaseKenoEngine } from "./keno/base.keno.engine";
 import { GameEngine } from "./game.engine";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
 import BaseSlotsEngine from "./slots/base.slots.engine";
 import { GamesTypes } from "./game.type";
+import LifeOfLuxurySlotsEngine from "./slots/variants/SL-LOL/sl-lol.slots.engine";
 
 export class GameManager {
   private static instance: GameManager;
@@ -18,6 +18,7 @@ export class GameManager {
 
   private initializeGameEngines(): void {
     this.gameEngines.set(GamesTypes.SLOTS, BaseSlotsEngine);
+    this.gameEngines.set("SL-LOL", LifeOfLuxurySlotsEngine);;
     // this.gameEngines.set(GamesTypes.KENO, BaseKenoEngine);
   }
 
@@ -54,7 +55,7 @@ export class GameManager {
     );
 
     if (!filePath) {
-      console.warn(`Game file not found for ID "${game.tag}". Using default.`);
+      console.warn(`Game file not found for ID "${game.tag}"  . Using default.`);
       return this.getDefaultGameEngine(game, gameType);
     }
 
@@ -62,11 +63,10 @@ export class GameManager {
     if (!GameClass) {
       throw new Error(`Game class for ID "${game.tag}" could not be loaded.`);
     }
-    console.log("Creating special game engine for game type:", sanitizedGameId);
     const gameEngine = new GameClass(game);
     this.gameEngineInstances.set(gameId, gameEngine);
 
-    console.log(this.gameEngineInstances);
+
     return gameEngine;
   }
 
@@ -95,6 +95,7 @@ export class GameManager {
     const possibleFileNames = [
       `${sanitizedGameId.toLowerCase()}.${gameType}.engine.js`,
       `${sanitizedGameId.toLowerCase()}.${gameType}.engine.ts`,
+      `engine.ts`
     ];
 
     if (!fs.existsSync(baseDir)) {
@@ -113,6 +114,7 @@ export class GameManager {
         }
       }
     }
+    console.warn("gone in dir name")
     return null;
   }
   private static loadGameClass(filePath: string, gameId: string): any {
@@ -137,7 +139,7 @@ export class GameManager {
       );
     }
 
-    console.log("Creating default game engine for game type:", gameType);
+
     const engine = createEngine();
     this.gameEngineInstances.set(game.payout.gameId.toString(), engine);
 

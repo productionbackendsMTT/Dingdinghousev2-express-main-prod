@@ -220,7 +220,7 @@ class BaseSlotsEngine extends GameEngine<
     totalWinAmount: number,
     newBalance: number,
     betAmountIndex: number,
-    isFreeSpin: boolean  // Add this parameter
+    isFreeSpin: boolean
   ): SlotResponse {
     const betMultiplier = this.config.content.bets[betAmountIndex];
 
@@ -254,10 +254,6 @@ class BaseSlotsEngine extends GameEngine<
   }
 
   private buildFeatureResponse(specialFeatures: any, betMultiplier: number, isFreeSpin: boolean): any {  // Add isFreeSpin parameter
-    if (this.config.tag !== "SL-VIK") {
-      return {};
-    }
-
     return {
       bonus: {
         BonusSpinStopIndex: specialFeatures.bonusResult,
@@ -274,7 +270,7 @@ class BaseSlotsEngine extends GameEngine<
       },
       freeSpin: {
         count: specialFeatures.freeSpinCount,
-        isFreeSpin: isFreeSpin,  // Add this line
+        isFreeSpin: isFreeSpin,
       },
       scatter: {
         amount: specialFeatures.scatter * betMultiplier,

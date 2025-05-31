@@ -52,6 +52,8 @@ export function setupPlayground(namespace: Namespace) {
         }
       );
 
+
+
       // Handle spin requests
       socket.on(Events.CLIENT.SPIN_REQUEST.name, async (payload) => {
         try {
@@ -79,6 +81,32 @@ export function setupPlayground(namespace: Namespace) {
           );
         }
       });
+
+
+
+      //NOTE: gameble request handler
+      socket.on(Events.CLIENT.GAMBLE_REQUEST.name, async (payload) => {
+        try {
+
+          const data = JSON.parse(payload);
+          const result = await engine.handleAction({
+            type: "gamble",
+            userId,
+            payload: {
+              type: data.type,
+              lastWinning: data.lastWinning ? parseFloat(data.lastWinning) : 0,
+              cardSelected: data.cardSelected || null,
+              Event: data.Event || null
+            }
+          })
+          socket.emit(Events.SERVER.GAMBLE_RESULT.name, JSON.stringify(result));
+
+        } catch (e) {
+          console.error("Gamble request error:", e);
+        }
+
+      })
+
 
       socket.on("disconnect", async () => {
         console.log(`Player disconnected from game ${gameId} : ${userId}`);
