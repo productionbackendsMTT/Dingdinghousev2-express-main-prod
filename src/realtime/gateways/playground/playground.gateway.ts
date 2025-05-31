@@ -3,9 +3,11 @@ import PlaygroundService from "./playground.service";
 import { PlaygroundSocket } from "./playground.types";
 import { Events } from "./playground.events";
 import { publishToUser, SSEEventTypes } from "../../../common/lib/sse.events";
+import { SessionManager } from "../../../api/modules/sessions/sessions.manager";
 
 export function setupPlayground(namespace: Namespace) {
   const playgroundService = PlaygroundService.getInstance();
+  const sessionManager = SessionManager.getInstance();
 
   namespace.on("connection", async (socket: PlaygroundSocket) => {
     try {
@@ -20,6 +22,9 @@ export function setupPlayground(namespace: Namespace) {
       // Get and send initialization data
       const initData = await engine.getInitData(userId);
       socket.emit(Events.SERVER.INIT_DATA.name, JSON.stringify(initData));
+
+      // Start game session
+      // await sessionManager.startGameSession(userId, gameId, socket.id);
 
       await publishToUser(userId, SSEEventTypes.GAME_STARTED, {
         userId,
@@ -81,7 +86,8 @@ export function setupPlayground(namespace: Namespace) {
       });
 
       socket.on("disconnect", async () => {
-        console.log(`Player disconnected from game ${gameId} : ${userId}`);
+        // End game session
+        // await sessionManager.endGameSession(userId);
 
         await publishToUser(userId, SSEEventTypes.GAME_ENDED, {
           userId,
@@ -89,6 +95,7 @@ export function setupPlayground(namespace: Namespace) {
           socketId: socket.id,
           timestamp: new Date().toISOString(),
         });
+        console.log(`Player disconnected from game ${gameId} : ${userId}`);
       });
     } catch (error) {
       console.error("Connection error:", error);
@@ -96,6 +103,7 @@ export function setupPlayground(namespace: Namespace) {
         message: "Failed to initialize game session",
         code: "INIT_ERROR",
       });
+
       socket.disconnect(true);
     }
   });

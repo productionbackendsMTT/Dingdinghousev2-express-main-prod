@@ -14,7 +14,7 @@ export interface ControlSocket extends Socket {
       username: string;
       role: any; // Replace with proper role type from your schema
       permissions: any[]; // Replace with proper permissions type
-      path: String;
+      path: string;
     };
   };
 }

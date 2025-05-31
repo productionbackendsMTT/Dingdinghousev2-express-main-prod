@@ -9,9 +9,13 @@ import { IRole } from "../../common/types/role.type";
 import User from "../../common/schemas/user.schema";
 
 export interface AuthRequest extends Request {
-  requestingUser: (IUser & Document) & {
-    role: IRole & Document;
+  requestingUser: IUser & {
+    role: IRole;
   };
+}
+
+export interface SSEAuthRequest extends Request {
+  requestingUser: IUser;
 }
 
 export const verifyToken = (token: string, secret: string) => {
@@ -119,16 +123,11 @@ export const sseAuthHandler = async (
     if (!token) return next(createHttpError(401, "Missing token"));
 
     const decoded = jwt.verify(token, config.access.secret!) as any;
-    const requestingUser = await User.findById(decoded.userId).populate<{
-      role: IRole & Document;
-    }>("role");
+    const requestingUser = (await User.findById(decoded.userId)
+      .select("_id username balance path")
+      .lean()) as IUser;
 
-    if (!requestingUser || requestingUser.token?.isBlacklisted) {
-      return next(createHttpError(401, "Unauthorized user"));
-    }
-
-    const _req = req as AuthRequest;
-    _req.requestingUser = requestingUser;
+    (req as SSEAuthRequest).requestingUser = requestingUser;
 
     next();
   } catch (err) {
