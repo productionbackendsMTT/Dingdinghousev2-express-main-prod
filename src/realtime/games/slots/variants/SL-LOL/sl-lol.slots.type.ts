@@ -6,7 +6,7 @@ export interface SLLOLAction extends GameAction {
     betAmount: number;
     cardSelected?: "BLACK" | "RED"
     lastWinning?: number;
-    event?: string;
+    Event?: string;
   };
 }
 

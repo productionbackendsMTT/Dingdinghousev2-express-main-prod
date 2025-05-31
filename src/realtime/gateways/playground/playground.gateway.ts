@@ -87,6 +87,7 @@ export function setupPlayground(namespace: Namespace) {
       //NOTE: gameble request handler
       socket.on(Events.CLIENT.GAMBLE_REQUEST.name, async (payload) => {
         try {
+
           const data = JSON.parse(payload);
           const result = await engine.handleAction({
             type: "gamble",
@@ -95,7 +96,7 @@ export function setupPlayground(namespace: Namespace) {
               type: data.type,
               lastWinning: data.lastWinning ? parseFloat(data.lastWinning) : 0,
               cardSelected: data.cardSelected || null,
-              event: data.event || null
+              Event: data.Event || null
             }
           })
           socket.emit(Events.SERVER.GAMBLE_RESULT.name, JSON.stringify(result));
