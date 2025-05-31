@@ -1,0 +1,165 @@
+{
+  "tag": "SL-PM",
+  "matrix": {
+    "x": 5,
+    "y": 3
+  },
+  "lines": [
+    [1, 1, 1, 1, 1],
+    [0, 0, 0, 0, 0],
+    [2, 2, 2, 2, 2],
+    [0, 1, 2, 1, 0],
+    [2, 1, 0, 1, 2],
+    [1, 0, 1, 2, 1],
+    [1, 2, 1, 0, 1],
+    [0, 0, 1, 2, 2],
+    [2, 2, 1, 0, 0],
+    [0, 1, 0, 1, 0],
+    [2, 1, 2, 1, 2],
+    [1, 0, 0, 0, 1],
+    [1, 2, 2, 2, 1],
+    [0, 1, 1, 1, 0],
+    [2, 1, 1, 1, 2],
+    [1, 1, 0, 1, 1],
+    [1, 1, 2, 1, 1],
+    [0, 2, 0, 2, 0],
+    [2, 0, 2, 0, 2],
+    [2, 0, 1, 0, 2],
+    [0, 2, 1, 2, 0],
+    [0, 2, 2, 2, 0],
+    [2, 0, 0, 0, 2],
+    [1, 0, 2, 0, 1],
+    [1, 2, 0, 2, 1]
+  ],
+  "bets": [
+    0.0004,
+    0.002,
+    0.004,
+    0.01,
+    0.02,
+    0.03,
+    0.04,
+    0.05,
+    0.08,
+    0.12,
+    0.2,
+    0.4,
+    0.6,
+    0.8,
+    1.2,
+    1.6,
+    2
+  ],
+  "features": {
+    "freeSpin": {
+      "isEnabled": true,
+      "incrementCount": 1,
+      "maxMultiplier": [4, 7, 10, 25]
+    }
+  },
+  "symbols": [
+    {
+      "id": 0,
+      "name": "0",
+      "reelsInstance": { "0": 9, "1": 9, "2": 9, "3": 9, "4": 9 },
+      "useWildSub": true,
+      "multiplier": [100,40,12]
+    },
+    {
+      "id": 1,
+      "name": "1",
+      "reelsInstance": { "0": 9, "1": 9, "2": 9, "3": 9, "4": 9 },
+      "useWildSub": true,
+      "multiplier": [100,40,12]
+    },
+    {
+      "id": 2,
+      "name": "2",
+      "reelsInstance": { "0": 9, "1": 9, "2": 9, "3": 9, "4": 9 },
+      "useWildSub": true,
+      "multiplier": [100,40,12]
+    },
+    {
+      "id": 3,
+      "name": "3",
+      "reelsInstance": { "0": 9, "1": 9, "2": 9, "3": 9, "4": 9 },
+      "useWildSub": true,
+      "multiplier": [100,40,12]
+    },
+    {
+      "id": 4,
+      "name": "4",
+      "reelsInstance": { "0": 9, "1": 9, "2": 9, "3": 9, "4": 9 },
+      "useWildSub": true,
+      "multiplier": [100,40,12]
+    },
+    {
+      "id": 5,
+      "name": "5",
+      "reelsInstance": { "0": 9, "1": 9, "2": 9, "3": 9, "4": 9 },
+      "useWildSub": true,
+      "multiplier": [100,40,12]
+    },
+    {
+      "id": 6,
+      "name": "6",
+      "reelsInstance": { "0": 9, "1": 9, "2": 9, "3": 9, "4": 9 },
+      "useWildSub": true,
+      "multiplier": [100,40,12]
+    },
+    {
+      "id": 7,
+      "name": "7",
+      "reelsInstance": { "0": 9, "1": 9, "2": 9, "3": 9, "4": 9 },
+      "useWildSub": true,
+      "multiplier": [[100, 0], [40, 0], [12, 0]]
+    },
+    {
+      "id": 8,
+      "name": "8",
+      "reelsInstance": { "0": 4, "1": 4, "2": 4, "3": 4, "4": 4 },
+      "useWildSub": true,
+      "multiplier": [200,70,20]
+    },
+    {
+      "id": 9,
+      "name": "9",
+      "reelsInstance": { "0": 4, "1": 4, "2": 4, "3": 4, "4": 4 },
+      "useWildSub": true,
+      "multiplier": [[200, 0], [70, 0], [20, 0]]
+    },
+    {
+      "id": 10,
+      "name": "10",
+      "reelsInstance": { "0": 4, "1": 4, "2": 4, "3": 4, "4": 4 },
+      "useWildSub": true,
+      "multiplier": [200,70,20]
+    },
+    {
+      "id": 11,
+      "name": "11",
+      "reelsInstance": { "0": 4, "1": 4, "2": 4, "3": 4, "4": 4 },
+      "useWildSub": true,
+      "multiplier": [200,70,20]
+    },
+    {
+      "id": 12,
+      "name": "Wild",
+      "reelsInstance": { "0": 7, "1": 8, "2": 8, "3": 4, "4": 4 },
+      "description": "Substitutes for all symbols except Jackpot, Free Spin, Bonus, and Scatter.",
+      "useWildSub": false,
+      "multiplier": []
+    },
+    {
+      "id": 13,
+      "name": "Jackpot",
+      "reelsInstance": { "0": 1, "1": 1, "2": 1, "3": 1, "4": 1 },
+      "description": "Mega win triggered by 5 Jackpot symbols appearing anywhere on the result matrix. Payout: 5000x",
+      "useWildSub": false,
+      "multiplier": [],
+      "defaultAmount": 5000,
+      "symbolsCount": 5,
+      "increaseValue": 5
+    }
+  ]
+}

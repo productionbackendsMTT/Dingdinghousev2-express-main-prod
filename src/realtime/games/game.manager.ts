@@ -1,12 +1,10 @@
 import path from "path";
 import fs from "fs";
-// import { BaseKenoEngine } from "./keno/base.keno.engine";
 import { GameEngine } from "./game.engine";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
 import BaseSlotsEngine from "./slots/base.slots.engine";
 import { GamesTypes } from "./game.type";
-import logMethod from "../../common/lib/decorators/logging.decorator";
 import LifeOfLuxurySlotsEngine from "./slots/variants/SL-LOL/sl-lol.slots.engine";
 
 export class GameManager {
@@ -65,11 +63,10 @@ export class GameManager {
     if (!GameClass) {
       throw new Error(`Game class for ID "${game.tag}" could not be loaded.`);
     }
-    console.log("Creating special game engine for game type:", sanitizedGameId);
     const gameEngine = new GameClass(game);
     this.gameEngineInstances.set(gameId, gameEngine);
 
-    console.log(this.gameEngineInstances);
+
     return gameEngine;
   }
 
@@ -100,9 +97,6 @@ export class GameManager {
       `${sanitizedGameId.toLowerCase()}.${gameType}.engine.ts`,
       `engine.ts`
     ];
-
-    console.log("find game file ", JSON.stringify(possibleFileNames), `${baseDir}`);
-
 
     if (!fs.existsSync(baseDir)) {
       console.warn(`Directory does not exist: ${baseDir}`);
@@ -145,7 +139,7 @@ export class GameManager {
       );
     }
 
-    console.log("Creating default game engine for game type:", gameType);
+
     const engine = createEngine();
     this.gameEngineInstances.set(game.payout.gameId.toString(), engine);
 

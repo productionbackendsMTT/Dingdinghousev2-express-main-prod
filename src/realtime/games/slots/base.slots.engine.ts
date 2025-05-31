@@ -254,10 +254,6 @@ class BaseSlotsEngine extends GameEngine<
   }
 
   private buildFeatureResponse(specialFeatures: any, betMultiplier: number, isFreeSpin: boolean): any {  // Add isFreeSpin parameter
-    if (this.config.tag !== "SL-VIK") {
-      return {};
-    }
-
     return {
       bonus: {
         BonusSpinStopIndex: specialFeatures.bonusResult,
