@@ -29,7 +29,7 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
       case "gamble":
         if (this.config.content.features.gamble.isEnabled) {
 
-          if (action.payload.event === "init") {
+          if (action.payload.Event === "init") {
             //NOTE: handle gamble init
             await this.handleGambleInit(action);
             return {
@@ -38,7 +38,7 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
                 balance: 0
               }
             }
-          } else if (action.payload.event === "draw") {
+          } else if (action.payload.Event === "draw") {
             const result = await this.handleGambleDraw(action)
             if (result === undefined) {
               throw new Error("Gamble draw failed, result is undefined");
@@ -52,7 +52,7 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
                 ...result,
               }
             }
-          } else if (action.payload.event === "collect") {
+          } else if (action.payload.Event === "collect") {
             let balc = await this.handleGambleCollect(action);
             return {
               success: true,
