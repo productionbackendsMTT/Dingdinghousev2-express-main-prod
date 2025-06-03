@@ -2,7 +2,10 @@ import { Namespace } from "socket.io";
 import { ControlSocket } from "./control.types";
 import RedisService from "../../../common/config/redis";
 import { SessionManager } from "../../../api/modules/sessions/sessions.manager";
-import { SessionEvent } from "../../../common/types/session.type";
+import {
+  PlayerEventTypes,
+  SessionEvent,
+} from "../../../common/types/session.type";
 
 export function setupControl(namespace: Namespace) {
   const redisService = RedisService.getInstance();
@@ -18,7 +21,7 @@ export function setupControl(namespace: Namespace) {
 
       // Send initial state of all active sessions
       const activeSessions = await sessionManager.getAllActiveSessions();
-      socket.emit("session:initial-state", activeSessions);
+      socket.emit(PlayerEventTypes.PLAYER_ALL, activeSessions);
 
       const handleSessionEvent = (message: string) => {
         try {
@@ -26,8 +29,6 @@ export function setupControl(namespace: Namespace) {
           const type = event.type;
 
           socket.emit(`${type}`, { userId: event.userId, data: event.data });
-
-          console.log("HANDLE SESSIOn : ", event);
         } catch (error) {
           console.error("Error processing session event:", error);
         }

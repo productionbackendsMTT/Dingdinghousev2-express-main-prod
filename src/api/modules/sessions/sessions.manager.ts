@@ -12,6 +12,9 @@ export class SessionManager {
   private static instance: SessionManager;
   private redisService: RedisService;
 
+  private readonly DECIMAL_PRECISION = 4;
+  private readonly STATE_TTL = 86400; // 24 hours
+
   // Redis channels
   private readonly SESSION_CHANNEL = "session:events";
   private readonly SESSION_PREFIX = "session:";
@@ -32,6 +35,58 @@ export class SessionManager {
     return `gs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  /**
+   * Converts string dates back to Date objects after Redis deserialization
+   */
+  private deserializeSession(session: any): ISession {
+    if (!session) return session;
+
+    return {
+      ...session,
+      connectedAt: new Date(session.connectedAt),
+      disconnectedAt: session.disconnectedAt
+        ? new Date(session.disconnectedAt)
+        : undefined,
+      lastActivity: new Date(session.lastActivity),
+      currentGame: session.currentGame
+        ? {
+            ...session.currentGame,
+            session: {
+              ...session.currentGame.session,
+              startedAt: new Date(session.currentGame.session.startedAt),
+              endedAt: session.currentGame.session.endedAt
+                ? new Date(session.currentGame.session.endedAt)
+                : undefined,
+              spins:
+                session.currentGame.session.spins?.map((spin: any) => ({
+                  ...spin,
+                  timestamp: new Date(spin.timestamp),
+                })) || [],
+            },
+            state: session.currentGame.state
+              ? {
+                  ...session.currentGame.state,
+                  lastUpdated: session.currentGame.state.lastUpdated
+                    ? new Date(session.currentGame.state.lastUpdated)
+                    : undefined,
+                }
+              : undefined,
+          }
+        : undefined,
+      completedGames:
+        session.completedGames?.map((game: any) => ({
+          ...game,
+          startedAt: new Date(game.startedAt),
+          endedAt: game.endedAt ? new Date(game.endedAt) : undefined,
+          spins:
+            game.spins?.map((spin: any) => ({
+              ...spin,
+              timestamp: new Date(spin.timestamp),
+            })) || [],
+        })) || [],
+    };
+  }
+
   // Create a new session
   public async createSession(user: IUser): Promise<ISession> {
     const session: ISession = {
@@ -39,9 +94,10 @@ export class SessionManager {
       username: user.username,
       path: user.path,
       balanceOnEntry: user.balance,
+      currentBalance: user.balance,
       connectedAt: new Date(),
       lastActivity: new Date(),
-      gameSessions: [],
+      completedGames: [],
       isActive: true,
     };
 
@@ -74,196 +130,232 @@ export class SessionManager {
     return session;
   }
 
-  // End a session
-  public async endSession(
-    userId: string,
-    finalBalance?: number
-  ): Promise<ISession | null> {
-    const session = await this.getSession(userId);
-    if (!session) return null;
-
-    const now = new Date();
-
-    // End any active game session first
-    if (session.currentGameSessionId) {
-      await this.endGameSession(userId, session.currentGameSessionId);
-    }
-
-    // Update session data
-    session.isActive = false;
-    session.disconnectedAt = now;
-    session.lastActivity = now;
-    if (finalBalance !== undefined) {
-      session.balanceOnExit = finalBalance;
-    }
-
-    // Update Redis
-    await Promise.all([
-      this.redisService.del(`${this.SESSION_PREFIX}${userId}`),
-      this.redisService.del(`${this.USER_SESSION_PREFIX}${userId}`),
-    ]);
-
-    // Update MongoDB
-    const updateData: Partial<ISession> = {
-      isActive: false,
-      disconnectedAt: now,
-      lastActivity: now,
-    };
-
-    if (finalBalance !== undefined) {
-      updateData.balanceOnExit = finalBalance;
-    }
-
-    await SessionModel.findOneAndUpdate(
-      { userId, isActive: true },
-      { $set: updateData }
-    );
-
-    // Publish session ended event
-    await this.publishEvent({
-      type: PlayerEventTypes.PLAYER_EXITED,
-      userId,
-      data: session,
-    });
-
-    return session;
-  }
-
   // Start game session
   public async startGameSession(
     userId: string,
     gameId: string,
     gameName: string,
     initialCredit: number
-  ): Promise<{ sessionId: string; gameSession: IGameSession }> {
-    const session = await this.getSession(userId);
-    if (!session) {
-      throw new Error("No active session found");
-    }
+  ): Promise<IGameSession> {
+    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+      const session = await this.getSession(userId);
+      if (!session) {
+        throw new Error("No active session found");
+      }
 
-    // End any existing game session first
-    if (session.currentGameSessionId) {
-      await this.endGameSession(userId, session.currentGameSessionId);
-    }
+      // End any existing game first
+      if (session.currentGame) {
+        await this.endGameSessionInternal(session);
+      }
 
-    const gameSessionId = this.generateGameSessionId();
-    const gameSession: IGameSession = {
-      id: gameSessionId,
-      gameId,
-      gameName,
-      startedAt: new Date(),
-      initialCredit,
-      spins: [],
-    };
+      const gameSession: IGameSession = {
+        id: this.generateGameSessionId(),
+        gameId,
+        gameName,
+        startedAt: new Date(),
+        initialCredit: session.currentBalance,
+        spins: [],
+      };
 
-    // Update session
-    session.currentGameSessionId = gameSessionId;
-    session.gameSessions.push(gameSession);
-    session.lastActivity = new Date();
+      // Only store game state in Redis
+      session.currentGame = {
+        session: gameSession,
+        state: {
+          lastUpdated: new Date(),
+        },
+      };
 
-    // Persist changes
-    await this.persistSession(session);
+      session.lastActivity = new Date();
+      await this.persistSession(session);
 
-    // Publish event
-    await this.publishEvent({
-      type: PlayerEventTypes.PLAYER_GAME_STARTED,
-      userId,
-      data: gameSession,
+      await this.publishEvent({
+        type: PlayerEventTypes.PLAYER_GAME_STARTED,
+        userId,
+        data: gameSession,
+      });
+
+      return gameSession;
     });
-
-    return { sessionId: gameSessionId, gameSession };
   }
 
-  // End game session by ID
-  public async endGameSession(
+  // Handle balance operations
+  public async deductBalance(
     userId: string,
-    gameSessionId: string,
-    finalCredit?: number
-  ): Promise<IGameSession | null> {
-    const session = await this.getSession(userId);
-    if (!session) return null;
+    amount: number
+  ): Promise<{ success: boolean; newBalance: number }> {
+    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+      const session = await this.getSession(userId);
+      if (!session?.currentGame) {
+        throw new Error("No active game session found");
+      }
 
-    const gameSession = session.gameSessions.find(
-      (gs) => gs.id === gameSessionId
-    );
-    if (!gameSession || gameSession.endedAt) return null;
+      if (session.currentBalance < amount) {
+        return { success: false, newBalance: session.currentBalance };
+      }
+
+      const newBalance = Number(
+        (session.currentBalance - amount).toFixed(this.DECIMAL_PRECISION)
+      );
+
+      session.currentBalance = newBalance;
+      session.currentGame.state = {
+        ...session.currentGame.state,
+        lastBet: amount,
+        lastUpdated: new Date(),
+      };
+
+      session.lastActivity = new Date();
+      await this.persistSession(session);
+
+      return { success: true, newBalance };
+    });
+  }
+
+  public async creditBalance(userId: string, amount: number): Promise<number> {
+    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+      const session = await this.getSession(userId);
+      if (!session?.currentGame) {
+        throw new Error("No active game session found");
+      }
+
+      const newBalance = Number(
+        (session.currentBalance + amount).toFixed(this.DECIMAL_PRECISION)
+      );
+
+      session.currentBalance = newBalance;
+      session.currentGame.state = {
+        ...session.currentGame.state,
+        lastWin: amount,
+        lastUpdated: new Date(),
+      };
+
+      session.lastActivity = new Date();
+      await this.persistSession(session);
+
+      return newBalance;
+    });
+  }
+
+  // Internal method that doesn't acquire lock (for use within existing locks)
+  private async endGameSessionInternal(
+    session: ISession
+  ): Promise<IGameSession | null> {
+    if (!session?.currentGame) return null;
 
     const now = new Date();
+    const gameSession = session.currentGame.session;
+
     gameSession.endedAt = now;
     gameSession.duration = now.getTime() - gameSession.startedAt.getTime();
+    gameSession.finalCredit = session.currentBalance;
 
-    if (finalCredit !== undefined) {
-      gameSession.finalCredit = finalCredit;
-    }
-
-    // Clear current game reference if it's this one
-    if (session.currentGameSessionId === gameSessionId) {
-      session.currentGameSessionId = undefined;
-    }
-
+    // Add to completed games
+    session.completedGames.push(gameSession);
+    session.currentGame = undefined;
     session.lastActivity = now;
 
     await this.persistSession(session);
 
-    // Publish event
     await this.publishEvent({
       type: PlayerEventTypes.PLAYER_GAME_ENDED,
-      userId,
+      userId: session.userId,
       data: gameSession,
     });
 
     return gameSession;
   }
 
-  // Get session by user ID
-  public async getSession(userId: string): Promise<ISession | null> {
-    return this.redisService.getJSON(`${this.SESSION_PREFIX}${userId}`);
+  // End game session by ID (public method with lock)
+  public async endGameSession(userId: string): Promise<IGameSession | null> {
+    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+      const session = await this.getSession(userId);
+      if (!session) return null;
+
+      return await this.endGameSessionInternal(session);
+    });
   }
 
-  // Check if user has active session
-  public async hasActiveSession(userId: string): Promise<boolean> {
-    return this.redisService.exists(`${this.USER_SESSION_PREFIX}${userId}`);
+  // End a session
+  public async endSession(
+    userId: string,
+    finalBalance?: number
+  ): Promise<ISession | null> {
+    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+      const session = await this.getSession(userId);
+      if (!session) return null;
+
+      const now = new Date();
+
+      if (session.currentGame) {
+        await this.endGameSessionInternal(session);
+      }
+
+      session.isActive = false;
+      session.disconnectedAt = now;
+      session.lastActivity = now;
+      session.balanceOnExit = finalBalance ?? session.currentBalance;
+
+      await Promise.all([
+        this.redisService.del(`${this.SESSION_PREFIX}${userId}`),
+        this.redisService.del(`${this.USER_SESSION_PREFIX}${userId}`),
+      ]);
+
+      // Update MongoDB with final state
+      await SessionModel.findOneAndUpdate(
+        { userId, isActive: true },
+        {
+          $set: {
+            isActive: false,
+            disconnectedAt: now,
+            lastActivity: now,
+            balanceOnExit: session.balanceOnExit,
+            completedGames: session.completedGames,
+          },
+        }
+      );
+
+      await this.publishEvent({
+        type: PlayerEventTypes.PLAYER_EXITED,
+        userId,
+        data: session,
+      });
+
+      return session;
+    });
   }
 
-  // Update session activity
-  public async updateSessionActivity(userId: string): Promise<void> {
-    const session = await this.getSession(userId);
-    if (!session) return;
+  // Handle game state updates
+  public async updateGameState(
+    userId: string,
+    stateUpdates: any
+  ): Promise<IGameSession> {
+    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+      const session = await this.getSession(userId);
+      if (!session?.currentGame) {
+        throw new Error("No active game session found");
+      }
 
-    const now = new Date();
-    session.lastActivity = now;
+      session.currentGame.state = {
+        ...session.currentGame.state,
+        ...stateUpdates,
+        lastUpdated: new Date(),
+      };
 
-    await this.persistSession(session);
+      session.lastActivity = new Date();
+      await this.persistSession(session);
+
+      return session.currentGame.session;
+    });
   }
 
-  // Get all active sessions
-  // Get all active sessions
-  public async getAllActiveSessions(): Promise<ISession[]> {
-    const keys = await this.redisService.keys(`${this.SESSION_PREFIX}*`);
-    const sessions = await Promise.all(
-      keys.map(async (key) => {
-        const session = await this.redisService.getJSON<ISession>(key);
-        return session && session.isActive ? session : null;
-      })
-    );
-    return sessions.filter((s): s is ISession => s !== null);
-  }
-
-  // Get current active game session
   public async getCurrentGameSession(
     userId: string
   ): Promise<IGameSession | null> {
     const session = await this.getSession(userId);
-    if (!session || !session.currentGameSessionId) return null;
-
-    return (
-      session.gameSessions.find(
-        (gs) => gs.id === session.currentGameSessionId && !gs.endedAt
-      ) || null
-    );
+    if (!session?.currentGame) return null;
+    return session.currentGame.session;
   }
 
-  // Get all active game sessions
   public async getAllActiveGameSessions(): Promise<
     {
       userId: string;
@@ -273,66 +365,85 @@ export class SessionManager {
     const sessions = await this.getAllActiveSessions();
     const result: { userId: string; gameSession: IGameSession }[] = [];
 
-    sessions.forEach((session) => {
-      if (session.currentGameSessionId) {
-        const gameSession = session.gameSessions.find(
-          (gs) => gs.id === session.currentGameSessionId && !gs.endedAt
-        );
-        if (gameSession) {
-          result.push({
-            userId: session.userId,
-            gameSession,
-          });
-        }
+    for (const session of sessions) {
+      if (session.currentGame?.session) {
+        result.push({
+          userId: session.userId,
+          gameSession: session.currentGame.session,
+        });
       }
-    });
+    }
 
     return result;
   }
 
-  public async reactivateSession(userId: string): Promise<ISession | null> {
-    const session = await this.getSession(userId);
-    if (!session) return null;
-
-    session.isActive = true;
-    session.lastActivity = new Date();
-    session.disconnectedAt = undefined;
-
-    await this.persistSession(session);
-
-    await this.publishEvent({
-      type: PlayerEventTypes.PLAYER_RECONNECTED,
-      userId,
-      data: session,
-    });
-
-    return session;
+  public async getSession(userId: string): Promise<ISession | null> {
+    const rawSession = await this.redisService.getJSON(
+      `${this.SESSION_PREFIX}${userId}`
+    );
+    return rawSession ? this.deserializeSession(rawSession) : null;
   }
 
-  // Helper method to persist session changes
-  private async persistSession(session: ISession): Promise<void> {
-    // Update Redis
-    await this.redisService.setJSON(
-      `${this.SESSION_PREFIX}${session.userId}`,
-      session,
-      86400
+  public async hasActiveSession(userId: string): Promise<boolean> {
+    return this.redisService.exists(`${this.USER_SESSION_PREFIX}${userId}`);
+  }
+
+  public async getAllActiveSessions(): Promise<ISession[]> {
+    const keys = await this.redisService.keys(`${this.SESSION_PREFIX}*`);
+    const sessions = await Promise.all(
+      keys.map(async (key) => {
+        const rawSession = await this.redisService.getJSON<any>(key);
+        if (!rawSession || !rawSession.isActive) return null;
+        return this.deserializeSession(rawSession);
+      })
+    );
+    return sessions.filter((s): s is ISession => s !== null);
+  }
+
+  public async getCurrentGameState<T = any>(userId: string): Promise<T | null> {
+    const session = await this.getSession(userId);
+    return (session?.currentGame?.state as T) || null;
+  }
+
+  public async getCurrentBalance(userId: string): Promise<number | null> {
+    const session = await this.getSession(userId);
+    return session?.currentBalance ?? null;
+  }
+
+  public async getCompletedGames(
+    userId: string,
+    options: {
+      limit?: number;
+      offset?: number;
+      startDate?: Date;
+      endDate?: Date;
+    } = {}
+  ): Promise<IGameSession[]> {
+    const session = await SessionModel.findOne(
+      { userId },
+      {
+        completedGames: {
+          $slice: [options.offset || 0, options.limit || 50],
+        },
+      }
     );
 
-    // Update MongoDB - using atomic operations
-    const update: any = {
-      $set: {
-        lastActivity: session.lastActivity,
-        currentGameSessionId: session.currentGameSessionId,
-        gameSessions: session.gameSessions,
-      },
-    };
+    if (!session) return [];
 
-    await SessionModel.findOneAndUpdate({ userId: session.userId }, update, {
-      upsert: true,
-    });
+    let completedGames = session.completedGames;
+
+    if (options.startDate || options.endDate) {
+      completedGames = completedGames.filter((game) => {
+        if (options.startDate && game.startedAt < options.startDate)
+          return false;
+        if (options.endDate && game.startedAt > options.endDate) return false;
+        return true;
+      });
+    }
+
+    return completedGames;
   }
 
-  // Publish event to appropriate channels
   public async publishEvent(event: SessionEvent): Promise<void> {
     await this.redisService.publish(
       this.SESSION_CHANNEL,
@@ -340,7 +451,6 @@ export class SessionManager {
     );
   }
 
-  // Cleanup orphaned sessions (can be run periodically)
   public async cleanupOrphanedSessions(): Promise<number> {
     const activeSessions = await this.getAllActiveSessions();
     const now = new Date();
@@ -351,12 +461,41 @@ export class SessionManager {
       const inactiveDuration = now.getTime() - session.lastActivity.getTime();
 
       if (inactiveDuration > orphanThreshold) {
-        // End the session
-        await this.endSession(session.userId, session.balanceOnExit);
+        await this.endSession(session.userId);
         cleanedCount++;
       }
     }
 
     return cleanedCount;
+  }
+
+  private async persistSession(session: ISession): Promise<void> {
+    // Store complete session in Redis including temporary state
+    await this.redisService.setJSON(
+      `${this.SESSION_PREFIX}${session.userId}`,
+      session,
+      this.STATE_TTL
+    );
+
+    // Store permanent data in MongoDB
+    const mongoSession = {
+      userId: session.userId,
+      username: session.username,
+      path: session.path,
+      balanceOnEntry: session.balanceOnEntry,
+      currentBalance: session.currentBalance,
+      balanceOnExit: session.balanceOnExit,
+      connectedAt: session.connectedAt,
+      disconnectedAt: session.disconnectedAt,
+      lastActivity: session.lastActivity,
+      isActive: session.isActive,
+      completedGames: session.completedGames,
+    };
+
+    await SessionModel.findOneAndUpdate(
+      { userId: session.userId },
+      { $set: mongoSession },
+      { upsert: true }
+    );
   }
 }

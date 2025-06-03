@@ -33,25 +33,7 @@ class SSEController {
       // Register client and session
       await this.sseManager.addClient(userId, res);
 
-      const currentSession = await this.sessionManager.getSession(userId);
-      if (!currentSession) {
-        // Create new session if doesn't exist
-        await this.sessionManager.createSession(user);
-      } else if (!currentSession.isActive) {
-        // Reactivate session if it was marked inactive
-        await this.sessionManager.reactivateSession(userId);
-      } else {
-        // For existing active sessions, send a reconnection event
-        await this.sessionManager.publishEvent({
-          type: PlayerEventTypes.PLAYER_RECONNECTED,
-          userId,
-          data: {
-            timestamp: new Date(),
-            gameSessionActive:
-              currentSession.currentGameSessionId !== undefined,
-          },
-        });
-      }
+      await this.sessionManager.createSession(user);
 
       // Heartbeat to keep connection alive
       const heartbeat = setInterval(() => {
@@ -65,17 +47,18 @@ class SSEController {
 
         const session = await this.sessionManager.getSession(userId);
         if (session) {
-          // Only end session if no active game
-          if (!session.currentGameSessionId) {
+          if (!session.currentGame) {
+            // End session if no active game
             await this.sessionManager.endSession(userId);
           } else {
-            // Just notify about SSE disconnect
+            // Just notify about SSE disconnect but keep game session active
             await this.sessionManager.publishEvent({
               type: PlayerEventTypes.PLAYER_EXITED,
               userId,
               data: {
                 timestamp: new Date(),
                 gameStillActive: true,
+                gameId: session.currentGame.session.gameId,
               },
             });
           }
@@ -87,6 +70,7 @@ class SSEController {
         `event: connected\ndata: ${JSON.stringify({
           userId,
           timestamp: new Date().toISOString(),
+          session: await this.sessionManager.getSession(userId),
         })}\n\n`
       );
     } catch (error) {
