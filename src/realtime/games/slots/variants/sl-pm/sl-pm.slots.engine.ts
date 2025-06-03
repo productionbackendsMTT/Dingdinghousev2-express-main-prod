@@ -1,6 +1,7 @@
 import { GameEngine } from "../../../game.engine";
 import { SLPMConfig, SLPMResponse, SLPMAction, specialIcons } from "./sl-pm.slots.type";
 import { SlotsInitData } from "../../../game.type";
+import { symbol } from "zod";
 class BaseSlotsEngine extends GameEngine<
   SLPMConfig,
   SLPMAction,
@@ -57,6 +58,7 @@ class BaseSlotsEngine extends GameEngine<
       const totalBetAmount = this.calculateTotalBet(payload.betAmount);
 
       const reels = this.getRandomMatrix();
+      // this.checkwin(reels, "LTR")
       const lineWins = this.checkLines(reels);
       if (lineWins.length > 0) {
         this.state.setGameSpecificState(userId, this.config.gameId, '_Tcascading', totalNumOfCascading + 1)
@@ -142,7 +144,7 @@ class BaseSlotsEngine extends GameEngine<
       ? this.config.content.features.jackpot.defaultAmount
       : 0;
 
-    return lineWinAmount + jackpotAmount ;
+    return lineWinAmount + jackpotAmount;
   }
 
   private async creditWinnings(userId: string, totalWinAmount: number): Promise<void> {
@@ -189,7 +191,7 @@ class BaseSlotsEngine extends GameEngine<
     };
   }
 
-  private buildFeatureResponse(specialFeatures: any, betMultiplier: number, isFreeSpin: boolean): any { 
+  private buildFeatureResponse(specialFeatures: any, betMultiplier: number, isFreeSpin: boolean): any {
 
     return {
       jackpot: {
@@ -466,6 +468,49 @@ class BaseSlotsEngine extends GameEngine<
   ): number {
     return wins.reduce((acc, win) => acc + win.amount, 0);
   }
+
+  // protected checkwin(matrix: string[][], _side: string): { symbol: string, count: number, indices: number[], _Cline: any[] } | null {
+  //   for (let currentLine = 0; currentLine < this.config.content.lines.length; currentLine++) {
+  //     const _Cline = this.config.content.lines[currentLine];
+  //     const _ClineSymbols = _Cline.map((row, col) => matrix[row][col]);
+
+  //     const findWin = (start: number, dir: number) => {
+  //       for (let i = start; dir === 1 ? i < _ClineSymbols.length : i >= 0; i += dir) {
+  //         let count = 1;
+  //         const symbol = _ClineSymbols[i];
+
+  //         for (let j = i + dir; (dir === 1 ? j < _ClineSymbols.length : j >= 0) && _ClineSymbols[j] === symbol; j += dir) {
+  //           count++;
+  //         }
+
+  //         if (count >= 3) {
+  //           const indices = [];
+  //           for (let k = 0; k < count; k++) {
+  //             indices.push(i + k * dir);
+  //           }
+  //           return { symbol, count, indices: indices.sort((a, b) => a - b) };
+  //         }
+
+  //         i += (count - 1) * dir;
+  //       }
+  //       return null;
+  //     };
+
+  //     const ltrWin = findWin(0, 1);
+  //     const rtlWin = _side === 'RTL' ? findWin(_ClineSymbols.length - 1, -1) : null;
+
+  //     const winResult = (ltrWin && rtlWin) ? ltrWin : (ltrWin || rtlWin);
+
+  //     if (winResult) {
+  //       console.log('Win:', winResult, _Cline);
+  //       return { ...winResult, _Cline };
+  //     }
+  //   }
+
+  //   return null;
+  // }
+
+
 }
 
 export default BaseSlotsEngine;
