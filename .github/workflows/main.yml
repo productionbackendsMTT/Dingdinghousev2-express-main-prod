@@ -1,0 +1,33 @@
+name: Deploy Server
+
+on:
+  push:
+    branches:
+      - dev  # Trigger on push to the dev branch
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        run: |
+
+          pwd
+
+          # Create the .env file
+          echo "${{ secrets.ENV_CONTENT }}" > .env
+          [ -f .env ] && echo ".env file created successfully" || { echo "Failed to create .env file"; exit 1; }
+
+          # Install dependencies and build the frontend
+          npm install || { echo "npm install failed"; exit 1; }
+          npm run build || { echo "npm run build failed"; exit 1; }
+
+          # Restart or start the frontend application with PM2
+          pm2 restart backend || pm2 start dist/app.js --name backend || { echo "PM2 command failed"; exit 1; }
+
+          echo "Backend deployment completed."

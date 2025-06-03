@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Socket Playground Dashboard</title>
+    <style>
+        /* Base Styles and Typography */
+        :root {
+            --primary: #64748B;
+            --primary-light: #94A3B8;
+            --primary-dark: #475569;
+            --accent: #0EA5E9;
+            --accent-light: #38BDF8;
+            --accent-dark: #0284C7;
+            --warning: #F59E0B;
+            --error: #EF4444;
+            --error-light: #FCA5A5;
+            --success: #22C55E;
+            --gray-50: #F8FAFC;
+            --gray-100: #F1F5F9;
+            --gray-200: #E2E8F0;
+            --gray-300: #CBD5E1;
+            --gray-400: #94A3B8;
+            --gray-500: #64748B;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1E293B;
+            --gray-900: #0F172A;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --radius-sm: 6px;
+            --radius: 8px;
+            --radius-lg: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: var(--gray-100);
+            color: var(--gray-800);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* Layout */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background-color: white;
+            border-right: 1px solid var(--gray-200);
+            padding: 1.5rem;
+        }
+
+        .sidebar-header {
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+            margin-bottom: 1.5rem;
+        }
+
+        .sidebar-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 2rem;
+            background-color: var(--gray-100);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        /* Status Card */
+        .status-card {
+            background-color: white;
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .status-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-text {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 500;
+        }
+
+        .indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .connected {
+            background-color: var(--success);
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        .disconnected {
+            background-color: var(--error);
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+        }
+
+        /* Grid Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Form Styles */
+        .form-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--gray-900);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+        }
+
+        /* Button Styles */
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #connectButton {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        #connectButton:hover {
+            background-color: var(--accent-dark);
+        }
+
+        #disconnectButton {
+            background-color: var(--error);
+            color: white;
+        }
+
+        #disconnectButton:hover {
+            background-color: var(--error-light);
+        }
+
+        #spinBtn {
+            background-color: var(--primary);
+            color: white;
+            width: 100%;
+        }
+
+        #spinBtn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        /* Log Box */
+        .log-container {
+            background-color: var(--gray-900);
+            border-radius: var(--radius);
+            padding: 1rem;
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .log-title {
+            color: white;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        #clearLog {
+            background: none;
+            border: none;
+            color: var(--gray-400);
+            font-size: 0.875rem;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+        }
+
+        #clearLog:hover {
+            color: white;
+        }
+
+        .log-box {
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            color: var(--gray-100);
+            padding: 0.5rem;
+        }
+
+        .log-entry {
+            margin-bottom: 0.75rem;
+            padding: 0.75rem;
+            border-radius: var(--radius-sm);
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid transparent;
+        }
+
+        .log-entry.type-info {
+            border-left-color: var(--accent);
+        }
+
+        .log-entry.type-error {
+            border-left-color: var(--error);
+        }
+
+        .log-entry.type-received {
+            border-left-color: var(--success);
+        }
+
+        .log-entry.type-sent {
+            border-left-color: var(--warning);
+        }
+
+        .log-timestamp {
+            color: var(--gray-400);
+            font-size: 0.8rem;
+        }
+
+        .log-type {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin: 0 8px;
+        }
+
+        .log-type.info {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .log-type.error {
+            background-color: var(--error);
+            color: white;
+        }
+
+        .log-type.received {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .log-type.sent {
+            background-color: var(--warning);
+            color: white;
+        }
+
+        .log-message {
+            margin-top: 0.5rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .json-key {
+            color: var(--accent-light);
+        }
+
+        .json-string {
+            color: var(--success);
+        }
+
+        .json-number {
+            color: var(--warning);
+        }
+
+        .json-boolean {
+            color: var(--error-light);
+        }
+
+        .json-null {
+            color: var(--gray-400);
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .main-content {
+                padding: 1rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1 class="sidebar-title">Socket Playground</h1>
+            </div>
+            <div class="status-container">
+                <div class="status-text">
+                    Status: <span id="status">Disconnected</span>
+                </div>
+                <div id="statusIndicator" class="indicator disconnected"></div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="header">
+                <h2 class="page-title">Dashboard</h2>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <div class="button-group">
+                        <button id="connectButton">Connect to Server</button>
+                        <button id="disconnectButton" style="display: none;">Disconnect</button>
+                    </div>
+
+                    <form id="spinForm">
+                        <h3 class="form-title">Spin Configuration</h3>
+
+                        <div class="form-group">
+                            <label for="currentLines">Current Lines</label>
+                            <input type="number" id="currentLines" name="currentLines" min="1" max="100" value="10"
+                                required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="currentBet">Current Bet</label>
+                            <input type="number" id="currentBet" name="currentBet" min="1" max="1000" value="50"
+                                required />
+                        </div>
+
+                        <div class="form-group">
+                            <label for="spins">Number of Spins</label>
+                            <input type="number" id="spins" name="spins" min="1" max="100" value="5" required />
+                        </div>
+
+                        <button id="spinBtn" type="submit">Spin</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="log-container">
+                        <div class="log-header">
+                            <span class="log-title">Event Log</span>
+                            <button id="clearLog">Clear Log</button>
+                        </div>
+                        <div id="logBox" class="log-box"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script>
+        // Utility Functions
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function syntaxHighlightJSON(json) {
+            if (typeof json !== 'string') {
+                json = JSON.stringify(json, null, 2);
+            }
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        // DOM Elements
+        const connectButton = document.getElementById('connectButton');
+        const disconnectButton = document.getElementById('disconnectButton');
+        const statusSpan = document.getElementById('status');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const spinForm = document.getElementById('spinForm');
+        const spinBtn = document.getElementById('spinBtn');
+        const logBox = document.getElementById('logBox');
+        const clearLogBtn = document.getElementById('clearLog');
+
+        // Application State
+        let socket = null;
+        let isConnected = false;
+
+        // Event Handlers
+        function updateConnectionStatus(connected) {
+            isConnected = connected;
+            statusSpan.textContent = connected ? 'Connected' : 'Disconnected';
+            statusIndicator.className = `indicator ${connected ? 'connected' : 'disconnected'}`;
+            connectButton.style.display = connected ? 'none' : 'block';
+            disconnectButton.style.display = connected ? 'block' : 'none';
+            spinBtn.disabled = !connected;
+        }
+
+        function appendLog(message, type = 'info') {
+            const now = new Date();
+            const timestamp = formatTime(now);
+
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry type-${type.toLowerCase()}`;
+
+            const header = document.createElement('div');
+            header.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-type ${type.toLowerCase()}">${type.toUpperCase()}</span>
+            `;
+
+            const content = document.createElement('div');
+            content.className = 'log-message';
+
+            if (typeof message === 'object') {
+                try {
+                    content.innerHTML = syntaxHighlightJSON(message);
+                } catch (e) {
+                    content.textContent = JSON.stringify(message, null, 2);
+                }
+            } else {
+                content.textContent = message;
+            }
+
+            logEntry.appendChild(header);
+            logEntry.appendChild(content);
+            logBox.appendChild(logEntry);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function clearLog() {
+            while (logBox.firstChild) {
+                logBox.removeChild(logBox.firstChild);
+            }
+            appendLog('Log cleared', 'info');
+        }
+
+        function connectToSocket() {
+            const token = getQueryParam('token');
+
+            if (!token) {
+                appendLog('No token found in URL. Add ?token=YOUR_TOKEN to the URL.', 'error');
+                return;
+            }
+
+            try {
+                statusSpan.textContent = 'Connecting...';
+                appendLog('Connecting to server...', 'info');
+
+                socket = io('http://localhost:5000/playground', {
+                    transports: ['websocket', 'polling'],
+                    auth: { token }
+                });
+
+                socket.on('connect', () => {
+                    updateConnectionStatus(true);
+                    appendLog('Connected to server', 'info');
+                });
+
+                socket.on('payoutInfo', (data) => {
+                    appendLog(data, 'received');
+                });
+
+                socket.on('error', (error) => {
+                    appendLog(`Error: ${error.message || error}`, 'error');
+                });
+
+                socket.on('disconnect', () => {
+                    updateConnectionStatus(false);
+                    appendLog('Disconnected from server', 'info');
+                });
+
+                socket.on('connect_error', (error) => {
+                    updateConnectionStatus(false);
+                    appendLog(`Connection error: ${error.message}`, 'error');
+                });
+            } catch (error) {
+                appendLog(`Failed to connect: ${error.message}`, 'error');
+            }
+        }
+
+        function disconnectFromSocket() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                updateConnectionStatus(false);
+                appendLog('Manually disconnected from server', 'info');
+            }
+        }
+
+        function handleSpin(event) {
+            event.preventDefault();
+
+            if (!socket || !isConnected) {
+                appendLog('Cannot spin: Not connected to server', 'error');
+                return;
+            }
+
+            const formData = new FormData(spinForm);
+            const spinData = {
+                currentLines: parseInt(formData.get('currentLines'), 10),
+                currentBet: parseInt(formData.get('currentBet'), 10),
+                spins: parseInt(formData.get('spins'), 10)
+            };
+
+            try {
+                appendLog(spinData, 'sent');
+                socket.emit('spin', spinData);
+
+                spinBtn.textContent = 'Spinning...';
+                spinBtn.disabled = true;
+
+                setTimeout(() => {
+                    spinBtn.textContent = 'Spin';
+                    spinBtn.disabled = false;
+                }, 1000);
+            } catch (error) {
+                appendLog(`Error sending spin data: ${error.message}`, 'error');
+            }
+        }
+
+        // Event Listeners
+        connectButton.addEventListener('click', connectToSocket);
+        disconnectButton.addEventListener('click', disconnectFromSocket);
+        spinForm.addEventListener('submit', handleSpin);
+        clearLogBtn.addEventListener('click', clearLog);
+
+        // Initialize
+        updateConnectionStatus(false);
+        appendLog('Socket Playground initialized', 'info');
+
+        const token = getQueryParam('token');
+        if (token) {
+            appendLog(`Token found in URL: ${token.substring(0, 5)}...`, 'info');
+        } else {
+            appendLog('No token found. Add ?token=YOUR_TOKEN to the URL.', 'info');
+        }
+
+        // // Test JSON formatting
+        // appendLog({
+        //     example: "JSON formatting",
+        //     numbers: [1, 2, 3],
+        //     boolean: true,
+        //     nested: {
+        //         value: null,
+        //         text: "nested content"
+        //     }
+        // }, 'info');
+    </script>
+</body>
+
+</html>
