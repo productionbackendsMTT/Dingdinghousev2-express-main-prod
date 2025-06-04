@@ -16,7 +16,6 @@ class BaseSlotsEngine extends GameEngine<
 > {
   validateConfig(): void {
     const { matrix, lines, symbols } = this.config.content;
-
   }
 
   async handleAction(action: SlotAction): Promise<SlotResponse> {
@@ -29,14 +28,16 @@ class BaseSlotsEngine extends GameEngine<
   }
 
   public async getInitData(userId: string): Promise<SlotsInitData> {
-    const balance = await this.state.getBalance(userId, this.config.gameId);
+    const balance = await this.session.getCurrentBalance(userId);
 
     return {
       id: "initData",
       gameData: {
         lines: this.config.content.lines,
         bets: this.config.content.bets,
-        spinBonus: this.config.content.features.bonus.payout.map((item) => item.amount)
+        spinBonus: this.config.content.features.bonus.payout.map(
+          (item) => item.amount
+        ),
       },
       uiData: {
         paylines: {
@@ -60,58 +61,87 @@ class BaseSlotsEngine extends GameEngine<
 
       this.validateSpinPayload(payload);
 
-      //NOTE: freespin checking from state
-      let freeSpinCount: number = await this.state.
-        getGameSpecificState(
-          userId,
-          this.config.gameId, "freeSpins"
-        ) || 0
-      // console.log(`freespin count from state`, freeSpinCount);
+      let freeSpinCount: number =
+        (await this.session.getGameStateField(userId, "freeSpins")) ?? 0;
+
       let isFreeSpin = false;
-
       const totalBetAmount = this.calculateTotalBet(payload.betAmount);
+      const betMultiplier = this.config.content.bets[payload.betAmount];
 
+      // Handle bet deduction for non-free spins
       if (!freeSpinCount || freeSpinCount <= 0) {
-        await this.validateAndDeductBalance(userId, totalBetAmount);
+        await this.session.deductBalance(userId, totalBetAmount);
       } else {
-        this.state.setGameSpecificState(
+        await this.session.setGameStateField(
           userId,
-          this.config.gameId,
           "freeSpins",
           freeSpinCount - 1
         );
       }
 
       const reels = this.getRandomMatrix();
-
       const lineWins = this.checkLines(reels);
       const specialFeatures = this.processSpecialFeatures(reels);
-
 
       //NOTE: set freespincount
       if (specialFeatures.freeSpinCount && specialFeatures.freeSpinCount > 0) {
         isFreeSpin = true;
-        this.state.setGameSpecificState(
+        this.session.setGameStateField(
           userId,
-          this.config.gameId,
           "freeSpins",
           freeSpinCount + specialFeatures.freeSpinCount
         );
       }
-      specialFeatures.freeSpinCount = freeSpinCount + specialFeatures.freeSpinCount;
-
-      // console.log("final freespin ", specialFeatures.freeSpinCount);
+      specialFeatures.freeSpinCount =
+        freeSpinCount + specialFeatures.freeSpinCount;
 
       const totalWinAmount = this.calculateTotalWinAmount(
         lineWins,
         specialFeatures,
         payload.betAmount
       );
-      if (totalWinAmount > 0) {
-        await this.creditWinnings(userId, totalWinAmount * this.config.content.bets[payload.betAmount]);
+      const actualWinAmount = totalWinAmount * betMultiplier;
+
+      // Credit winnings if any
+      if (actualWinAmount > 0) {
+        await this.session.creditBalance(userId, actualWinAmount);
       }
 
-      const newBalance = await this.state.getBalance(userId, this.config.gameId);
+      // Prepare features for recording
+      let spinFeatures;
+
+      // Only record features if there are any
+      if (specialFeatures.freeSpinCount > 0) {
+        spinFeatures = {
+          name: "freeSpin",
+          count: specialFeatures.freeSpinCount,
+        };
+      } else if (specialFeatures.bonusResult >= 0) {
+        spinFeatures = {
+          name: "bonus",
+          count: specialFeatures.bonusResult,
+        };
+      } else if (specialFeatures.isJackpot) {
+        spinFeatures = {
+          name: "jackpot",
+        };
+      } else if (specialFeatures.scatter > 0) {
+        spinFeatures = {
+          name: "scatter",
+          count: specialFeatures.scatter,
+        };
+      }
+
+      // Record the spin
+      await this.session.recordSpin(userId, {
+        betAmount: !isFreeSpin ? totalBetAmount : 0,
+        winAmount: actualWinAmount,
+        type: isFreeSpin ? "freespin" : "regular",
+        spunAt: new Date(),
+        features: spinFeatures,
+      });
+
+      const newBalance = await this.session.getCurrentBalance(userId);
 
       return this.buildSpinResponse(
         reels,
@@ -138,16 +168,12 @@ class BaseSlotsEngine extends GameEngine<
   }
 
   private calculateTotalBet(betAmountIndex: number): number {
-    return this.config.content.bets[betAmountIndex] * this.config.content.lines.length;
+    return (
+      this.config.content.bets[betAmountIndex] *
+      this.config.content.lines.length
+    );
   }
 
-  private async validateAndDeductBalance(userId: string, totalBetAmount: number): Promise<void> {
-    const balance = await this.state.getBalance(userId, this.config.gameId);
-    if (balance < totalBetAmount) {
-      throw new Error("Balance is low");
-    }
-    await this.state.deductBalanceWithDbSync(userId, this.config.gameId, totalBetAmount);
-  }
   private processSpecialFeatures(reels: string[][]) {
     const specialSymbols = this.checkForSpecialSymbols(reels);
 
@@ -156,40 +182,55 @@ class BaseSlotsEngine extends GameEngine<
       bonusResult: -1,
       freeSpinCount: 0,
       scatter: 0,
-      specialSymbols
+      specialSymbols,
     };
 
-    specialSymbols.forEach(symbol => {
+    specialSymbols.forEach((symbol) => {
       const symbolConfig = this.getSymbolConfig(symbol.symbol);
       const minCount = symbolConfig?.minSymbolCount || 0;
 
-      if (symbol.symbolName === specialIcons.bonus && symbol.count >= minCount) {
-        const { BonusStopIndex } = calculateSpinBonus(this.config.content.features.bonus.payout);
+      if (
+        symbol.symbolName === specialIcons.bonus &&
+        symbol.count >= minCount
+      ) {
+        const { BonusStopIndex } = calculateSpinBonus(
+          this.config.content.features.bonus.payout
+        );
         features.bonusResult = BonusStopIndex;
       }
 
-      if (symbol.symbolName === specialIcons.jackpot && symbol.count >= minCount) {
+      if (
+        symbol.symbolName === specialIcons.jackpot &&
+        symbol.count >= minCount
+      ) {
         features.isJackpot = true;
       }
 
-      if (symbol.symbolName === specialIcons.FreeSpin && symbol.count >= minCount) {
+      if (
+        symbol.symbolName === specialIcons.FreeSpin &&
+        symbol.count >= minCount
+      ) {
         if (symbol.count > 5) {
           features.freeSpinCount = symbolConfig?.multiplier[0] ?? 0;
         } else {
-          features.freeSpinCount = symbolConfig?.multiplier[5 - symbol.count] ?? 0;
+          features.freeSpinCount =
+            symbolConfig?.multiplier[5 - symbol.count] ?? 0;
         }
       }
-      if (symbol.symbolName === specialIcons.scatter && symbol.count >= minCount) {
-        if (symbol.count > 5) { features.scatter = symbolConfig?.multiplier[0] ?? 0 } else {
+      if (
+        symbol.symbolName === specialIcons.scatter &&
+        symbol.count >= minCount
+      ) {
+        if (symbol.count > 5) {
+          features.scatter = symbolConfig?.multiplier[0] ?? 0;
+        } else {
           features.scatter = symbolConfig?.multiplier[5 - symbol.count] ?? 0;
         }
-
       }
     });
 
     return features;
   }
-
 
   private calculateTotalWinAmount(
     lineWins: Array<any>,
@@ -197,20 +238,17 @@ class BaseSlotsEngine extends GameEngine<
     betAmountIndex: number
   ): number {
     const lineWinAmount = this.accumulateWins(lineWins);
-    const bonusAmount = specialFeatures.bonusResult >= 0
-      ? this.config.content.features.bonus.payout[specialFeatures.bonusResult]?.amount || 0
-      : 0;
+    const bonusAmount =
+      specialFeatures.bonusResult >= 0
+        ? this.config.content.features.bonus.payout[specialFeatures.bonusResult]
+            ?.amount || 0
+        : 0;
     const jackpotAmount = specialFeatures.isJackpot
       ? this.config.content.features.jackpot.defaultAmount
       : 0;
-    const scatterAmount = specialFeatures.scatter > 0
-      ? specialFeatures.scatter
-      : 0;
+    const scatterAmount =
+      specialFeatures.scatter > 0 ? specialFeatures.scatter : 0;
     return lineWinAmount + bonusAmount + jackpotAmount + scatterAmount;
-  }
-
-  private async creditWinnings(userId: string, totalWinAmount: number): Promise<void> {
-    await this.state.creditBalanceWithDbSync(userId, this.config.gameId, totalWinAmount);
   }
 
   private buildSpinResponse(
@@ -220,11 +258,15 @@ class BaseSlotsEngine extends GameEngine<
     totalWinAmount: number,
     newBalance: number,
     betAmountIndex: number,
-    isFreeSpin: boolean  // Add this parameter
+    isFreeSpin: boolean // Add this parameter
   ): SlotResponse {
     const betMultiplier = this.config.content.bets[betAmountIndex];
 
-    const features = this.buildFeatureResponse(specialFeatures, betMultiplier, isFreeSpin);
+    const features = this.buildFeatureResponse(
+      specialFeatures,
+      betMultiplier,
+      isFreeSpin
+    );
 
     const spinResult = {
       id: "ResultData",
@@ -232,7 +274,10 @@ class BaseSlotsEngine extends GameEngine<
         winAmount: totalWinAmount * betMultiplier,
         wins: lineWins.map((win) => {
           const lineIndex = win.line[0] - 1;
-          const winningSymbolsInfo = this.getWinningSymbolsInfo(win.symbols, lineIndex);
+          const winningSymbolsInfo = this.getWinningSymbolsInfo(
+            win.symbols,
+            lineIndex
+          );
           return {
             line: lineIndex,
             positions: winningSymbolsInfo.positions,
@@ -253,7 +298,12 @@ class BaseSlotsEngine extends GameEngine<
     };
   }
 
-  private buildFeatureResponse(specialFeatures: any, betMultiplier: number, isFreeSpin: boolean): any {  // Add isFreeSpin parameter
+  private buildFeatureResponse(
+    specialFeatures: any,
+    betMultiplier: number,
+    isFreeSpin: boolean
+  ): any {
+    // Add isFreeSpin parameter
     if (this.config.tag !== "SL-VIK") {
       return {};
     }
@@ -261,25 +311,26 @@ class BaseSlotsEngine extends GameEngine<
     return {
       bonus: {
         BonusSpinStopIndex: specialFeatures.bonusResult,
-        amount: specialFeatures.bonusResult >= 0
-          ? (this.config.content.features.bonus.payout[specialFeatures.bonusResult]?.amount || 0) * betMultiplier
-          : 0
-
+        amount:
+          specialFeatures.bonusResult >= 0
+            ? (this.config.content.features.bonus.payout[
+                specialFeatures.bonusResult
+              ]?.amount || 0) * betMultiplier
+            : 0,
       },
       jackpot: {
         isTriggered: specialFeatures.isJackpot,
         amount: specialFeatures.isJackpot
           ? this.config.content.features.jackpot.defaultAmount * betMultiplier
-          : 0
+          : 0,
       },
       freeSpin: {
         count: specialFeatures.freeSpinCount,
-        isFreeSpin: isFreeSpin,  // Add this line
+        isFreeSpin: isFreeSpin, // Add this line
       },
       scatter: {
         amount: specialFeatures.scatter * betMultiplier,
-      }
-
+      },
     };
   }
 
@@ -378,7 +429,9 @@ class BaseSlotsEngine extends GameEngine<
     }> = [];
 
     this.config.content.lines.forEach((line, lineIndex) => {
-      const values = line.map((rowIndex, colIndex) => matrix[rowIndex][colIndex]);
+      const values = line.map(
+        (rowIndex, colIndex) => matrix[rowIndex][colIndex]
+      );
       const lineResult = this.checkLineSymbols(values, line);
 
       if (lineResult.count >= 3) {
@@ -393,7 +446,10 @@ class BaseSlotsEngine extends GameEngine<
     return results;
   }
 
-  protected checkLineSymbols(values: string[], line: number[]): {
+  protected checkLineSymbols(
+    values: string[],
+    line: number[]
+  ): {
     count: number;
     win: number;
   } {
@@ -422,16 +478,23 @@ class BaseSlotsEngine extends GameEngine<
   }
 
   private getWildSymbolId(): string {
-    return this.config.content.symbols
-      .find((s) => s.name === "Wild")
-      ?.id.toString() ?? "";
+    return (
+      this.config.content.symbols
+        .find((s) => s.name === "Wild")
+        ?.id.toString() ?? ""
+    );
   }
 
   private getSymbolConfig(symbolId: string) {
-    return this.config.content.symbols.find((s) => s.id.toString() === symbolId);
+    return this.config.content.symbols.find(
+      (s) => s.id.toString() === symbolId
+    );
   }
 
-  private findPayingSymbolAfterWild(values: string[], wildSymbol: string): string | null {
+  private findPayingSymbolAfterWild(
+    values: string[],
+    wildSymbol: string
+  ): string | null {
     for (let i = 1; i < values.length; i++) {
       if (values[i] !== wildSymbol) {
         const symbol = this.getSymbolConfig(values[i]);
@@ -444,7 +507,11 @@ class BaseSlotsEngine extends GameEngine<
     return null;
   }
 
-  private getWildSequenceCount(values: string[], paySymbol: string, wildSymbol: string): number {
+  private getWildSequenceCount(
+    values: string[],
+    paySymbol: string,
+    wildSymbol: string
+  ): number {
     let count = 0;
     for (let i = 0; i < values.length; i++) {
       if (values[i] === wildSymbol || values[i] === paySymbol) {
@@ -491,7 +558,8 @@ class BaseSlotsEngine extends GameEngine<
 
     for (const [symbolId, count] of symbolCounts) {
       const symbolConfig = this.getSymbolConfig(symbolId);
-      if (!symbolConfig || symbolConfig.useWildSub || !symbolConfig.enabled) continue;
+      if (!symbolConfig || symbolConfig.useWildSub || !symbolConfig.enabled)
+        continue;
 
       const minCount = symbolConfig.minSymbolCount || 0;
       if (count < minCount) continue;
@@ -500,7 +568,6 @@ class BaseSlotsEngine extends GameEngine<
         symbol: symbolId,
         symbolName: symbolConfig.name,
         count,
-
       };
 
       const wins = this.calculateSpecialWins(symbolConfig, count);
@@ -516,7 +583,7 @@ class BaseSlotsEngine extends GameEngine<
   private countAllSymbols(matrix: string[][]): Map<string, number> {
     const counts = new Map<string, number>();
 
-    matrix.flat().forEach(symbolId => {
+    matrix.flat().forEach((symbolId) => {
       counts.set(symbolId, (counts.get(symbolId) || 0) + 1);
     });
 
@@ -531,13 +598,13 @@ class BaseSlotsEngine extends GameEngine<
       case specialIcons.scatter:
         return {
           specialWin: symbolConfig.multiplier?.[multiplierIndex] || 0,
-          freeSpinCount: 0
+          freeSpinCount: 0,
         };
 
       case specialIcons.jackpot:
         return {
           specialWin: symbolConfig.defaultAmount || 0,
-          freeSpinCount: 0
+          freeSpinCount: 0,
         };
 
       case specialIcons.scatter:
@@ -548,14 +615,11 @@ class BaseSlotsEngine extends GameEngine<
         const freeSpins = symbolConfig.multiplier?.[multiplierIndex] || 0;
         return {
           specialWin: freeSpins,
-          freeSpinCount: freeSpins
+          freeSpinCount: freeSpins,
         };
-
 
       default:
-        return {
-
-        };
+        return {};
     }
   }
 

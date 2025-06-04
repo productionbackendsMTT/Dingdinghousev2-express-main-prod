@@ -5,7 +5,19 @@ const SpinSchema = new Schema<ISpin>(
   {
     betAmount: { type: Number, required: true },
     winAmount: { type: Number, required: true },
-    timestamp: { type: Date, required: true, default: Date.now },
+    type: {
+      type: String,
+      required: true,
+      enum: ["regular", "freespin"],
+    },
+    spunAt: { type: Date, required: true, default: Date.now },
+    features: {
+      type: {
+        name: { type: String, required: true },
+        count: { type: Number },
+      },
+      required: false,
+    },
   },
   { _id: true }
 );
@@ -24,7 +36,7 @@ const GameSessionSchema = new Schema<IGameSession>(
     totalBet: { type: Number },
     totalWin: { type: Number },
   },
-  { _id: true }
+  { _id: false }
 );
 
 const SessionSchema = new Schema<ISession>({
@@ -46,5 +58,6 @@ SessionSchema.index({ userId: 1 });
 SessionSchema.index({ isActive: 1 });
 SessionSchema.index({ lastActivity: 1 });
 SessionSchema.index({ "gameSessions.gameId": 1 });
+SessionSchema.index({ "completedGames.spins.spunAt": 1 });
 
 export const SessionModel = model<ISession>("Session", SessionSchema);

@@ -1,8 +1,10 @@
 import RedisService from "../../../common/config/redis";
 import { SessionModel } from "../../../common/schemas/session.schema";
+import User from "../../../common/schemas/user.schema";
 import {
   IGameSession,
   ISession,
+  ISpin,
   PlayerEventTypes,
   SessionEvent,
 } from "../../../common/types/session.type";
@@ -24,11 +26,54 @@ export class SessionManager {
     this.redisService = RedisService.getInstance();
   }
 
+  private getLockKey(userId: string): string {
+    return `lock:session:${userId}`;
+  }
+
   public static getInstance(): SessionManager {
     if (!SessionManager.instance) {
       SessionManager.instance = new SessionManager();
     }
     return SessionManager.instance;
+  }
+
+  private async withSessionLock<T>(
+    userId: string,
+    callback: () => Promise<T>,
+    ttl = 60
+  ): Promise<T> {
+    const lockKey = this.getLockKey(userId);
+    let attempt = 1;
+    const maxAttempts = 5;
+    const baseDelay = 200;
+
+    while (attempt <= maxAttempts) {
+      try {
+        return await this.redisService.withLock(lockKey, callback, ttl);
+      } catch (error) {
+        if (attempt === maxAttempts) {
+          throw error;
+        }
+
+        // Only retry on lock-related errors
+        if (
+          error instanceof Error &&
+          (error.message.includes("lock") || error.message.includes("timeout"))
+        ) {
+          const delay = baseDelay * attempt;
+          console.log(
+            `Retry ${attempt}/${maxAttempts} for session lock ${lockKey}, waiting ${delay}ms`
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          attempt++;
+        } else {
+          throw error;
+        }
+      }
+    }
+    throw new Error(
+      `Failed to acquire session lock after ${maxAttempts} attempts`
+    );
   }
 
   private generateGameSessionId(): string {
@@ -59,8 +104,11 @@ export class SessionManager {
                 : undefined,
               spins:
                 session.currentGame.session.spins?.map((spin: any) => ({
-                  ...spin,
-                  timestamp: new Date(spin.timestamp),
+                  betAmount: spin.betAmount,
+                  winAmount: spin.winAmount,
+                  type: spin.type,
+                  spunAt: new Date(spin.spunAt),
+                  features: spin.features || undefined,
                 })) || [],
             },
             state: session.currentGame.state
@@ -80,8 +128,11 @@ export class SessionManager {
           endedAt: game.endedAt ? new Date(game.endedAt) : undefined,
           spins:
             game.spins?.map((spin: any) => ({
-              ...spin,
-              timestamp: new Date(spin.timestamp),
+              betAmount: spin.betAmount,
+              winAmount: spin.winAmount,
+              type: spin.type,
+              spunAt: new Date(spin.spunAt),
+              features: spin.features || undefined,
             })) || [],
         })) || [],
     };
@@ -89,45 +140,59 @@ export class SessionManager {
 
   // Create a new session
   public async createSession(user: IUser): Promise<ISession> {
-    const session: ISession = {
-      userId: user._id.toString(),
-      username: user.username,
-      path: user.path,
-      balanceOnEntry: user.balance,
-      currentBalance: user.balance,
-      connectedAt: new Date(),
-      lastActivity: new Date(),
-      completedGames: [],
-      isActive: true,
-    };
+    return this.withSessionLock(user._id.toString(), async () => {
+      // Check if session already exists
+      const existingSession = await this.getSession(user._id.toString());
+      if (existingSession) {
+        return existingSession;
+      }
 
-    // Store session data with 24h TTL
-    await this.redisService.setJSON(
-      `${this.SESSION_PREFIX}${user._id.toString()}`,
-      session,
-      86400
-    );
+      const session: ISession = {
+        userId: user._id.toString(),
+        username: user.username,
+        path: user.path,
+        balanceOnEntry: user.balance,
+        currentBalance: user.balance,
+        connectedAt: new Date(),
+        lastActivity: new Date(),
+        completedGames: [],
+        isActive: true,
+      };
 
-    // Also maintain a user->session mapping
-    await this.redisService.set(
-      `${this.USER_SESSION_PREFIX}${user._id.toString()}`,
-      "active",
-      86400
-    );
+      try {
+        // Atomic operations
+        await Promise.all([
+          this.redisService.setJSON(
+            `${this.SESSION_PREFIX}${user._id.toString()}`,
+            session,
+            this.STATE_TTL
+          ),
+          this.redisService.set(
+            `${this.USER_SESSION_PREFIX}${user._id.toString()}`,
+            "active",
+            this.STATE_TTL
+          ),
+          SessionModel.create(session),
+        ]);
 
-    // Save in MongoDB
-    await SessionModel.create(session);
+        await this.publishEvent({
+          type: PlayerEventTypes.PLAYER_ENTERED,
+          userId: user._id.toString(),
+          data: session,
+        });
 
-    // Publish session created event
-    await this.publishEvent({
-      type: PlayerEventTypes.PLAYER_ENTERED,
-      userId: user._id.toString(),
-      data: {
-        ...session,
-      },
+        return session;
+      } catch (error) {
+        // Cleanup on failure
+        await Promise.all([
+          this.redisService.del(`${this.SESSION_PREFIX}${user._id.toString()}`),
+          this.redisService.del(
+            `${this.USER_SESSION_PREFIX}${user._id.toString()}`
+          ),
+        ]);
+        throw error;
+      }
     });
-
-    return session;
   }
 
   // Start game session
@@ -137,13 +202,13 @@ export class SessionManager {
     gameName: string,
     initialCredit: number
   ): Promise<IGameSession> {
-    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+    return this.withSessionLock(userId, async () => {
       const session = await this.getSession(userId);
       if (!session) {
         throw new Error("No active session found");
       }
 
-      // End any existing game first
+      // End existing game if any
       if (session.currentGame) {
         await this.endGameSessionInternal(session);
       }
@@ -157,7 +222,6 @@ export class SessionManager {
         spins: [],
       };
 
-      // Only store game state in Redis
       session.currentGame = {
         session: gameSession,
         state: {
@@ -183,7 +247,7 @@ export class SessionManager {
     userId: string,
     amount: number
   ): Promise<{ success: boolean; newBalance: number }> {
-    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+    return this.withSessionLock(userId, async () => {
       const session = await this.getSession(userId);
       if (!session?.currentGame) {
         throw new Error("No active game session found");
@@ -204,6 +268,12 @@ export class SessionManager {
         lastUpdated: new Date(),
       };
 
+      // Update user balance and totalSpent in MongoDB
+      await User.findByIdAndUpdate(userId, {
+        $set: { balance: newBalance },
+        $inc: { totalSpent: amount },
+      });
+
       session.lastActivity = new Date();
       await this.persistSession(session);
 
@@ -212,7 +282,7 @@ export class SessionManager {
   }
 
   public async creditBalance(userId: string, amount: number): Promise<number> {
-    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+    return this.withSessionLock(userId, async () => {
       const session = await this.getSession(userId);
       if (!session?.currentGame) {
         throw new Error("No active game session found");
@@ -229,10 +299,43 @@ export class SessionManager {
         lastUpdated: new Date(),
       };
 
+      // Update user balance and totalReceived in MongoDB
+      await User.findByIdAndUpdate(userId, {
+        $set: { balance: newBalance },
+        $inc: { totalReceived: amount },
+      });
+
       session.lastActivity = new Date();
       await this.persistSession(session);
 
       return newBalance;
+    });
+  }
+
+  public async recordSpin(userId: string, spin: ISpin): Promise<void> {
+    return this.withSessionLock(userId, async () => {
+      const session = await this.getSession(userId);
+      if (!session?.currentGame) {
+        throw new Error("No active game session found");
+      }
+
+      session.currentGame.session.spins.push({
+        betAmount: spin.betAmount,
+        winAmount: spin.winAmount,
+        type: spin.type,
+        spunAt: new Date(),
+        features: spin.features,
+      });
+
+      if (spin.type === "regular") {
+        session.currentGame.session.totalBet =
+          (session.currentGame.session.totalBet || 0) + spin.betAmount;
+      }
+      session.currentGame.session.totalWin =
+        (session.currentGame.session.totalWin || 0) + spin.winAmount;
+
+      session.lastActivity = new Date();
+      await this.persistSession(session);
     });
   }
 
@@ -265,9 +368,8 @@ export class SessionManager {
     return gameSession;
   }
 
-  // End game session by ID (public method with lock)
   public async endGameSession(userId: string): Promise<IGameSession | null> {
-    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+    return this.withSessionLock(userId, async () => {
       const session = await this.getSession(userId);
       if (!session) return null;
 
@@ -280,7 +382,7 @@ export class SessionManager {
     userId: string,
     finalBalance?: number
   ): Promise<ISession | null> {
-    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+    return this.withSessionLock(userId, async () => {
       const session = await this.getSession(userId);
       if (!session) return null;
 
@@ -290,10 +392,17 @@ export class SessionManager {
         await this.endGameSessionInternal(session);
       }
 
+      const balanceToSet = finalBalance ?? session.currentBalance;
+
       session.isActive = false;
       session.disconnectedAt = now;
       session.lastActivity = now;
       session.balanceOnExit = finalBalance ?? session.currentBalance;
+
+      // Update user's balance in MongoDB
+      await User.findByIdAndUpdate(userId, {
+        balance: balanceToSet,
+      });
 
       await Promise.all([
         this.redisService.del(`${this.SESSION_PREFIX}${userId}`),
@@ -324,12 +433,11 @@ export class SessionManager {
     });
   }
 
-  // Handle game state updates
   public async updateGameState(
     userId: string,
     stateUpdates: any
   ): Promise<IGameSession> {
-    return this.redisService.withLock(`session:${userId}:lock`, async () => {
+    return this.withSessionLock(userId, async () => {
       const session = await this.getSession(userId);
       if (!session?.currentGame) {
         throw new Error("No active game session found");
@@ -405,9 +513,40 @@ export class SessionManager {
     return (session?.currentGame?.state as T) || null;
   }
 
-  public async getCurrentBalance(userId: string): Promise<number | null> {
+  public async setGameStateField<T>(userId: string, field: string, value: T) {
+    return this.withSessionLock(userId, async () => {
+      const session = await this.getSession(userId);
+      if (!session?.currentGame) {
+        throw new Error("No active game session found");
+      }
+
+      if (!session.currentGame.state) {
+        session.currentGame.state = {};
+      }
+
+      session.currentGame.state[field] = value;
+      session.currentGame.state.lastUpdated = new Date();
+
+      session.lastActivity = new Date();
+      await this.persistSession(session);
+    });
+  }
+
+  public async getGameStateField<T>(
+    userId: string,
+    field: string
+  ): Promise<T | null> {
     const session = await this.getSession(userId);
-    return session?.currentBalance ?? null;
+    if (!session?.currentGame?.state) {
+      return null;
+    }
+
+    return (session.currentGame.state[field] as T) || null;
+  }
+
+  public async getCurrentBalance(userId: string): Promise<number> {
+    const session = await this.getSession(userId);
+    return session?.currentBalance ?? 0;
   }
 
   public async getCompletedGames(
@@ -461,14 +600,26 @@ export class SessionManager {
       const inactiveDuration = now.getTime() - session.lastActivity.getTime();
 
       if (inactiveDuration > orphanThreshold) {
-        await this.endSession(session.userId);
-        cleanedCount++;
+        try {
+          await this.withSessionLock(
+            session.userId,
+            async () => {
+              await this.endSession(session.userId);
+              cleanedCount++;
+            },
+            30
+          ); // shorter timeout for cleanup
+        } catch (error) {
+          console.error(
+            `Failed to cleanup session for user ${session.userId}:`,
+            error
+          );
+        }
       }
     }
 
     return cleanedCount;
   }
-
   private async persistSession(session: ISession): Promise<void> {
     // Store complete session in Redis including temporary state
     await this.redisService.setJSON(

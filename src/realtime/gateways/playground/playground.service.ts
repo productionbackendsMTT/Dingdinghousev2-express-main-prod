@@ -3,18 +3,15 @@ import Game from "../../../common/schemas/game.schema";
 import { GameStatus, IGame } from "../../../common/types/game.type";
 import { IPayout } from "../../../common/types/payout.type";
 import RedisService from "../../../common/config/redis";
-import { StateService } from "./playground.state";
 import { GameManager } from "../../games/game.manager";
 
 class PlaygroundService {
   private static instance: PlaygroundService;
   private redisService: RedisService;
-  private state: StateService;
   private gameManager: GameManager;
 
   constructor() {
     this.redisService = RedisService.getInstance();
-    this.state = StateService.getInstance();
     this.gameManager = GameManager.getInstance();
   }
 
@@ -35,10 +32,7 @@ class PlaygroundService {
     // Initialize game engine
     const engine = await this.gameManager.getGameEngine(game);
 
-    // Initialize player state
-    const state = await this.state.initialize(userId, gameId);
-
-    return { engine, state };
+    return engine;
   }
 
   public async reinitialize(gameId: string, newConfig: any) {

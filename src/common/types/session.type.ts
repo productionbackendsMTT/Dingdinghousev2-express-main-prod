@@ -10,7 +10,12 @@ export enum PlayerEventTypes {
 export interface ISpin {
   betAmount: number;
   winAmount: number;
-  timestamp: Date;
+  type: "regular" | "freespin";
+  spunAt: Date;
+  features?: {
+    name: string;
+    count?: number;
+  };
 }
 
 export interface IGameSession {

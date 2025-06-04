@@ -17,12 +17,16 @@ export function setupPlayground(namespace: Namespace) {
 
     try {
       // Initialize game engine and get initial state
-      const { engine, state } = await playgroundService.initialize(
-        gameId,
-        userId
-      );
+      const engine = await playgroundService.initialize(gameId, userId);
       const gameName = engine.getConfig().name;
-      const initialCredit = state.balance;
+
+      // Get initial balance from the session
+      const session = await sessionManager.getSession(userId);
+      if (!session) {
+        throw new Error("No active session found");
+      }
+
+      const initialCredit = session.currentBalance;
 
       try {
         // Start game session with retry logic
@@ -180,9 +184,9 @@ async function startGameSessionWithRetry(
   maxRetries: number = 3,
   delayMs: number = 1000
 ): Promise<any> {
-  let lastError: Error | null = null;
+  let attempt = 1;
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  while (attempt <= maxRetries) {
     try {
       return await sessionManager.startGameSession(
         userId,
@@ -191,29 +195,26 @@ async function startGameSessionWithRetry(
         initialCredit
       );
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      if (attempt === maxRetries) {
-        break; // Don't wait after the last attempt
-      }
-
-      // Only retry on lock-related errors
       if (
-        lastError.message.includes("lock") ||
-        lastError.message.includes("timeout") ||
-        lastError.message.includes("busy")
+        attempt === maxRetries ||
+        !(
+          error instanceof Error &&
+          (error.message.includes("lock") || error.message.includes("timeout"))
+        )
       ) {
-        console.log(
-          `Retry ${attempt}/${maxRetries} for user ${userId} game session start`
-        );
-        await delay(delayMs * attempt); // Exponential backoff
-      } else {
-        throw lastError; // Don't retry non-lock errors
+        throw error;
       }
+
+      const delay = delayMs * attempt;
+      console.log(
+        `Retry ${attempt}/${maxRetries} for game session start, waiting ${delay}ms`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      attempt++;
     }
   }
 
-  throw lastError || new Error("Failed to start game session after retries");
+  throw new Error("Failed to start game session after retries");
 }
 
 /**

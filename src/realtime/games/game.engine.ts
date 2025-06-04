@@ -4,10 +4,10 @@ import {
   GameResponse,
   BaseInitData,
 } from "./game.type";
-import { StateService } from "../../realtime/gateways/playground/playground.state";
 import { IGame } from "../../common/types/game.type";
 import { IPayout } from "../../common/types/payout.type";
 import { PlayerState } from "../../realtime/gateways/playground/playground.types";
+import { SessionManager } from "../../api/modules/sessions/sessions.manager";
 
 export abstract class GameEngine<
   TConfig = any,
@@ -15,11 +15,11 @@ export abstract class GameEngine<
   TResponse extends GameResponse = GameResponse,
   TInitData extends BaseInitData = BaseInitData
 > {
-  protected state: StateService;
+  protected session: SessionManager;
   protected config: GameConfig<TConfig>;
 
   constructor(game: IGame & { payout: IPayout }) {
-    this.state = StateService.getInstance();
+    this.session = SessionManager.getInstance();
     this.config = this.createConfig(game);
     this.validateConfig();
   }
@@ -59,14 +59,14 @@ export abstract class GameEngine<
   abstract handleAction(action: TAction): Promise<TResponse>;
   public abstract getInitData(userId: string): Promise<TInitData>;
 
-  protected async getPlayerState(userId: string) {
-    return this.state.getState(userId, this.config.gameId);
-  }
+  // protected async getPlayerState(userId: string) {
+  //   return this.state.getState(userId, this.config.gameId);
+  // }
 
-  protected async updatePlayerState(
-    userId: string,
-    updates: Partial<PlayerState>
-  ) {
-    return this.state.updatePlayerState(userId, this.config.gameId, updates);
-  }
+  // protected async updatePlayerState(
+  //   userId: string,
+  //   updates: Partial<PlayerState>
+  // ) {
+  //   return this.state.updatePlayerState(userId, this.config.gameId, updates);
+  // }
 }
