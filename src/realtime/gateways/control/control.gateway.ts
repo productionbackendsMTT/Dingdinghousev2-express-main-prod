@@ -26,9 +26,11 @@ export function setupControl(namespace: Namespace) {
       const handleSessionEvent = (message: string) => {
         try {
           const event = JSON.parse(message) as SessionEvent;
-          const type = event.type;
-
-          socket.emit(`${type}`, { userId: event.userId, data: event.data });
+          socket.emit(event.type, {
+            userId: event.userId,
+            data: event.data,
+            timestamp: new Date(),
+          });
         } catch (error) {
           console.error("Error processing session event:", error);
         }

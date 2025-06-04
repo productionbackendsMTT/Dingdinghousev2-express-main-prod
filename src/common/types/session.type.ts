@@ -1,6 +1,8 @@
 export enum PlayerEventTypes {
   PLAYER_ENTERED = "player:entered",
   PLAYER_EXITED = "player:exited",
+  PLAYER_REENTERED = "player:reentered",
+  PLAYER_UPDATED = "player:updated",
   PLAYER_GAME_STARTED = "player:game:started",
   PLAYER_GAME_ENDED = "player:game:ended",
   PLAYER_RECONNECTED = "player:reconnected",

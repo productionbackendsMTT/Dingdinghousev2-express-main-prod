@@ -277,6 +277,9 @@ export class SessionManager {
       session.lastActivity = new Date();
       await this.persistSession(session);
 
+      // Publish balance update
+      await this.publishBalanceUpdate(userId, newBalance);
+
       return { success: true, newBalance };
     });
   }
@@ -307,6 +310,9 @@ export class SessionManager {
 
       session.lastActivity = new Date();
       await this.persistSession(session);
+
+      // Publish balance update
+      await this.publishBalanceUpdate(userId, newBalance);
 
       return newBalance;
     });
@@ -588,6 +594,19 @@ export class SessionManager {
       this.SESSION_CHANNEL,
       JSON.stringify(event)
     );
+  }
+
+  private async publishBalanceUpdate(
+    userId: string,
+    balance: number
+  ): Promise<void> {
+    await this.publishEvent({
+      type: PlayerEventTypes.PLAYER_UPDATED,
+      userId,
+      data: {
+        currentBalance: balance,
+      },
+    });
   }
 
   public async cleanupOrphanedSessions(): Promise<number> {

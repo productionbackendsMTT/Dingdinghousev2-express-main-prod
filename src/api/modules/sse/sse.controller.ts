@@ -15,14 +15,14 @@ class SSEController {
       const user = authReq.requestingUser;
       const userId = user._id.toString();
 
-      // Set headers to prevent connection timeout and properly enable SSE
+      // Set headers first
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
-        "X-Accel-Buffering": "no", // For Nginx proxy buffering
-        "Access-Control-Allow-Origin": req.headers.origin || "*", // Important for CORS
-        "Access-Control-Allow-Credentials": "true", // Important for credentials
+        "X-Accel-Buffering": "no",
+        "Access-Control-Allow-Origin": req.headers.origin || "*",
+        "Access-Control-Allow-Credentials": "true",
       });
 
       // Keep socket alive
@@ -30,12 +30,28 @@ class SSEController {
       req.socket.setNoDelay(true);
       req.socket.setKeepAlive(true);
 
-      // Register client and session
+      // Check for existing session first
+      const existingSession = await this.sessionManager.getSession(userId);
+
+      // Add client before creating session to prevent race conditions
       await this.sseManager.addClient(userId, res);
 
-      await this.sessionManager.createSession(user);
+      // Only create new session if none exists or previous was properly closed
+      if (!existingSession || !existingSession.isActive) {
+        await this.sessionManager.createSession(user);
+      } else {
+        // If session exists and is active, send PLAYER_REENTERED event
+        await this.sessionManager.publishEvent({
+          type: PlayerEventTypes.PLAYER_REENTERED,
+          userId,
+          data: {
+            ...existingSession,
+            timestamp: new Date(),
+          },
+        });
+      }
 
-      // Heartbeat to keep connection alive
+      // Heartbeat
       const heartbeat = setInterval(() => {
         res.write(`event: heartbeat\ndata: ${new Date().toISOString()}\n\n`);
       }, 30000);
@@ -48,10 +64,8 @@ class SSEController {
         const session = await this.sessionManager.getSession(userId);
         if (session) {
           if (!session.currentGame) {
-            // End session if no active game
             await this.sessionManager.endSession(userId);
           } else {
-            // Just notify about SSE disconnect but keep game session active
             await this.sessionManager.publishEvent({
               type: PlayerEventTypes.PLAYER_EXITED,
               userId,
@@ -66,11 +80,12 @@ class SSEController {
       });
 
       // Send initial connection event
+      const currentSession = await this.sessionManager.getSession(userId);
       res.write(
         `event: connected\ndata: ${JSON.stringify({
           userId,
           timestamp: new Date().toISOString(),
-          session: await this.sessionManager.getSession(userId),
+          session: currentSession,
         })}\n\n`
       );
     } catch (error) {

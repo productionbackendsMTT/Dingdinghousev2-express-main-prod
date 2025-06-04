@@ -2,506 +2,440 @@
     "userId": "68281d7a6c889b540c80d229",
     "username": "gaurav",
     "path": "680f282cae383878344db402/68281d7a6c889b540c80d229",
-    "balanceOnEntry": 100005247.1225,
-    "currentBalance": 100004677.1225,
-    "connectedAt": "2025-06-04T06:53:01.600Z",
-    "lastActivity": "2025-06-04T06:56:57.429Z",
+    "balanceOnEntry": 100005147.2825,
+    "currentBalance": 100005147.4525,
+    "connectedAt": "2025-06-04T12:08:59.642Z",
+    "lastActivity": "2025-06-04T12:14:11.475Z",
     "completedGames": [
         {
-            "id": "gs_1749020000337_iynz4quxw",
+            "id": "gs_1749038944205_ocjus1nhh",
             "gameId": "6811dc11b1ce42999da28412",
             "gameName": "Untitled-1.json",
-            "startedAt": "2025-06-04T06:53:20.337Z",
-            "initialCredit": 100005247.1225,
+            "startedAt": "2025-06-04T12:09:04.205Z",
+            "initialCredit": 100005147.2825,
+            "spins": [],
+            "endedAt": "2025-06-04T12:09:05.071Z",
+            "duration": 866,
+            "finalCredit": 100005147.2825
+        },
+        {
+            "id": "gs_1749038948328_rifx3is9d",
+            "gameId": "6811dc11b1ce42999da28412",
+            "gameName": "Untitled-1.json",
+            "startedAt": "2025-06-04T12:09:08.328Z",
+            "initialCredit": 100005147.2825,
+            "spins": [],
+            "endedAt": "2025-06-04T12:09:09.405Z",
+            "duration": 1077,
+            "finalCredit": 100005147.2825
+        },
+        {
+            "id": "gs_1749038952594_ed3t9wm0u",
+            "gameId": "6811dc11b1ce42999da28412",
+            "gameName": "Untitled-1.json",
+            "startedAt": "2025-06-04T12:09:12.594Z",
+            "initialCredit": 100005147.2825,
             "spins": [
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:53:32.715Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:09:26.974Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.01,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:09:31.003Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:53:35.521Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:09:41.970Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 160,
-                    "spunAt": "2025-06-04T06:53:38.333Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
-                    "winAmount": 170,
-                    "spunAt": "2025-06-04T06:53:42.133Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:53:45.931Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:53:49.698Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:09:45.726Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:09:48.892Z"
+                },
+                {
+                    "betAmount": 0.01,
+                    "winAmount": 0.04,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:10:07.617Z",
+                    "features": {
+                        "name": "bonus",
+                        "count": 2
+                    }
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:53:52.472Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:10:43.170Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 100,
-                    "spunAt": "2025-06-04T06:53:55.272Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:10:46.073Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 80,
-                    "spunAt": "2025-06-04T06:53:59.060Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
-                    "winAmount": 30,
-                    "spunAt": "2025-06-04T06:54:02.875Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:54:06.651Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:10:49.899Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:54:09.433Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:10:52.715Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 40,
-                    "spunAt": "2025-06-04T06:54:12.217Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "betAmount": 0.01,
+                    "winAmount": 0.02,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:10:55.586Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:54:15.994Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:10:59.423Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 60,
-                    "spunAt": "2025-06-04T06:54:18.800Z",
-                    "features": [
-                        {
-                            "name": "bonus",
-                            "result": [
-                                10
-                            ]
-                        }
-                    ],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:54:29.044Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:54:32.852Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:54:36.620Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:02.228Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 80,
-                    "spunAt": "2025-06-04T06:54:39.436Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "betAmount": 0.01,
+                    "winAmount": 0.015,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:05.127Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:54:43.206Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:08.950Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 160,
-                    "spunAt": "2025-06-04T06:54:46.025Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:54:49.799Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:11.790Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:14.704Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:54:52.587Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:18.512Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:21.435Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:54:55.360Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:25.291Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.01,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:28.219Z",
+                    "features": {
+                        "name": "bonus",
+                        "count": 7
+                    }
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:54:58.107Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:37.750Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 60,
-                    "spunAt": "2025-06-04T06:55:00.897Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "betAmount": 0.01,
+                    "winAmount": 0.0325,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:40.652Z",
+                    "features": {
+                        "name": "bonus",
+                        "count": 6
+                    }
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.25,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:11:50.121Z",
+                    "features": {
+                        "name": "scatter",
+                        "count": 500
+                    }
+                },
+                {
+                    "betAmount": 0.01,
+                    "winAmount": 0.09,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:00.329Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:04.675Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:04.230Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:07.472Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:07.234Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:10.247Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:10.237Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:55:13.048Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:16.821Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:13.241Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:16.321Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:19.603Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:20.131Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:23.026Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:22.372Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:26.842Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:55:25.196Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:29.737Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:28.960Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:33.531Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 100,
-                    "spunAt": "2025-06-04T06:55:31.774Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:35.535Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:36.339Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:55:38.352Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:42.182Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:39.586Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 180,
-                    "spunAt": "2025-06-04T06:55:45.024Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:55:48.834Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:52.636Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:42.579Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 30,
-                    "spunAt": "2025-06-04T06:55:55.433Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:45.680Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:49.667Z"
+                },
+                {
+                    "betAmount": 0.01,
+                    "winAmount": 0.0175,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:53.684Z"
+                },
+                {
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:12:57.691Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:55:59.198Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:01.491Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.03,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:04.404Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:01.974Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:08.245Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.005,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:11.142Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:04.759Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:14.996Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:07.534Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:17.836Z"
                 },
                 {
-                    "betAmount": 0,
+                    "betAmount": 0.01,
+                    "winAmount": 0.08,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:20.720Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:10.283Z",
-                    "features": [
-                        {
-                            "name": "freeSpin",
-                            "count": 3,
-                            "result": []
-                        }
-                    ],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:24.535Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:56:15.189Z",
-                    "features": [
-                        {
-                            "name": "freeSpin",
-                            "count": 3,
-                            "result": []
-                        }
-                    ],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "betAmount": 0.01,
+                    "winAmount": 0.015,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:27.440Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:56:19.016Z",
-                    "features": [
-                        {
-                            "name": "freeSpin",
-                            "count": 2,
-                            "result": []
-                        }
-                    ],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:22.772Z",
-                    "features": [
-                        {
-                            "name": "freeSpin",
-                            "count": 1,
-                            "result": []
-                        }
-                    ],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:31.254Z"
                 },
                 {
-                    "betAmount": 0,
+                    "betAmount": 0.01,
+                    "winAmount": 0.0275,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:34.134Z"
+                },
+                {
+                    "betAmount": 0.01,
+                    "winAmount": 0.03,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:38.015Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:25.527Z",
-                    "features": [
-                        {
-                            "name": "freeSpin",
-                            "count": 3,
-                            "result": []
-                        }
-                    ],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:41.833Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:30.435Z",
-                    "features": [
-                        {
-                            "name": "freeSpin",
-                            "count": 3,
-                            "result": []
-                        }
-                    ],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:44.633Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:33.196Z",
-                    "features": [
-                        {
-                            "name": "freeSpin",
-                            "count": 2,
-                            "result": []
-                        }
-                    ],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:47.431Z"
                 },
                 {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
+                    "winAmount": 0.01,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:50.334Z"
+                },
+                {
+                    "betAmount": 0.01,
+                    "winAmount": 0.04,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:54.248Z"
+                },
+                {
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:35.984Z",
-                    "features": [
-                        {
-                            "name": "freeSpin",
-                            "count": 1,
-                            "result": []
-                        }
-                    ],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:13:58.062Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 100,
-                    "spunAt": "2025-06-04T06:56:38.800Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "betAmount": 0.01,
+                    "winAmount": 0.02,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:14:00.972Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 40,
-                    "spunAt": "2025-06-04T06:56:42.614Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
+                    "betAmount": 0.01,
+                    "winAmount": 0.0075,
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:14:04.882Z"
                 },
                 {
-                    "betAmount": 40,
-                    "winAmount": 20,
-                    "spunAt": "2025-06-04T06:56:46.419Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
-                    "winAmount": 40,
-                    "spunAt": "2025-06-04T06:56:50.217Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
+                    "betAmount": 0.01,
                     "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:53.997Z",
-                    "features": [],
-                    "timestamp": "1970-01-01T00:00:00.000Z"
-                },
-                {
-                    "betAmount": 40,
-                    "winAmount": 0,
-                    "spunAt": "2025-06-04T06:56:56.800Z",
-                    "features": [],
-                    "timestamp": null
+                    "type": "regular",
+                    "spunAt": "2025-06-04T12:14:08.669Z"
                 }
             ],
-            "totalBet": 2360,
-            "totalWin": 1630,
-            "endedAt": "2025-06-04T06:56:57.429Z",
-            "duration": 217092,
-            "finalCredit": 100004677.1225
+            "totalBet": 0.6300000000000003,
+            "totalWin": 0.8,
+            "endedAt": "2025-06-04T12:14:11.475Z",
+            "duration": 298881,
+            "finalCredit": 100005147.4525
         }
     ],
     "isActive": true
