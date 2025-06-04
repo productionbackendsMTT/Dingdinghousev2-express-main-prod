@@ -110,3 +110,14 @@ function trueRandom(min: number, max: number) {
 function generateUniqueSeed(): number {
   return Math.floor(Date.now() * Math.random() + performance.now());
 }
+
+/**
+ * Rounds a number to a specified precision.
+ * @param number - The number to round.
+ * @param precision - The number of decimal places to round to.
+ * @returns The rounded number.
+ */
+export function precisionRound(number: number, precision: number) {
+  var factor = Math.pow(10, precision);
+  return Math.round(number * factor) / factor;
+}

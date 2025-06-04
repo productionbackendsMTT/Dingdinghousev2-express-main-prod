@@ -8,6 +8,7 @@ import BaseSlotsEngine from "./slots/base.slots.engine";
 import { GamesTypes } from "./game.type";
 import logMethod from "../../common/lib/decorators/logging.decorator";
 import LifeOfLuxurySlotsEngine from "./slots/variants/SL-LOL/sl-lol.slots.engine";
+import UltimateFirelinkSlotEngine from "./slots/variants/SL-FLC/sl-flc.slots.engine";
 
 export class GameManager {
   private static instance: GameManager;
@@ -21,6 +22,7 @@ export class GameManager {
   private initializeGameEngines(): void {
     this.gameEngines.set(GamesTypes.SLOTS, BaseSlotsEngine);
     this.gameEngines.set("SL-LOL", LifeOfLuxurySlotsEngine);;
+    this.gameEngines.set("SL-FLC", UltimateFirelinkSlotEngine);;
     // this.gameEngines.set(GamesTypes.KENO, BaseKenoEngine);
   }
 
