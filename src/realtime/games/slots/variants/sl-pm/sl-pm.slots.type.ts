@@ -8,6 +8,7 @@ export interface SLPMAction extends GameAction {
 }
 export interface SLPMResponse extends GameResponse {
     matrix?: string[][];
+    winningLines: { lineIndex: number; paySymbol: string; win: number, indices: number[]; }[];
     payload?: any
 }
 
