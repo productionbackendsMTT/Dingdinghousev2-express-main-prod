@@ -1,8 +1,7 @@
 import { GameEngine } from "../../../game.engine";
 import { SLPMConfig, SLPMResponse, SLPMAction, specialIcons } from "./sl-pm.slots.type";
 import { SlotsInitData } from "../../../game.type";
-import { symbol } from "zod";
-class BaseSlotsEngine extends GameEngine<
+class SLPMSlotsEngine extends GameEngine<
   SLPMConfig,
   SLPMAction,
   SLPMResponse,
@@ -135,7 +134,7 @@ class BaseSlotsEngine extends GameEngine<
     const transposedMatrix = resultMatrix[0].map((_, colIndex) =>
       resultMatrix.map((row) => row[colIndex])
     );
-
+    console.log(transposedMatrix, 'transposedMatrix');
     // Prepare output for line results 
     const linesResults: {
       lineIndex: number;
@@ -191,7 +190,6 @@ class BaseSlotsEngine extends GameEngine<
       }
 
       if (count >= 3) {
-
         const symbolConfig = this.config.content.symbols.find((s) => s.id.toString() === paySymbol);
         const multiplierIndex = this.config.content.matrix.x - count;
         const win = symbolConfig ? symbolConfig.multiplier[multiplierIndex] || 0 : 0;
@@ -233,10 +231,28 @@ class BaseSlotsEngine extends GameEngine<
       const transposedMatrix = matrix[0].map((_, colIndex) =>
         matrix.map((row) => row[colIndex])
       );
-      const cascadedMatrix = transposedMatrix.map((column) => {
+      const cascadedMatrix = transposedMatrix.map((column, colIndex) => {
         const filteredSymbols = column.filter((symbol) => symbol !== "-1");
-        const emptySpaces = new Array(column.length - filteredSymbols.length).fill("");
-        return emptySpaces.concat(filteredSymbols);
+        const emptyCount = column.length - filteredSymbols.length;
+
+        // Generate new random symbols for empty spaces
+        const newSymbols = [];
+        for (let i = 0; i < emptyCount; i++) {
+          // Get reel-specific symbol weights from config
+          const reelSymbols: string[] = [];
+          this.config.content.symbols.forEach((symbol) => {
+            for (let j = 0; j < symbol.reelsInstance[colIndex]; j++) {
+              reelSymbols.push(symbol.id.toString());
+            }
+          });
+          // Pick a random symbol from the weighted list
+          const randomIndex = Math.floor(Math.random() * reelSymbols.length);
+          newSymbols.push(reelSymbols[randomIndex]);
+        }
+
+        const finalColumn = newSymbols.concat(filteredSymbols);
+
+        return finalColumn;
       });
 
       return cascadedMatrix[0].map((_, colIndex) =>
@@ -245,7 +261,8 @@ class BaseSlotsEngine extends GameEngine<
     };
 
     const cascadedMatrix = applyCascade(updatedMatrix);
-    console.log(cascadedMatrix, "Matrix after cascade");
+    console.log("Initial matrix with -1:", updatedMatrix);
+    console.log("Final matrix after cascade and filling:", cascadedMatrix);
 
     return cascadedMatrix;
   }
@@ -308,4 +325,4 @@ class BaseSlotsEngine extends GameEngine<
 
 }
 
-export default BaseSlotsEngine;
+export default SLPMSlotsEngine;

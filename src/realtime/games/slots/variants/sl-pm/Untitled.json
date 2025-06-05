@@ -402,8 +402,8 @@
          "description": "Substitutes for all symbols except Jackpot, Free Spin, Bonus, and Scatter."
        },
        {
-         "id": "FreeSpin",
-         "name": 11,
+         "id":11 ,
+         "name": "FreeSpin",
          "reelsInstance": {
            "0": 2,
            "1": 2,
