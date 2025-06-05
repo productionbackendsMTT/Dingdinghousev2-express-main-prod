@@ -1,8 +1,9 @@
 import { PlayerState } from "../../../../gateways/playground/playground.types";
 import { GameEngine } from "../../../game.engine";
 import { SlotsInitData } from "../../../game.type";
-import { precisionRound } from "../../gameUtils.slots";
-import { SLFLCAction, SLFLCCheckForFreeSpinContext, SLFLCConfig, SLFLCResponse, SLFLCSpecials, SLFLCSymbolConfig, WinningCombination } from "./sl-flc.slots.type";
+import { getRandomFromProbability } from "../../common/weightedPick";
+import { cryptoRng, precisionRound } from "../../gameUtils.slots";
+import { SLFLCAction, SLFLCCheckForFreeSpinContext, SLFLCConfig, SLFLCResponse, SLFLCSpecials, SLFLCSymbolConfig, ValueType, WinningCombination } from "./sl-flc.slots.type";
 
 class UltimateFirelinkSlotEngine extends GameEngine<
   SLFLCConfig,
@@ -11,16 +12,14 @@ class UltimateFirelinkSlotEngine extends GameEngine<
   SlotsInitData
 > {
 
-  private freespinOptionIndex: number = this.config.content.features.freespin.defaultFreespinOption;
 
   validateConfig(): void {
     const { matrix, lines, symbols } = this.config.content;
-
   }
 
   async handleAction(action: SLFLCAction): Promise<SLFLCResponse> {
     console.log("action:", action);
-    console.log("action option:", action.payload.option, "/", this.config.content.features.freespin.freespinOptions.length);
+    // console.log("action option:", action.payload.option, "/", this.config.content.features.freespin.freespinOptions.length);
 
 
     switch (action.type.trim()) {
@@ -32,7 +31,8 @@ class UltimateFirelinkSlotEngine extends GameEngine<
         if (opt === undefined || (opt < 0 || opt >= this.config.content.features.freespin.freespinOptions.length)) {
           throw new Error("Invalid freespin option");
         } else {
-          this.freespinOptionIndex = opt;
+          await this.state.setGameSpecificState(action.userId, this.config.gameId, "freeSpins", this.config.content.features.freespin.freespinOptions[opt].count)
+          await this.state.setGameSpecificState(action.userId, this.config.gameId, "freeSpinOption", opt)
           return {
             success: true,
             player: {
@@ -49,6 +49,7 @@ class UltimateFirelinkSlotEngine extends GameEngine<
 
     // console.log("syms", this.config.content.symbols)
     const balance = await this.state.getBalance(userId, this.config.gameId);
+    await this.state.setGameSpecificState(userId, this.config.gameId, "freeSpinOption", this.config.content.features.freespin.defaultFreespinOption)
 
     return {
       id: "initData",
@@ -82,7 +83,8 @@ class UltimateFirelinkSlotEngine extends GameEngine<
 
   protected checkLines(
     matrix: string[][],
-    isFreeSpin: boolean
+    isFreeSpin: boolean,
+    freespinOption: number
   ): Array<{
     line: number[];
     symbols: string[];
@@ -96,7 +98,7 @@ class UltimateFirelinkSlotEngine extends GameEngine<
 
     this.config.content.lines.forEach((line, lineIndex) => {
       const values = line.map((rowIndex, colIndex) => matrix[rowIndex][colIndex]);
-      const lineResult = this.checkLineSymbols(values, line, isFreeSpin);
+      const lineResult = this.checkLineSymbols(values, line, isFreeSpin, freespinOption);
 
       if (lineResult.count >= 3) {
         results.push({
@@ -111,19 +113,64 @@ class UltimateFirelinkSlotEngine extends GameEngine<
   }
 
 
+  protected async populateScatterValues(matrix: string[][], scatterValues: ValueType[], type: "bonus" | "base") {
+    // const matrix = type === "base" ? settings.resultSymbolMatrix : settings.bonusResultMatrix
+    let result: ValueType[] = []
+
+    const prevScatter = scatterValues.map(v => `${v.index[0]},${v.index[1]}`)
+
+    matrix.map((row, x) => {
+      row.map((symbol, y) => {
+        if (symbol === this.getScatterSymbolId()) {
+          if (!prevScatter.includes(`${x},${y}`)) {
+            // if (type === "bonus") {
+            //   settings.bonus.spinCount = 3
+            // }
+            //NOTE: add scatter to values
+            const scatterValue = this.config.content.features.bonus.scatterValues[getRandomFromProbability(this.config.content.features.bonus.scatterProbs, cryptoRng) - 1]
+            console.log("populate sc", x, y, scatterValue);
+
+            result.push({
+              value: scatterValue,
+              index: [x, y]
+            })
+          }
+        }
+      })
+    })
+    return result
+  }
+
+
+  protected async checkForBonus(scatterValues: ValueType[]) {
+    const scatterCount = scatterValues.length
+    if (scatterCount >= this.config.content.features.bonus.scatterTrigger[0].count[0]) {
+      // settings.bonus.scatterCount = settings.scatter.values.length
+      // settings.bonus.isTriggered = true
+      // settings.bonus.spinCount = 3
+
+      // const triggers = settings.scatter.bonusTrigger
+      // const rows = rowsOnExpand(scatterCount, triggers)
+      // const currentRows = settings.currentGamedata.matrix.y
+      // if (rows !== currentRows) {
+      //
+      //   settings.currentGamedata.matrix.y = rows
+      //   settings.scatter.values = shiftScatterValues(settings.scatter.values, rows - currentRows)
+      // }
+      return true
+    }
+    return false
+  }
+
   protected async handleSpin(action: SLFLCAction): Promise<SLFLCResponse> {
     try {
       const { userId, payload } = action;
-
 
       this.validateSpinPayload(payload);
 
       let playerState = await this.state.getSafeState(userId, this.config.gameId) as PlayerState
 
       console.log("player state", (playerState));
-
-
-
 
       //NOTE: freespin count checking from state
       let freeSpinCount: number = playerState.gameSpecific?.freeSpins || 0;
@@ -133,99 +180,112 @@ class UltimateFirelinkSlotEngine extends GameEngine<
 
       const reels = this.getRandomMatrix()
 
-      console.log("reels", reels.map(row => row.map(symbolId => symbolId || "Unknown Symbol")));
+      let scatterValues: ValueType[] = []
 
+      let isBonus = false
+      if (playerState.gameSpecific?.bonusCount > 0) {
 
-      let ctx: SLFLCCheckForFreeSpinContext = {
-        matrix: reels,
-        freeSpinSymbolId: this.getFreeSpinSymbolId(),
-        isEnabled: this.config.content.features.freespin.isEnabled
-      }
-      //NOTE: since we we disabled freespin within freespin
-      let isFreeSpin = false
+        throw new Error("Bonus already in progress, please wait for it to finish");
 
+      } else {
+        //NOTE: base non bonus spins
+        scatterValues = await this.populateScatterValues(reels, playerState.gameSpecific?.scatterValues || [], "base");
 
+        console.log("reels", reels.map(row => row.map(symbolId => symbolId || "Unknown Symbol")));
+        // console.log("scatter values", scatterValues);
 
-      const lineWins = this.checkLines(reels, freeSpinCount > 0);
-      console.log("linwins : ", lineWins);
-
-
-
-      //NOTE: set freespincount spagatti if else ladder
-      if (!freeSpinCount || freeSpinCount <= 0) {
-        // await this.validateAndDeductBalance(userId, totalBetAmount);
-        playerState.balance -= totalBetAmount
-        playerState.currentBet = totalBetAmount;
-
-        console.log(" deducting bet amount", totalBetAmount);
+        let ctx: SLFLCCheckForFreeSpinContext = {
+          matrix: reels,
+          freeSpinSymbolId: this.getFreeSpinSymbolId(),
+          isEnabled: this.config.content.features.freespin.isEnabled
+        }
+        //NOTE: since we we disabled freespin within freespin
+        let isFreeSpin = false
 
         isFreeSpin = this.checkForFreespin(ctx)
-        //NOTE: freespin trigger
-        if (isFreeSpin) {
-          //
-          freeSpinCount += this.config.content.features.freespin.freespinOptions[this.freespinOptionIndex].count;
 
+        const lineWins = this.checkLines(reels, freeSpinCount > 0, playerState.gameSpecific.freeSpinOption);
+        // console.log("linwins : ", lineWins);
+
+        //NOTE: set freespincount spagatti if else ladder
+        if (!freeSpinCount || freeSpinCount <= 0) {
+          // await this.validateAndDeductBalance(userId, totalBetAmount);
+          playerState.balance -= totalBetAmount
+          playerState.currentBet = totalBetAmount;
+
+          console.log(" deducting bet amount", totalBetAmount);
+
+          //NOTE: freespin trigger
+          if (isFreeSpin) {
+            freeSpinCount = this.config.content.features.freespin.freespinOptions[playerState.gameSpecific.freeSpinOption].count;
+          }
+        } else {
+          playerState.currentBet = 0
+
+          //NOTE: freespin freespin within freespin
+          freeSpinCount = (isFreeSpin ?
+            this.config.content.features.freespin.freespinOptions[playerState.gameSpecific.freeSpinOption].count - 1
+            : freeSpinCount - 1);
         }
-      } else {
+        playerState.gameSpecific.freeSpins = freeSpinCount;
 
-        //NOTE: freespin freespin within freespin
-        freeSpinCount = freeSpinCount - 1
-        // + (isFreeSpin ?
-        //   this.config.content.features.freespin.freespinOptions[this.freespinOptionIndex].count
-        //   : 0);
+        console.log(" spins awarded ", isFreeSpin, freeSpinCount);
+
+        // if (specialFeatures.freeSpinCount && specialFeatures.freeSpinCount > 0) {
+        //   isFreeSpin = true;
+        //   this.state.setGameSpecificState(
+        //     userId,
+        //     this.config.gameId,
+        //     "freeSpins",
+        //     freeSpinCount + specialFeatures.freeSpinCount
+        //   );
+        // }
+        // specialFeatures.freeSpinCount = freeSpinCount + specialFeatures.freeSpinCount;
+
+        // console.log("final freespin ", specialFeatures.freeSpinCount);
+
+        let totalWinAmount = 0
+
+        if (lineWins.length > 0) {
+          lineWins.forEach((win) => {
+            totalWinAmount += win.amount;
+          })
+        }
+        // const lineWins = this.checkLines(reels);
+
+        // console.log("wincombs", JSON.stringify(winCombinations));
+
+        if (totalWinAmount > 0) {
+          // await this.creditWinnings(userId, totalWinAmount * totalBetAmount);
+          playerState.balance = precisionRound((playerState.balance + totalWinAmount * totalBetAmount), 5)
+        }
+        console.log("win", totalWinAmount, playerState.balance);
+
+        playerState.currentWinning = precisionRound(totalWinAmount * totalBetAmount, 5)
+
+        await this.state.updatePartialState(userId, this.config.gameId, playerState)
+
+        return this.buildSpinResponse(
+          reels,
+          lineWins,
+          {
+            isFreeSpin,
+            count: freeSpinCount,
+            scatterValues,
+          },
+          totalWinAmount,
+          // newBalance,
+          playerState.balance,
+          payload.betAmount as number,
+        )
       }
-      playerState.gameSpecific.freeSpins = freeSpinCount;
 
 
-      console.log(" spins awarded ", isFreeSpin, freeSpinCount);
 
+      isBonus = await this.checkForBonus(scatterValues);
 
-      // if (specialFeatures.freeSpinCount && specialFeatures.freeSpinCount > 0) {
-      //   isFreeSpin = true;
-      //   this.state.setGameSpecificState(
-      //     userId,
-      //     this.config.gameId,
-      //     "freeSpins",
-      //     freeSpinCount + specialFeatures.freeSpinCount
-      //   );
-      // }
-      // specialFeatures.freeSpinCount = freeSpinCount + specialFeatures.freeSpinCount;
+      console.log("isbonus", isBonus);
 
-      // console.log("final freespin ", specialFeatures.freeSpinCount);
-
-      let totalWinAmount = 0
-
-      if (lineWins.length > 0) {
-        lineWins.forEach((win) => {
-          totalWinAmount += win.amount;
-        })
-      }
-      // const lineWins = this.checkLines(reels);
-
-      // console.log("wincombs", JSON.stringify(winCombinations));
-
-      if (totalWinAmount > 0) {
-        // await this.creditWinnings(userId, totalWinAmount * totalBetAmount);
-        playerState.balance = precisionRound((playerState.balance + totalWinAmount * totalBetAmount), 5)
-      }
-      console.log("win", totalWinAmount, playerState.balance);
-
-      playerState.currentWinning = precisionRound(totalWinAmount * totalBetAmount, 5)
-
-      await this.state.updatePartialState(userId, this.config.gameId, playerState)
-
-      return this.buildSpinResponse(
-        reels,
-        lineWins,
-        {
-          isFreeSpin,
-          count: freeSpinCount,
-        },
-        totalWinAmount,
-        // newBalance,
-        playerState.balance,
-        payload.betAmount as number,
-      );
     } catch (error) {
       console.error(`Error processing spin for user`, error);
       throw error;
@@ -299,6 +359,7 @@ class UltimateFirelinkSlotEngine extends GameEngine<
     specialFeatures: {
       count: number,
       isFreeSpin: boolean,
+      scatterValues: ValueType[]
     },
     totalWinAmount: number,
     newBalance: number,
@@ -326,6 +387,9 @@ class UltimateFirelinkSlotEngine extends GameEngine<
         freeSpin: {
           isFreeSpin: specialFeatures?.isFreeSpin || false,
           count: specialFeatures?.count,
+        },
+        scatter: {
+          values: specialFeatures?.scatterValues || [],
         }
       }
       // ...( features.freeSpin ? features : {}),
@@ -433,9 +497,6 @@ class UltimateFirelinkSlotEngine extends GameEngine<
     return matrix[0].map((_, colIndex) => matrix.map((row) => row[colIndex]));
   }
 
-
-
-
   private countMatchingSymbols(
     values: string[],
     paySymbol: string,
@@ -454,8 +515,6 @@ class UltimateFirelinkSlotEngine extends GameEngine<
 
     return count;
   }
-
-
 
   private getWildSequenceCount(values: string[], paySymbol: string, wildSymbol: string): number {
     let count = 0;
@@ -482,7 +541,7 @@ class UltimateFirelinkSlotEngine extends GameEngine<
     return null;
   }
 
-  protected checkLineSymbols(values: string[], line: number[], isFreeSpin: boolean): {
+  protected checkLineSymbols(values: string[], line: number[], isFreeSpin: boolean, freespinOption: number): {
     count: number;
     win: number;
   } {
@@ -510,13 +569,13 @@ class UltimateFirelinkSlotEngine extends GameEngine<
     if (isFreeSpin) {
       switch (count) {
         case 3:
-          winAmount *= this.config.content.features.freespin.freespinOptions[this.freespinOptionIndex].multiplier[0];
+          winAmount *= this.config.content.features.freespin.freespinOptions[freespinOption].multiplier[0];
           break;
         case 4:
-          winAmount *= this.config.content.features.freespin.freespinOptions[this.freespinOptionIndex].multiplier[1];
+          winAmount *= this.config.content.features.freespin.freespinOptions[freespinOption].multiplier[1];
           break;
         case 5:
-          winAmount *= this.config.content.features.freespin.freespinOptions[this.freespinOptionIndex].multiplier[2];
+          winAmount *= this.config.content.features.freespin.freespinOptions[freespinOption].multiplier[2];
           break;
       }
     }
@@ -533,6 +592,11 @@ class UltimateFirelinkSlotEngine extends GameEngine<
 
     const multiplierIndex = this.config.content.matrix.x - count;
     return symbol.multiplier[multiplierIndex] || 0;
+  }
+  private getScatterSymbolId(): string {
+    return this.config.content.symbols
+      .find((s) => s.name === SLFLCSpecials.Scatter)
+      ?.id.toString() ?? "";
   }
 
   private getFreeSpinSymbolId(): string {
@@ -552,63 +616,63 @@ class UltimateFirelinkSlotEngine extends GameEngine<
   }
 
 
-  protected checkForSpecialSymbols(matrix: string[][]) {
-    const symbolCounts = this.countAllSymbols(matrix);
-    const specialSymbols = [];
+  // protected checkForSpecialSymbols(matrix: string[][]) {
+  //   const symbolCounts = this.countAllSymbols(matrix);
+  //   const specialSymbols = [];
+  //
+  //   for (const [symbolId, count] of symbolCounts) {
+  //     const symbolConfig = this.getSymbolConfig(symbolId);
+  //     if (!symbolConfig || symbolConfig.useWildSub || !symbolConfig.enabled) continue;
+  //
+  //     const minCount = symbolConfig.minSymbolCount || 0;
+  //     if (count < minCount) continue;
+  //
+  //     const result = {
+  //       symbol: symbolId,
+  //       symbolName: symbolConfig.name,
+  //       count,
+  //
+  //     };
+  //
+  //     const wins = this.calculateSpecialWins(symbolConfig, count);
+  //
+  //     Object.assign(result, wins);
+  //
+  //     specialSymbols.push(result);
+  //   }
+  //
+  //   return specialSymbols;
+  // }
 
-    for (const [symbolId, count] of symbolCounts) {
-      const symbolConfig = this.getSymbolConfig(symbolId);
-      if (!symbolConfig || symbolConfig.useWildSub || !symbolConfig.enabled) continue;
+  // private countAllSymbols(matrix: string[][]): Map<string, number> {
+  //   const counts = new Map<string, number>();
+  //
+  //   matrix.flat().forEach(symbolId => {
+  //     counts.set(symbolId, (counts.get(symbolId) || 0) + 1);
+  //   });
+  //
+  //   return counts;
+  // }
 
-      const minCount = symbolConfig.minSymbolCount || 0;
-      if (count < minCount) continue;
-
-      const result = {
-        symbol: symbolId,
-        symbolName: symbolConfig.name,
-        count,
-
-      };
-
-      const wins = this.calculateSpecialWins(symbolConfig, count);
-
-      Object.assign(result, wins);
-
-      specialSymbols.push(result);
-    }
-
-    return specialSymbols;
-  }
-
-  private countAllSymbols(matrix: string[][]): Map<string, number> {
-    const counts = new Map<string, number>();
-
-    matrix.flat().forEach(symbolId => {
-      counts.set(symbolId, (counts.get(symbolId) || 0) + 1);
-    });
-
-    return counts;
-  }
-
-  private calculateSpecialWins(symbolConfig: any, count: number) {
-    const minCount = symbolConfig.minSymbolCount || 0;
-    const multiplierIndex = count - minCount;
-
-    switch (symbolConfig.name) {
-      case SLFLCSpecials.Freespin:
-        const freeSpins = symbolConfig.multiplier?.[multiplierIndex] || 0;
-        return {
-          specialWin: freeSpins,
-          freeSpinCount: freeSpins
-        };
-
-
-      default:
-        return {
-
-        };
-    }
-  }
+  // private calculateSpecialWins(symbolConfig: any, count: number) {
+  //   const minCount = symbolConfig.minSymbolCount || 0;
+  //   const multiplierIndex = count - minCount;
+  //
+  //   switch (symbolConfig.name) {
+  //     case SLFLCSpecials.Freespin:
+  //       const freeSpins = symbolConfig.multiplier?.[multiplierIndex] || 0;
+  //       return {
+  //         specialWin: freeSpins,
+  //         freeSpinCount: freeSpins
+  //       };
+  //
+  //
+  //     default:
+  //       return {
+  //
+  //       };
+  //   }
+  // }
 
   protected accumulateWins(
     wins: Array<{ line: number[]; symbols: string[]; amount: number }>

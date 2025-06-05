@@ -21,6 +21,7 @@ export interface SLFLCBonusFeature {
   }>;
   scatterValues: number[];
   scatterProbs: number[];
+  bonusIncrement: number;
   isEnabled: boolean;
 }
 
@@ -79,4 +80,8 @@ export interface SLFLCCheckForFreeSpinContext {
   matrix: string[][];
   freeSpinSymbolId: string;
   isEnabled: boolean;
+}
+export type ValueType = {
+  index: [number, number];
+  value: number
 }
