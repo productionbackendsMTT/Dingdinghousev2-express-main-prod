@@ -5,8 +5,12 @@ export enum PlayerEventTypes {
   PLAYER_UPDATED = "player:updated",
   PLAYER_GAME_STARTED = "player:game:started",
   PLAYER_GAME_ENDED = "player:game:ended",
+  PLAYER_GAME_SPIN = "player:game:spin",
   PLAYER_RECONNECTED = "player:reconnected",
   PLAYER_ALL = "player:all",
+  PLAYER_GAMES_HISTORY = "player:games:history",
+  PLAYER_KICKOUT = "player:kickout",
+  ERROR = "error",
 }
 
 export interface ISpin {

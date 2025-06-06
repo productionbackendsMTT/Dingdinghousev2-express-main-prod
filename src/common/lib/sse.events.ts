@@ -7,6 +7,7 @@ export enum SSEEventTypes {
   USER_DISCONNECTED = "user-disconnected",
   GAME_STARTED = "game-started",
   GAME_ENDED = "game-ended",
+  USER_KICKOUT = "user-kickout",
 }
 
 // Redis Channels

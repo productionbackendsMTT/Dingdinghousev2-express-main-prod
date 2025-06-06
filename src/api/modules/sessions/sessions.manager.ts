@@ -21,6 +21,7 @@ export class SessionManager {
   private readonly SESSION_CHANNEL = "session:events";
   private readonly SESSION_PREFIX = "session:";
   private readonly USER_SESSION_PREFIX = "user:session:";
+  private readonly USER_MESSAGE_CHANNEL_PREFIX = "user:message:";
 
   private constructor() {
     this.redisService = RedisService.getInstance();
@@ -342,6 +343,16 @@ export class SessionManager {
 
       session.lastActivity = new Date();
       await this.persistSession(session);
+
+      // Publish spin event
+      await this.publishEvent({
+        type: PlayerEventTypes.PLAYER_GAME_SPIN,
+        userId,
+        data: {
+          gameId: session.currentGame.session.gameId,
+          spin,
+        },
+      });
     });
   }
 

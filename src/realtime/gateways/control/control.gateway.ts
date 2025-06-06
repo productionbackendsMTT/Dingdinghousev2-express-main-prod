@@ -6,14 +6,17 @@ import {
   PlayerEventTypes,
   SessionEvent,
 } from "../../../common/types/session.type";
+import ControlService from "./control.service";
 
 export function setupControl(namespace: Namespace) {
   const redisService = RedisService.getInstance();
   const sessionManager = SessionManager.getInstance();
+  const controlService = ControlService.getInstance();
 
   namespace.on("connection", async (socket: ControlSocket) => {
     try {
       const { user } = socket.data;
+
       if (!user || !user.path) {
         console.error("Invalid user connection attempt");
         throw new Error("Invalid user data");
@@ -37,6 +40,9 @@ export function setupControl(namespace: Namespace) {
       };
 
       await redisService.subscribe("session:events", handleSessionEvent);
+
+      // Setup all socket event listeners through service
+      controlService.setupListeners(socket);
 
       socket.on("disconnect", async () => {
         await redisService.unsubscribe("session:events");
