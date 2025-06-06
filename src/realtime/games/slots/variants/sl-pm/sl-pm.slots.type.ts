@@ -10,6 +10,7 @@ export interface SLPMResponse extends GameResponse {
     matrix?: string[][];
     winningLines: { lineIndex: number; paySymbol: string; win: number, indices: number[]; }[];
     payload?: any
+    cascades?: any[]; 
 }
 
 export interface SLPMFreeSpinFeature {

@@ -163,12 +163,13 @@ class BaseSlotsEngine extends GameEngine<
       const symbolConfig = this.getSymbolConfig(symbol.symbol);
       const minCount = symbolConfig?.minSymbolCount || 0;
 
-      if (symbol.symbolName === specialIcons.bonus && symbol.count >= minCount) {
+      if (symbol.symbolName === specialIcons.bonus && symbol.count >= this.config.content.features.bonus.minSymbolCount) {
         const { BonusStopIndex } = calculateSpinBonus(this.config.content.features.bonus.payout);
         features.bonusResult = BonusStopIndex;
       }
 
-      if (symbol.symbolName === specialIcons.jackpot && symbol.count >= minCount) {
+
+      if (symbol.symbolName === specialIcons.jackpot && symbol.count >= this.config.content.features.jackpot.minSymbolCount) {
         features.isJackpot = true;
       }
 
