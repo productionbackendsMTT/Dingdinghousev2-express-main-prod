@@ -6,12 +6,27 @@ export interface SLPMAction extends GameAction {
         betAmount: number;
     };
 }
-export interface SLPMResponse extends GameResponse {
-    matrix?: string[][];
-    winningLines: { lineIndex: number; paySymbol: string; win: number, indices: number[]; }[];
-    payload?: any
-    cascades?: any[]; 
+export interface CascadeResult {
+    cascadeIndex: number;
+    winningLines: Array<{
+        lineIndex: number;
+        symbols: string;
+        positions: number[];
+    }>;
+    symbolsToFill: string[][];
+    currentCascadeWin: number;
 }
+
+export interface SLPMResponse {
+    success: boolean;
+    matrix: string[][];
+    cascades: CascadeResult[];
+    totalWin: number;
+    player: {
+        balance: number;
+    };
+}
+
 
 export interface SLPMFreeSpinFeature {
     isEnabled: boolean;

@@ -1,5 +1,5 @@
 import { GameEngine } from "../../../game.engine";
-import { SLPMConfig, SLPMResponse, SLPMAction } from "./sl-pm.slots.type";
+import { SLPMConfig, SLPMResponse, SLPMAction, CascadeResult } from "./sl-pm.slots.type";
 import { SlotsInitData } from "../../../game.type";
 
 class SLPMSlotsEngine extends GameEngine<
@@ -76,19 +76,26 @@ class SLPMSlotsEngine extends GameEngine<
       );
 
       const { visibleReels, winningLines } = this.generateVisibleReels();
-      const { matrix, cascadeResult } = this.markWinningSymbols(
+      const { matrix, cascades } = this.markWinningSymbols(
         visibleReels,
         winningLines
+      );
+
+      const totalWin = cascades.reduce(
+        (sum, cascade) => sum + cascade.currentCascadeWin,
+        0
       );
 
       return {
         success: true,
         matrix,
-        winningLines: cascadeResult.winningLines,
+        cascades,
+        totalWin,
         player: {
           balance: balance - totalBetAmount,
         },
       };
+
     } catch (error) {
       console.error(`Error processing spin for user`, error);
       throw error;
@@ -220,7 +227,7 @@ class SLPMSlotsEngine extends GameEngine<
 
   private markWinningSymbols(
     matrix: string[][],
-    winningLines: {
+    initialWinningLines: {
       lineIndex: number;
       paySymbol: string;
       win: number;
@@ -228,67 +235,102 @@ class SLPMSlotsEngine extends GameEngine<
     }[]
   ): {
     matrix: string[][];
-    cascadeResult: {
-      winningLines: {
+    cascades: CascadeResult[];
+  } {
+    const cascades: CascadeResult[] = [];
+    let cascadeIndex = 0;
+
+    const processWinsAndCascade = (
+      currentMatrix: string[][],
+      currentWinningLines: {
         lineIndex: number;
         paySymbol: string;
         win: number;
         indices: number[];
-      }[];
-      symbolsToFill: string[][];
-    };
-  } {
-    const updatedMatrix = matrix.map((row) => [...row]);
-    const symbolsToFill: string[][] = [];
+      }[]
+    ): string[][] => {
+      if (currentWinningLines.length === 0) {
+        return currentMatrix;
+      }
 
-    // Mark winning symbols as `-1`
-    winningLines.forEach(({ lineIndex, indices }) => {
-      const winningLine = this.config.content.lines[lineIndex - 1];
+      // Format winning lines for current cascade
+      const formattedWinningLines = currentWinningLines.map(line => ({
+        lineIndex: line.lineIndex,
+        symbols: line.paySymbol,
+        positions: line.indices
+      }));
 
-      indices.forEach((col) => {
-        const row = winningLine[col];
-        if (updatedMatrix[row]?.[col] !== undefined) {
-          updatedMatrix[row][col] = "-1";
-        }
-      });
-    });
-
-    const applyCascade = (matrix: string[][]): string[][] => {
-      const transposedMatrix = matrix[0].map((_, colIndex) =>
-        matrix.map((row) => row[colIndex])
+      // Calculate current cascade win
+      const currentCascadeWin = currentWinningLines.reduce(
+        (sum, line) => sum + line.win,
+        0
       );
+
+      // Mark winning symbols and prepare for cascade
+      const markedMatrix = currentMatrix.map(row => [...row]);
+      currentWinningLines.forEach(({ lineIndex, indices }) => {
+        const winningLine = this.config.content.lines[lineIndex - 1];
+        indices.forEach((col) => {
+          const row = winningLine[col];
+          if (markedMatrix[row]?.[col] !== undefined) {
+            markedMatrix[row][col] = "-1";
+          }
+        });
+      });
+
+      // Generate new symbols and apply cascade
+      const transposedMatrix = markedMatrix[0].map((_, colIndex) =>
+        markedMatrix.map((row) => row[colIndex])
+      );
+      const newSymbolsToFill: string[][] = [];
       const cascadedMatrix = transposedMatrix.map((column, colIndex) => {
-        const filteredSymbols = column.filter((symbol) => symbol !== "-1");
+        const filteredSymbols = column.filter(symbol => symbol !== "-1");
         const emptyCount = column.length - filteredSymbols.length;
 
-        const newSymbols = [];
+        const columnNewSymbols = [];
         for (let i = 0; i < emptyCount; i++) {
           const reelSymbols: string[] = [];
-          this.config.content.symbols.forEach((symbol) => {
+          this.config.content.symbols.forEach(symbol => {
             for (let j = 0; j < symbol.reelsInstance[colIndex]; j++) {
               reelSymbols.push(symbol.id.toString());
             }
           });
           const randomIndex = Math.floor(Math.random() * reelSymbols.length);
-          newSymbols.push(reelSymbols[randomIndex]);
+          columnNewSymbols.push(reelSymbols[randomIndex]);
         }
-        symbolsToFill.push(newSymbols);
-        return newSymbols.concat(filteredSymbols);
+        console.log(columnNewSymbols)
+        newSymbolsToFill.push(columnNewSymbols);
+        return columnNewSymbols.concat(filteredSymbols);
       });
 
-      return cascadedMatrix[0].map((_, colIndex) =>
-        cascadedMatrix.map((row) => row[colIndex])
+      const newMatrix = cascadedMatrix[0].map((_, colIndex) =>
+        cascadedMatrix.map(row => row[colIndex])
       );
+
+      // Store cascade result
+      cascades.push({
+        cascadeIndex,
+        winningLines: formattedWinningLines,
+        symbolsToFill: newSymbolsToFill,
+        currentCascadeWin
+      });
+
+      // Check for new wins
+      const newWins = this.checkwin(newMatrix);
+
+      if (newWins.length > 0) {
+        cascadeIndex++;
+        return processWinsAndCascade(newMatrix, newWins);
+      }
+
+      return newMatrix;
     };
 
-    applyCascade(updatedMatrix);
-    console.log(matrix, winningLines, symbolsToFill, '--- Result ---');
+    processWinsAndCascade(matrix, initialWinningLines);
+
     return {
       matrix: matrix,
-      cascadeResult: {
-        winningLines,
-        symbolsToFill,
-      },
+      cascades
     };
   }
 }
