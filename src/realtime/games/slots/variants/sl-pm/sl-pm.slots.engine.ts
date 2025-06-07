@@ -57,6 +57,7 @@ class SLPMSlotsEngine extends GameEngine<
 
       const balance = await this.state.getBalance(userId, this.config.gameId);
 
+
       if (payload.betAmount > this.config.content.bets.length - 1) {
         throw new Error("Invalid bet amount");
       }
@@ -78,21 +79,22 @@ class SLPMSlotsEngine extends GameEngine<
       const { visibleReels, winningLines } = this.generateVisibleReels();
       const { matrix, cascades } = this.markWinningSymbols(
         visibleReels,
-        winningLines
+        winningLines,
+        payload.betAmount
       );
 
-      const totalWin = cascades.reduce(
+      const totalAccWin = cascades.reduce(
         (sum, cascade) => sum + cascade.currentCascadeWin,
         0
       );
-
+      let totalWin = Number(totalAccWin.toFixed(4));
       return {
         success: true,
         matrix,
         cascades,
         totalWin,
         player: {
-          balance: balance - totalBetAmount,
+          balance: Number((balance - totalBetAmount).toFixed(4)),
         },
       };
 
@@ -232,7 +234,8 @@ class SLPMSlotsEngine extends GameEngine<
       paySymbol: string;
       win: number;
       indices: number[];
-    }[]
+    }[],
+    betAmount: number
   ): {
     matrix: string[][];
     cascades: CascadeResult[];
@@ -249,6 +252,9 @@ class SLPMSlotsEngine extends GameEngine<
         indices: number[];
       }[]
     ): string[][] => {
+
+      let _Tcascade = 0;
+
       if (currentWinningLines.length === 0) {
         return currentMatrix;
       }
@@ -298,7 +304,7 @@ class SLPMSlotsEngine extends GameEngine<
           const randomIndex = Math.floor(Math.random() * reelSymbols.length);
           columnNewSymbols.push(reelSymbols[randomIndex]);
         }
-        console.log(columnNewSymbols)
+
         newSymbolsToFill.push(columnNewSymbols);
         return columnNewSymbols.concat(filteredSymbols);
       });
@@ -312,7 +318,7 @@ class SLPMSlotsEngine extends GameEngine<
         cascadeIndex,
         winningLines: formattedWinningLines,
         symbolsToFill: newSymbolsToFill,
-        currentCascadeWin
+        currentCascadeWin: currentCascadeWin * this.config.content.bets[betAmount]
       });
 
       // Check for new wins
@@ -320,8 +326,11 @@ class SLPMSlotsEngine extends GameEngine<
 
       if (newWins.length > 0) {
         cascadeIndex++;
+        _Tcascade + 1
         return processWinsAndCascade(newMatrix, newWins);
       }
+
+      console.log(_Tcascade, '_tcascade')
 
       return newMatrix;
     };
