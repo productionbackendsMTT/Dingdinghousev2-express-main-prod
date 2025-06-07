@@ -55,6 +55,13 @@ export interface SlotsInitData extends BaseInitData {
     lines?: number[][];
     bets: number[];
     spinBonus?: number[]
+    freespinOptions?: Array<{ count: number; multiplier: number[] }>;
+    jackpotMultipliers?: number[]
+    bonusTrigger?: Array<{
+      count: [number, number];
+      rows: number;
+    }>
+
   };
   uiData: {
     paylines: {

@@ -17,6 +17,14 @@ export const Events = {
         event: string
       }
     },
+
+    FREESPIN_REQUEST: {
+      name: "freespin:request",
+      payload: {} as {
+        type: "FREESPINOPTION"
+        option: number
+      }
+    },
     CONFIG_UPDATE: {
       name: "game:config:update",
       payload: {} as {

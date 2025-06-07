@@ -83,6 +83,26 @@ export function setupPlayground(namespace: Namespace) {
       });
 
 
+      //NOTE: freespin option request handler
+      socket.on(Events.CLIENT.FREESPIN_REQUEST.name, async (payload) => {
+        try {
+
+          const data = JSON.parse(payload);
+          const result = await engine.handleAction({
+            type: "freespin",
+            userId,
+            payload: {
+              type: data.type,
+              option: data.option ? parseInt(data.option) : 0,
+            }
+          })
+
+        } catch (e) {
+          console.error("freespin option request error:", e);
+        }
+
+      })
+
 
       //NOTE: gameble request handler
       socket.on(Events.CLIENT.GAMBLE_REQUEST.name, async (payload) => {

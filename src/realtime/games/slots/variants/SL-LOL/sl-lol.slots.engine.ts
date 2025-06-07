@@ -19,9 +19,6 @@ class LifeOfLuxurySlotsEngine extends GameEngine<
   }
 
   async handleAction(action: SLLOLAction): Promise<SLLOLResponse> {
-    console.log("action: ", action);
-    console.log("actiontype: ", action.type, action.type === "gamble");
-
 
     switch (action.type.trim()) {
       case "spin":
