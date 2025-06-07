@@ -1,3 +1,4 @@
+import logMethod from "../../../../../common/lib/decorators/logging.decorator";
 import { PlayerState } from "../../../../gateways/playground/playground.types";
 import { GameEngine } from "../../../game.engine";
 import { SlotsInitData } from "../../../game.type";
@@ -46,10 +47,16 @@ class UltimateFirelinkSlotEngine extends GameEngine<
   }
 
   public async getInitData(userId: string): Promise<SlotsInitData> {
+    const playerState = await this.state.getSafeState(userId, this.config.gameId) as PlayerState;
+    await this.state.updatePartialState(userId, this.config.gameId, playerState)
 
     // console.log("syms", this.config.content.symbols)
-    const balance = await this.state.getBalance(userId, this.config.gameId);
-    await this.state.setGameSpecificState(userId, this.config.gameId, "freeSpinOption", this.config.content.features.freespin.defaultFreespinOption)
+    // const [balance] = await Promise.all([
+    //   this.state.getBalance(userId, this.config.gameId),
+    //   this.state.setGameSpecificState(userId, this.config.gameId, "freeSpinOption", this.config.content.features.freespin.defaultFreespinOption),
+    //   this.state.setGameSpecificState(userId, this.config.gameId, "freeSpins", 0),
+    //   this.state.setGameSpecificState(userId, this.config.gameId, "bonusCount", 0)
+    // ]);
 
     return {
       id: "initData",
@@ -74,7 +81,7 @@ class UltimateFirelinkSlotEngine extends GameEngine<
         },
       },
       player: {
-        balance,
+        balance: playerState.balance || 0,
       },
     };
   }
@@ -113,9 +120,11 @@ class UltimateFirelinkSlotEngine extends GameEngine<
   }
 
 
+  @logMethod
   protected async populateScatterValues(matrix: string[][], scatterValues: ValueType[], type: "bonus" | "base") {
     // const matrix = type === "base" ? settings.resultSymbolMatrix : settings.bonusResultMatrix
     let result: ValueType[] = []
+    let bonusCount = 0
 
     const prevScatter = scatterValues.map(v => `${v.index[0]},${v.index[1]}`)
 
@@ -123,12 +132,12 @@ class UltimateFirelinkSlotEngine extends GameEngine<
       row.map((symbol, y) => {
         if (symbol === this.getScatterSymbolId()) {
           if (!prevScatter.includes(`${x},${y}`)) {
-            // if (type === "bonus") {
-            //   settings.bonus.spinCount = 3
-            // }
+            if (type === "bonus") {
+              bonusCount = 3
+            }
             //NOTE: add scatter to values
             const scatterValue = this.config.content.features.bonus.scatterValues[getRandomFromProbability(this.config.content.features.bonus.scatterProbs, cryptoRng) - 1]
-            console.log("populate sc", x, y, scatterValue);
+            // console.log("populate sc", x, y, scatterValue);
 
             result.push({
               value: scatterValue,
@@ -138,13 +147,13 @@ class UltimateFirelinkSlotEngine extends GameEngine<
         }
       })
     })
-    return result
+    return { result, bonusCount }
   }
 
 
-  protected async checkForBonus(scatterValues: ValueType[]) {
-    const scatterCount = scatterValues.length
-    if (scatterCount >= this.config.content.features.bonus.scatterTrigger[0].count[0]) {
+  @logMethod
+  protected async checkForBonus(scatterCount: number, scatterTrigger: any[]) {
+    if (scatterCount >= scatterTrigger[0].count[0]) {
       // settings.bonus.scatterCount = settings.scatter.values.length
       // settings.bonus.isTriggered = true
       // settings.bonus.spinCount = 3
@@ -162,6 +171,45 @@ class UltimateFirelinkSlotEngine extends GameEngine<
     return false
   }
 
+
+  private async handleBonusSpin(ctx: any) {
+    //TODO: bonus matrix generation
+    const { result: scatterValues, bonusCount } = await this.populateScatterValues(ctx.matrix, ctx.scatterValues, "bonus")
+    let isFreespin = false
+    let totalPayout = 0
+
+    const scatterCount = ctx.scatterValues.length
+    //TODO: Decrease bonus spin count
+    // settings.bonus.spinCount--
+
+
+    //NOTE: bonus inside freespin
+    if ((bonusCount - 1) < 0 && ctx.freespinCount === ctx.freespinOptions[ctx.freespinOptionIndex].count) {
+      //TODO: send isFreespin true
+      // settings.isFreespin = true
+      isFreespin = true
+    }
+    //TODO: send scatterCount 
+    // settings.bonus.scatterCount = scatterCount
+    if (scatterCount === 40) {
+      //TODO: end bonus when we hit max scatter
+      // settings.bonus.spinCount = -1
+    }
+    if (ctx.bonusSpinCount < 0) {
+      totalPayout = await this.collectScatter({})
+    }
+    return {
+      bonusCount, isFreespin, scatterCount, totalPayout
+    }
+  }
+  protected async collectScatter(ctx: any) {
+    const totalPayout = ctx.scatterValues.reduce((acc: any, sc: any) => acc + sc.value, 0)
+    console.log(totalPayout);
+
+    return totalPayout
+
+  }
+
   protected async handleSpin(action: SLFLCAction): Promise<SLFLCResponse> {
     try {
       const { userId, payload } = action;
@@ -169,30 +217,29 @@ class UltimateFirelinkSlotEngine extends GameEngine<
       this.validateSpinPayload(payload);
 
       let playerState = await this.state.getSafeState(userId, this.config.gameId) as PlayerState
-
-      console.log("player state", (playerState));
-
+      console.log("player state", (playerState.gameSpecific || {}));
       //NOTE: freespin count checking from state
       let freeSpinCount: number = playerState.gameSpecific?.freeSpins || 0;
       // console.log(`freespin count from state`, freeSpinCount);
-
       const totalBetAmount = this.calculateTotalBet(payload.betAmount ?? 0);
-
-      const reels = this.getRandomMatrix()
+      let reels: string[][] = []
 
       let scatterValues: ValueType[] = []
+      let totalWinAmount = 0;
+      let isFreeSpin = false;
+      let lineWins: {
+        line: number[];
+        symbols: string[];
+        amount: number;
+      }[] = []
 
       let isBonus = false
-      if (playerState.gameSpecific?.bonusCount > 0) {
+      if (playerState.gameSpecific?.bonusCount <= 0) {
 
-        throw new Error("Bonus already in progress, please wait for it to finish");
-
-      } else {
         //NOTE: base non bonus spins
-        scatterValues = await this.populateScatterValues(reels, playerState.gameSpecific?.scatterValues || [], "base");
-
+        reels = this.getRandomMatrix("base", this.config.content.matrix.y);
         console.log("reels", reels.map(row => row.map(symbolId => symbolId || "Unknown Symbol")));
-        // console.log("scatter values", scatterValues);
+
 
         let ctx: SLFLCCheckForFreeSpinContext = {
           matrix: reels,
@@ -200,11 +247,11 @@ class UltimateFirelinkSlotEngine extends GameEngine<
           isEnabled: this.config.content.features.freespin.isEnabled
         }
         //NOTE: since we we disabled freespin within freespin
-        let isFreeSpin = false
+        isFreeSpin = false
 
         isFreeSpin = this.checkForFreespin(ctx)
 
-        const lineWins = this.checkLines(reels, freeSpinCount > 0, playerState.gameSpecific.freeSpinOption);
+        lineWins = this.checkLines(reels, freeSpinCount > 0, playerState.gameSpecific.freeSpinOption);
         // console.log("linwins : ", lineWins);
 
         //NOTE: set freespincount spagatti if else ladder
@@ -231,29 +278,13 @@ class UltimateFirelinkSlotEngine extends GameEngine<
 
         console.log(" spins awarded ", isFreeSpin, freeSpinCount);
 
-        // if (specialFeatures.freeSpinCount && specialFeatures.freeSpinCount > 0) {
-        //   isFreeSpin = true;
-        //   this.state.setGameSpecificState(
-        //     userId,
-        //     this.config.gameId,
-        //     "freeSpins",
-        //     freeSpinCount + specialFeatures.freeSpinCount
-        //   );
-        // }
-        // specialFeatures.freeSpinCount = freeSpinCount + specialFeatures.freeSpinCount;
 
-        // console.log("final freespin ", specialFeatures.freeSpinCount);
-
-        let totalWinAmount = 0
 
         if (lineWins.length > 0) {
           lineWins.forEach((win) => {
             totalWinAmount += win.amount;
           })
         }
-        // const lineWins = this.checkLines(reels);
-
-        // console.log("wincombs", JSON.stringify(winCombinations));
 
         if (totalWinAmount > 0) {
           // await this.creditWinnings(userId, totalWinAmount * totalBetAmount);
@@ -265,26 +296,35 @@ class UltimateFirelinkSlotEngine extends GameEngine<
 
         await this.state.updatePartialState(userId, this.config.gameId, playerState)
 
-        return this.buildSpinResponse(
-          reels,
-          lineWins,
-          {
-            isFreeSpin,
-            count: freeSpinCount,
-            scatterValues,
-          },
-          totalWinAmount,
-          // newBalance,
-          playerState.balance,
-          payload.betAmount as number,
-        )
       }
 
+      const { result } = await this.populateScatterValues(reels, playerState.gameSpecific?.scatterValues || [], "base");
+      scatterValues = result;
+      console.log("scatter values", scatterValues);
 
 
-      isBonus = await this.checkForBonus(scatterValues);
+      isBonus = await this.checkForBonus(scatterValues.length, this.config.content.features.bonus.scatterTrigger);
 
       console.log("isbonus", isBonus);
+      //NOTE: handle bonus
+      // if(){
+      //
+      // }
+
+
+      return this.buildSpinResponse(
+        reels,
+        lineWins,
+        {
+          isFreeSpin,
+          count: freeSpinCount,
+          scatterValues,
+        },
+        totalWinAmount,
+        // newBalance,
+        playerState.balance,
+        payload.betAmount as number,
+      )
 
     } catch (error) {
       console.error(`Error processing spin for user`, error);
@@ -442,9 +482,19 @@ class UltimateFirelinkSlotEngine extends GameEngine<
     return array;
   }
 
-  protected getRandomMatrix(): string[][] {
-    const matrix = this.generateFullReels();
-    const resultMatrix = this.extractVisibleSegments(matrix);
+  protected getRandomMatrix(type: "base" | "bonus", rows: number): string[][] {
+    const matrix = this.generateFullReels(type);
+    let resultMatrix = this.extractVisibleSegments(matrix);
+    switch (type) {
+      case "base":
+        resultMatrix = this.extractVisibleSegments(resultMatrix);
+        break;
+      case "bonus":
+        resultMatrix = this.extractVisibleSegmentsForBonus({ matrix: resultMatrix, rows });
+        break;
+      default:
+        throw new Error("Invalid matrix type in getRandomMatrix");
+    }
     // const resultMatrix = [
     //   ["1", "1", "1", "1", "1"],
     //   ["1", "1", "1", "1", "1"],
@@ -453,7 +503,7 @@ class UltimateFirelinkSlotEngine extends GameEngine<
     return this.transposeMatrix(resultMatrix);
   }
 
-  private generateFullReels(): string[][] {
+  private generateFullReels(type: "base" | "bonus"): string[][] {
     const matrix: string[][] = [];
 
     for (let i = 0; i < this.config.content.matrix.x; i++) {
@@ -461,9 +511,17 @@ class UltimateFirelinkSlotEngine extends GameEngine<
 
       this.config.content.symbols.forEach((symbol) => {
         for (let j = 0; j < symbol.reelsInstance[i]; j++) {
-          //NOTE: no blanks in base spin 
-          if (symbol.name !== SLFLCSpecials.Blank) {
-            row.push(symbol.id.toString());
+          if (type === "base") {
+            //NOTE: no blanks in base spin 
+            if (symbol.name !== SLFLCSpecials.Blank) {
+              row.push(symbol.id.toString());
+            }
+          } else if (type === "bonus") {
+            //NOTE: bonus can have blanks or scatter
+            if (symbol.useBonus) {
+              row.push(symbol.id.toString());
+            }
+
           }
         }
       });
@@ -471,6 +529,27 @@ class UltimateFirelinkSlotEngine extends GameEngine<
       matrix.push(this.shuffleArray([...row]));
     }
     return matrix;
+  }
+
+
+  private extractVisibleSegmentsForBonus(ctx: { matrix: string[][], rows: number }): string[][] {
+    const resultMatrix: string[][] = [];
+
+    for (let i = 0; i < ctx.matrix.length; i++) {
+      const reel = ctx.matrix[i];
+      const visibleSymbols: string[] = [];
+
+      const startIdx = Math.floor(
+        Math.random() * (reel.length - ctx.rows)
+      );
+
+      for (let j = 0; j < ctx.rows; j++) {
+        visibleSymbols.push(reel[(startIdx + j) % reel.length]);
+      }
+
+      resultMatrix.push(visibleSymbols);
+    }
+    return resultMatrix;
   }
 
   private extractVisibleSegments(matrix: string[][]): string[][] {
