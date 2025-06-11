@@ -24,6 +24,7 @@ class SLPMSlotsEngine extends GameEngine<
 
   public async getInitData(userId: string): Promise<SlotsInitData> {
     const balance = await this.state.getBalance(userId, this.config.gameId);
+
     return {
       id: "initData",
       gameData: {
@@ -58,6 +59,13 @@ class SLPMSlotsEngine extends GameEngine<
       const balance = await this.state.getBalance(userId, this.config.gameId);
 
 
+      let _Tcascade: number = await this.state.
+        getGameSpecificState(
+          userId,
+          this.config.gameId, "_Tcascade"
+        ) || 0;
+
+
       if (payload.betAmount > this.config.content.bets.length - 1) {
         throw new Error("Invalid bet amount");
       }
@@ -77,10 +85,11 @@ class SLPMSlotsEngine extends GameEngine<
       );
 
       const { visibleReels, winningLines } = this.generateVisibleReels();
-      const { matrix, cascades } = this.markWinningSymbols(
+      const { matrix, cascades } = await this.markWinningSymbols(
         visibleReels,
         winningLines,
-        payload.betAmount
+        payload.betAmount,
+        userId
       );
 
       const totalAccWin = cascades.reduce(
@@ -89,6 +98,7 @@ class SLPMSlotsEngine extends GameEngine<
       );
       let totalWin = Number(totalAccWin.toFixed(4));
       return {
+        id: "ResultData",
         success: true,
         matrix,
         cascades,
@@ -220,14 +230,14 @@ class SLPMSlotsEngine extends GameEngine<
           (s) => s.id.toString() === paySymbol
         );
         const win = (symbolConfig?.multiplier[count - 3] || 0) * count;
-        linesResults.push({ lineIndex: lineIndex + 1, paySymbol, win, indices });
+        linesResults.push({ lineIndex: lineIndex, paySymbol, win, indices });
       }
     });
 
     return linesResults;
   }
 
-  private markWinningSymbols(
+  private async markWinningSymbols(
     matrix: string[][],
     initialWinningLines: {
       lineIndex: number;
@@ -235,15 +245,20 @@ class SLPMSlotsEngine extends GameEngine<
       win: number;
       indices: number[];
     }[],
-    betAmount: number
-  ): {
+    betAmount: number,
+    userId: string
+  ): Promise<{
     matrix: string[][];
     cascades: CascadeResult[];
-  } {
+  }> {
     const cascades: CascadeResult[] = [];
     let cascadeIndex = 0;
-
-    const processWinsAndCascade = (
+    let totalCascades = await this.state.getGameSpecificState(
+      userId,
+      this.config.gameId,
+      "_Tcascade"
+    ) || 0;
+    const processWinsAndCascade = async (
       currentMatrix: string[][],
       currentWinningLines: {
         lineIndex: number;
@@ -251,9 +266,8 @@ class SLPMSlotsEngine extends GameEngine<
         win: number;
         indices: number[];
       }[]
-    ): string[][] => {
+    ): Promise<string[][]> => {
 
-      let _Tcascade = 0;
 
       if (currentWinningLines.length === 0) {
         return currentMatrix;
@@ -275,7 +289,7 @@ class SLPMSlotsEngine extends GameEngine<
       // Mark winning symbols and prepare for cascade
       const markedMatrix = currentMatrix.map(row => [...row]);
       currentWinningLines.forEach(({ lineIndex, indices }) => {
-        const winningLine = this.config.content.lines[lineIndex - 1];
+        const winningLine = this.config.content.lines[lineIndex];
         indices.forEach((col) => {
           const row = winningLine[col];
           if (markedMatrix[row]?.[col] !== undefined) {
@@ -326,16 +340,34 @@ class SLPMSlotsEngine extends GameEngine<
 
       if (newWins.length > 0) {
         cascadeIndex++;
-        _Tcascade + 1
-        return processWinsAndCascade(newMatrix, newWins);
+        totalCascades = Number(totalCascades) + 1;
+
+        if (Number(totalCascades) >= 7) {
+          console.log(` Total cascades reached ${totalCascades} for user ${userId}`);
+          await this.state.setGameSpecificState(
+            userId,
+            this.config.gameId,
+            "_Tcascade",
+            totalCascades
+          );
+        } else {
+          await this.state.setGameSpecificState(
+            userId,
+            this.config.gameId,
+            "_Tcascade",
+            0
+          );
+        }
+        return await processWinsAndCascade(newMatrix, newWins);
       }
 
-      console.log(_Tcascade, '_tcascade')
+
+
 
       return newMatrix;
     };
 
-    processWinsAndCascade(matrix, initialWinningLines);
+    await processWinsAndCascade(matrix, initialWinningLines);
 
     return {
       matrix: matrix,

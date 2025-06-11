@@ -18,6 +18,7 @@ export interface CascadeResult {
 }
 
 export interface SLPMResponse {
+    id: string;
     success: boolean;
     matrix: string[][];
     cascades: CascadeResult[];

@@ -12,7 +12,7 @@
   "include": [
     "src/**/*",
     "server.ts"
-  ],
+, "src/common/lib/default-role-hierarchy.ts"  ],
   "exclude": [
     "node_modules",
     "**/*.spec.ts"

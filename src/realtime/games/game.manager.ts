@@ -62,6 +62,7 @@ export class GameManager {
     }
 
     const GameClass = GameManager.loadGameClass(filePath, sanitizedGameId);
+
     if (!GameClass) {
       throw new Error(`Game class for ID "${game.tag}" could not be loaded.`);
     }
@@ -122,6 +123,7 @@ export class GameManager {
   private static loadGameClass(filePath: string, gameId: string): any {
     const sanitizedGameId = gameId.replace(/-/g, "");
     const module = require(filePath);
+
     return module.default || module[sanitizedGameId];
   }
 
