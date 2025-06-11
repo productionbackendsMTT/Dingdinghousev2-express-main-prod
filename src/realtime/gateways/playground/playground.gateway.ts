@@ -137,6 +137,34 @@ export function setupPlayground(namespace: Namespace) {
         }
       });
 
+      // Handle game exit request
+      socket.on(Events.CLIENT.GAME_EXIT.name, async () => {
+        console.log(`Player requesting game exit for ${gameId}: ${userId}`);
+
+        try {
+          // End game session
+          // await endGameSessionWithRetry(sessionManager, userId, 3, 1000);
+
+          await publishToUser(userId, SSEEventTypes.GAME_EXIT, {
+            userId,
+            gameId,
+            socketId: socket.id,
+            timestamp: new Date().toISOString(),
+          });
+
+          console.log(
+            `Game session ended for user ${userId} due to exit request`
+          );
+          // socket.disconnect(true);
+        } catch (error) {
+          console.error(`Error handling game exit for user ${userId}:`, error);
+          socket.emit(Events.SERVER.ERROR.name, {
+            message: "Failed to exit game properly",
+            code: "EXIT_ERROR",
+          });
+        }
+      });
+
       socket.on("disconnect", async () => {
         console.log(`Player disconnecting from game ${gameId}: ${userId}`);
 

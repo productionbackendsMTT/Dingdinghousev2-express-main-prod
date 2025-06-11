@@ -18,7 +18,10 @@ export const Events = {
         tag: string;
       },
     },
-    // Add other client events
+    GAME_EXIT: {
+      name: "game:exit",
+      payload: undefined,
+    },
   },
   SERVER: {
     SPIN_RESULT: {
